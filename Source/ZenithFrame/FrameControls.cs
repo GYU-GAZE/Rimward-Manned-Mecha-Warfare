@@ -19,8 +19,9 @@ namespace ZenithFrame
         {
             base.SpawnSetup(map, respawningAfterLoad);
             if (drafter == null) drafter = new Pawn_DraftController(this);
-            // Vanilla recreates/removes mech drafters without Biotech during load.
-            // Persist our own control intent, then restore the ordinary draft controller.
+            // Vanilla does not retain a drafter for our custom non-humanlike,
+            // non-mechanoid Pawn classification. Persist control intent and
+            // restore the ordinary Pawn_DraftController explicitly.
             if (respawningAfterLoad && draftedOnLoad && Cockpit.CanOperate) drafter.Drafted = true;
             drafter.FireAtWill = false;
             if (!respawningAfterLoad && equipment.Primary == null)
@@ -65,7 +66,12 @@ namespace ZenithFrame
                 groupKeyIgnoreContent = 81729172,
                 tutorTag = (!Drafted ? "Draft" : "Undraft"),
                 isActive = () => Drafted,
-                toggleAction = () => SetDrafted(!Drafted)
+                toggleAction = () =>
+                {
+                    if (!SetDrafted(!Drafted)) return;
+                    PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.Drafting, KnowledgeAmount.SpecificInteraction);
+                    if (Drafted) LessonAutoActivator.TeachOpportunity(ConceptDefOf.QueueOrders, OpportunityType.GoodToKnow);
+                }
             };
             if (!Cockpit.CanOperate) draft.Disable("Frame or pilot incapacitated.");
             yield return draft;
