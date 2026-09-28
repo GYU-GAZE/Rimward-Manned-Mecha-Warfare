@@ -3,7 +3,6 @@ using LudeonTK;
 using RimWorld;
 using UnityEngine;
 using Verse;
-using Verse.AI;
 
 namespace ZenithFrame
 {
@@ -47,23 +46,6 @@ namespace ZenithFrame
             return true;
         }
 
-        public bool OrderMove(IntVec3 cell)
-        {
-            if (!Cockpit.CanOperate || !Drafted || !cell.InBounds(Map) || !cell.Standable(Map) || !this.CanReach(cell, PathEndMode.OnCell, Danger.Deadly)) return false;
-            jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, cell), JobCondition.InterruptForced);
-            return true;
-        }
-
-        public bool OrderAttack(LocalTargetInfo target)
-        {
-            Verb verb = equipment?.PrimaryEq?.PrimaryVerb;
-            if (!Cockpit.CanOperate || !Drafted || verb == null || !target.IsValid || target.Thing == this || !verb.CanHitTarget(target)) return false;
-            var job = JobMaker.MakeJob(JobDefOf.AttackStatic, target);
-            job.verbToUse = verb;
-            jobs.StartJob(job, JobCondition.InterruptForced);
-            return true;
-        }
-
         public override IEnumerable<Gizmo> GetGizmos()
         {
             if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
@@ -83,16 +65,6 @@ namespace ZenithFrame
             };
             if (!Cockpit.CanOperate) draft.Disable("Frame or pilot incapacitated.");
             yield return draft;
-            var move = new Command_Target { defaultLabel = "Move", defaultDesc = "Select a reachable destination.", icon = TexCommand.Draft,
-                targetingParams = new TargetingParameters { canTargetLocations = true, canTargetPawns = false, canTargetBuildings = false, validator = t => t.Cell.IsValid && t.Cell.InBounds(Map) && t.Cell.Standable(Map) },
-                action = t => { if (!OrderMove(t.Cell)) Messages.Message("Cannot move there.", MessageTypeDefOf.RejectInput, false); } };
-            if (!Drafted || !Cockpit.CanOperate) move.Disable("Draft a piloted Frame first.");
-            yield return move;
-            var attack = new Command_Target { defaultLabel = "Fire rifle", defaultDesc = "Order sustained fire on the selected target using normal range, line of sight and projectile combat.", icon = TexCommand.Attack,
-                targetingParams = TargetingParameters.ForAttackAny(),
-                action = t => { if (!OrderAttack(t)) Messages.Message("Target out of range or line of sight.", MessageTypeDefOf.RejectInput, false); } };
-            if (!Drafted || !Cockpit.CanOperate) attack.Disable("Draft a piloted Frame first.");
-            yield return attack;
         }
     }
 

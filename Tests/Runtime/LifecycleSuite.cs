@@ -125,6 +125,7 @@ namespace ZenithFrame.Tests
                 Check(!map.mapPawns.AllPawnsSpawned.Contains(pilot) && map.mapPawns.AllPawnsUnspawned.Contains(pilot), "map discovers contained pilot without spawning it");
                 Check(!frame.Cockpit.TryBoard(other) && other.Spawned, "second pilot rejected without loss");
                 Check(frame.Cockpit.Pilot.Faction == frame.Faction, "boarded faction coherence");
+                Check(frame.CanTakeOrder, "piloted Frame enters ordinary pawn order pipeline");
                 Check(frame.SetDrafted(true), "piloted Frame drafts");
                 SaveNext(1);
             }
@@ -136,7 +137,7 @@ namespace ZenithFrame.Tests
                 Check(pilot != null && frame != null && frame.Cockpit.Pilot == pilot && pilot.GetUniqueLoadID() == pilotId, "fresh-process save/load restores pilot identity and relationship");
                 Unique(pilot, "after load");
                 Check(frame.Drafted && frame.Cockpit.CanOperate, "draft and control survive load");
-                Check(frame.GetGizmos().Count() == 4, "piloted control gizmos available");
+                Check(frame.GetGizmos().Count() == 2, "only Frame-specific disembark plus normal-semantics draft gizmo remain");
                 Check(frame.GetGizmos().OfType<Command>().Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
                 foreach (Pawn p in Find.CurrentMap.mapPawns.FreeColonistsSpawned.ToList()) p.SetFaction(null);
                 Check(Find.CurrentMap.mapPawns.FreeColonistsSpawned.Count == 0, "last-colonist fixture has only embarked pilot");
@@ -146,7 +147,11 @@ namespace ZenithFrame.Tests
             {
                 Check(!Find.GameEnder.gameEnding && !Find.LetterStack.LettersListForReading.Any(l => l.def == LetterDefOf.GameEnded), "last embarked colonist survives game-over countdown");
                 destination = frame.Position + new IntVec3(0, 0, 5);
-                Check(frame.OrderMove(destination), "manual move order accepted");
+                var moveSelection = new List<Pawn> { frame };
+                var moveOptions = FloatMenuMakerMap.GetOptions(moveSelection, destination.ToVector3Shifted(), out var _);
+                var gotoOption = moveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
+                Check(gotoOption != null, "ordinary drafted-pawn right-click movement option available");
+                gotoOption.Chosen(colonistOrdering: true, null);
                 Next(1);
             }
             else if (step == 1 && frame.Position == destination)
@@ -155,7 +160,11 @@ namespace ZenithFrame.Tests
                 target = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
                 GenSpawn.Spawn(target, frame.Position + new IntVec3(8, 0, 0), frame.Map);
                 targetHealth = target.HitPoints;
-                Check(frame.OrderAttack(target), "manual rifle attack accepted");
+                var attackSelection = new List<Pawn> { frame };
+                var attackOptions = FloatMenuMakerMap.GetOptions(attackSelection, target.DrawPos, out var _);
+                var attackOption = attackOptions.FirstOrDefault(option => option.Priority == MenuOptionPriority.AttackEnemy && !option.Disabled);
+                Check(attackOption != null, "ordinary drafted-pawn right-click attack option available");
+                attackOption.Chosen(colonistOrdering: true, null);
                 Next(2);
             }
             else if (step == 2 && target.HitPoints < targetHealth)
@@ -165,7 +174,7 @@ namespace ZenithFrame.Tests
             }
             else if (step == 3 && Find.TickManager.TicksGame >= deadline - 100)
             {
-                Check(frame.CurJob != null && frame.CurJob.def == JobDefOf.AttackStatic, "player-ordered rifle attack remains active after the first burst");
+                Check(frame.CurJob != null && frame.CurJob.def == JobDefOf.AttackStatic, "ordinary player-issued attack remains active after the first burst");
                 Check(!frame.drafter.FireAtWill, "fire at will disabled");
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
