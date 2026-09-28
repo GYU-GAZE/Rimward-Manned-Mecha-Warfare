@@ -30,7 +30,7 @@ namespace ZenithFrame
                 Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed,
                 pawn.Spawned && pawn.RaceProps.Humanlike && pawn.IsColonistPlayerControlled && !pawn.Dead && !pawn.Downed && !pawn.InMentalState && !pawn.IsPrisoner && !pawn.IsSlave && pawn.carryTracker.CarriedThing == null,
                 pawn.Faction == Frame.Faction && Frame.Faction == Faction.OfPlayer,
-                pawn.Map == Frame.Map, pawn.holdingOwner != null,
+                pawn.Map == Frame.Map, pawn.holdingOwner != null && !(pawn.holdingOwner.Owner is Map),
                 !requireAdjacent || pawn.Position.AdjacentTo8WayOrInside(Frame.Position));
         }
 
@@ -43,12 +43,17 @@ namespace ZenithFrame
             if (pawn.drafter != null) pawn.drafter.Drafted = false;
             pawn.pather.StopDead();
             pawn.DeSpawn();
-            if (!pilots.TryAdd(pawn, false))
+            try
             {
-                GenSpawn.Spawn(pawn, position, map, rotation);
-                return false;
+                return pilots.TryAdd(pawn, false);
             }
-            return true;
+            finally
+            {
+                // A rejected insertion or an exception must leave a reachable owner.
+                // Exceptions still propagate; there is no silent catch-and-continue.
+                if (!pawn.Spawned && pawn.holdingOwner == null && !pawn.Destroyed)
+                    GenSpawn.Spawn(pawn, position, map, rotation);
+            }
         }
 
         public bool TryDisembark()

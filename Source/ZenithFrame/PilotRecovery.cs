@@ -16,6 +16,10 @@ namespace ZenithFrame
         public override void ExposeData() { Scribe_Deep.Look(ref rescued, "zenithRescuedPilots", this); }
         public override void GameComponentTick()
         {
+            // Vanilla's game-over check recognizes only a hard-coded set of pod owners.
+            // Its public countdown flag can be cleared before the 400-tick expiry;
+            // no patch or invented map/position for the pilot is necessary.
+            if (Find.GameEnder.gameEnding && HasLivingColonistPilot()) Find.GameEnder.gameEnding = false;
             if (rescued.Count == 0 || Find.TickManager.TicksGame % 60 != 0) return;
             Map map = Find.AnyPlayerHomeMap;
             if (map == null) return;
@@ -24,6 +28,14 @@ namespace ZenithFrame
                 if (rescued.TryDrop(pawn, map.Center, map, ThingPlaceMode.Near, out Pawn result))
                     Messages.Message("ZENITH: recovered pilot " + result.LabelShortCap + " from an off-map Frame.", result, MessageTypeDefOf.NeutralEvent);
             }
+        }
+        private bool HasLivingColonistPilot()
+        {
+            foreach (Pawn pawn in rescued) if (!pawn.Dead && pawn.IsFreeColonist) return true;
+            foreach (Map map in Find.Maps)
+                foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
+                    if (pawn is FramePawn frame && frame.Cockpit.Pilot != null && !frame.Cockpit.Pilot.Dead && frame.Cockpit.Pilot.IsFreeColonist) return true;
+            return false;
         }
     }
 }

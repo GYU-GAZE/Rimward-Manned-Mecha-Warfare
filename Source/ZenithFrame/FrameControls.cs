@@ -10,10 +10,20 @@ namespace ZenithFrame
 {
     public sealed partial class FramePawn
     {
+        private bool draftedOnLoad;
+        public override void ExposeData()
+        {
+            if (Scribe.mode == LoadSaveMode.Saving) draftedOnLoad = Drafted;
+            base.ExposeData();
+            Scribe_Values.Look(ref draftedOnLoad, "zenithDrafted");
+        }
         public override void SpawnSetup(Map map, bool respawningAfterLoad)
         {
             base.SpawnSetup(map, respawningAfterLoad);
             if (drafter == null) drafter = new Pawn_DraftController(this);
+            // Vanilla recreates/removes mech drafters without Biotech during load.
+            // Persist our own control intent, then restore the ordinary draft controller.
+            if (respawningAfterLoad && draftedOnLoad && Cockpit.CanOperate) drafter.Drafted = true;
             drafter.FireAtWill = false;
             if (!respawningAfterLoad && equipment.Primary == null)
                 equipment.AddEquipment((ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle")));
@@ -26,7 +36,7 @@ namespace ZenithFrame
                 if (Drafted || pather.Moving || (CurJob != null && CurJob.def != JobDefOf.Wait)) Cockpit.StopFrame();
                 if (Cockpit.HasPilot) Cockpit.EmergencyEject();
             }
-            if (drafter != null) drafter.FireAtWill = false;
+            if (drafter != null && drafter.FireAtWill) drafter.FireAtWill = false;
             base.Tick();
         }
 
