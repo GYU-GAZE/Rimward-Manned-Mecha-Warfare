@@ -47,7 +47,7 @@ New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Nul
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-foreach ($phase in 0..2) {
+foreach ($phase in 0..3) {
     if ($phase -gt 0) { Copy-Item "$profile/Saves/ZenithLifecycle.rws" "$profile/Saves/Autostart.rws" -Force }
     # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
     # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.

@@ -16,6 +16,7 @@ namespace ZenithFrame.Tests
         private int deadline;
         private bool finished;
         private string pilotId;
+        private string frameId;
         private FramePawn frame;
         private Pawn pilot;
         private Pawn other;
@@ -32,6 +33,7 @@ namespace ZenithFrame.Tests
         {
             Scribe_Values.Look(ref phase, "testPhase");
             Scribe_Values.Look(ref pilotId, "testPilotId");
+            Scribe_Values.Look(ref frameId, "testFrameId");
             Scribe_References.Look(ref frame, "testFrame");
             Scribe_References.Look(ref pilot, "testPilot");
             Scribe_References.Look(ref other, "testOther");
@@ -71,7 +73,8 @@ namespace ZenithFrame.Tests
                 if (step != 0 && Find.TickManager.TicksGame > deadline) throw new TimeoutException("Phase " + phase + " step " + step);
                 if (phase == 0) BeforeSave();
                 else if (phase == 1) AfterLoad();
-                else RecoveryLoad();
+                else if (phase == 2) RecoveryLoad();
+                else DisabledFrameLoad();
             }
             catch (Exception e)
             {
@@ -203,7 +206,7 @@ namespace ZenithFrame.Tests
             else if (step == 1 && frame.Position == destination)
             {
                 Check(true, "real pathing reaches ordered destination");
-                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile),
+                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfAncientsHostile),
                     frame.Position + new IntVec3(8, 0, 0), frame.Map);
                 OnGui(() =>
                 {
@@ -348,8 +351,158 @@ namespace ZenithFrame.Tests
                 Check(Current.Game.GetComponent<PilotRecovery>().GetDirectlyHeldThings().Count == 0, "rescue delivers pilot and empties owner");
                 Unique(pilot, "recovered");
                 Check(pilot.Faction == Faction.OfPlayer, "faction preserved through complete lifecycle");
+                frame = SpawnFrame(pilot.Position + IntVec3.East);
+                frameId = frame.GetUniqueLoadID();
+                Check(frame.Cockpit.TryBoard(pilot), "recovery fixture boards pilot before disablement");
+                Check(frame.SetDrafted(true), "recovery fixture drafts before disablement");
+                DownByMissingLegs(frame);
+                Check(frame.Downed && frame.Recovery.IsRecoverablyDisabled, "missing moving limbs create a recoverable disabled chassis");
+                Check(!frame.Cockpit.HasPilot && pilot.Spawned, "disabled transition ejects exact pilot");
+                Check(!frame.CanTakeOrder && !frame.SetDrafted(true) && !frame.Cockpit.CanBoard(pilot, false), "disabled chassis rejects drafting, orders and boarding");
+                Check(frame.GetInspectString().Contains("Status: Disabled chassis (recoverable)"), "disabled chassis has concise recoverable inspect status");
+                Find.Selector.ClearSelection();
+                Find.Selector.Select(frame);
+                Check(Find.Selector.IsSelected(frame), "disabled chassis remains selectable");
+                Check(frame.GetGizmos().OfType<Command>().Any(command => command.defaultLabel == "DEV: Recover disabled chassis"), "disabled chassis exposes development-only recovery command in Dev Mode");
+                Unique(pilot, "disabled before save");
+                SaveNext(3);
+            }
+        }
+
+        private void DisabledFrameLoad()
+        {
+            if (step == 0)
+            {
+                Check(frame != null && frame.GetUniqueLoadID() == frameId, "fresh-process disabled load restores the same Frame identity");
+                Check(frame.Downed && frame.Recovery.IsRecoverablyDisabled && !frame.Cockpit.HasPilot, "fresh-process load preserves disabled empty chassis state");
+                Check(!frame.Drafted && !frame.CanTakeOrder && !frame.Cockpit.CanBoard(pilot, false), "loaded disabled chassis remains inactive and rejects boarding");
+                Unique(pilot, "disabled reload");
+                OnGui(() =>
+                {
+                    var disabledOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, (frame.Position + IntVec3.North * 3).ToVector3Shifted(), out var _);
+                    Check(!disabledOptions.Any(option => option.isGoto || option.Priority == MenuOptionPriority.AttackEnemy), "disabled chassis receives no move or attack right-click orders");
+                    Check(FloatMenuUtility.GetMeleeAttackAction(frame, frame.Position + IntVec3.North, out var _) == null, "disabled chassis receives no forced melee order");
+                    var boardOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    Check(!boardOptions.Any(option => option.Label.Contains("Board Frame")), "pilot right-click offers no boarding action for disabled chassis");
+
+                    FramePawn sameFrame = frame;
+                    Check(frame.Recovery.TryRecover(), "development recovery restores disabled chassis");
+                    Check(ReferenceEquals(frame, sameFrame) && frame.GetUniqueLoadID() == frameId, "recovery preserves exact Frame object and load identity");
+                    Check(!frame.Downed && !frame.Dead && !frame.Destroyed, "recovered Frame is mobile and alive");
+                    Check(!frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "recovered Frame remains unpiloted, undrafted and inactive");
+                    Check(frame.health.hediffSet.GetMissingPartsCommonAncestors().Any(), "development recovery stops before full-healing unrelated remaining chassis loss");
+                    Check(frame.equipment.Primary?.def.defName == "ZF_DebugRifle", "recovery reclaims the existing debug weapon dropped at disablement");
+
+                    var recoverBoardOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    var board = recoverBoardOptions.FirstOrDefault(option => option.Label.Contains("Board Frame") && !option.Disabled);
+                    Check(board != null, "recovered Frame re-enters normal pilot right-click boarding flow");
+                    board.Chosen(colonistOrdering: true, null);
+                    Next(10);
+                });
+            }
+            else if (step == 10 && (pilot.CurJobDef == DefDatabase<JobDef>.GetNamed("ZF_BoardFrame") || frame.Cockpit.HasPilot))
+            {
+                Check(true, "recovered Frame boarding uses and completes the existing boarding job");
+                Next(1);
+            }
+            else if (step == 1 && frame.Cockpit.HasPilot)
+            {
+                Check(ReferenceEquals(frame.Cockpit.Pilot, pilot), "same pilot boards same recovered Frame");
+                Check(frame.SetDrafted(true) && frame.CanTakeOrder, "recovered and reboarded Frame drafts through Pawn-first controls");
+                destination = frame.Position + new IntVec3(0, 0, 4);
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, destination.ToVector3Shifted(), out var _);
+                    var move = options.FirstOrDefault(option => option.isGoto && !option.Disabled);
+                    Check(move != null, "recovered Frame receives ordinary movement action");
+                    move.Chosen(colonistOrdering: true, null);
+                    Next(11, 1200);
+                });
+            }
+            else if (step == 11 && frame.CurJobDef == JobDefOf.Goto)
+            {
+                destination = frame.CurJob.targetA.Cell;
+                Check(true, "recovered Frame receives ordinary Goto job");
+                Next(2, 1200);
+            }
+            else if (step == 2 && frame.Position == destination)
+            {
+                Check(true, "recovered Frame physically moves");
+                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), frame.Position + new IntVec3(8, 0, 0), frame.Map);
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.Position.ToVector3Shifted(), out var _);
+                    var attack = FloatMenuMakerMap.GetAutoTakeOption(options);
+                    Check(attack != null && attack.autoTakeablePriority == 40f,
+                        "recovered Frame ordinary hostile action selects ranged attack; actual options: " +
+                        string.Join(" | ", options.Select(option => $"{option.Label} disabled={option.Disabled} priority={option.Priority} auto={option.autoTakeable} autoPriority={option.autoTakeablePriority}")));
+                    attack.Chosen(colonistOrdering: true, null);
+                    Next(3, 1200);
+                });
+            }
+            else if (step == 3 && TargetDamaged())
+            {
+                Check(true, "recovered Frame ranged attack causes real damage");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), frame.Position + new IntVec3(5, 0, 0), frame.Map);
+                OnGui(() =>
+                {
+                    Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out var fail);
+                    Check(melee != null, "recovered Frame retains ordinary forced melee action; failure=" + fail);
+                    melee();
+                    Next(4, 1200);
+                });
+            }
+            else if (step == 4 && frame.CurJobDef == JobDefOf.AttackMelee)
+            {
+                Check(true, "recovered Frame forced melee uses AttackMelee and closes distance");
+                Next(5, 1200);
+            }
+            else if (step == 5 && TargetDamaged())
+            {
+                Check(true, "recovered Frame melee attack causes real damage");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                Check(frame.Cockpit.TryDisembark(), "pilot disembarks after recovered-control checks");
+                Check(!frame.Cockpit.HasPilot && pilot.Spawned, "Frame is empty before ordinary-damage disablement");
+                Check(DownByOrdinaryDamage(frame), "ordinary applied chassis damage can create recoverable downing");
+                Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "empty damage-downed Frame is recoverable and inactive");
+                Check(frame.Recovery.TryRecover(), "second disable/recover cycle succeeds");
+                Check(frame.GetUniqueLoadID() == frameId && !frame.Downed && !frame.Cockpit.HasPilot, "second recovery preserves identity without creating a pilot");
+
+                DownByMissingLegs(frame);
+                Check(frame.Recovery.IsRecoverablyDisabled, "recovered Frame can be disabled again without stale recovery state");
+                frame.Kill(null);
+                Check(frame.Dead && !frame.Recovery.CanRecover && !frame.Recovery.TryRecover(), "dead disabled chassis cannot be recovered");
+
+                FramePawn destroyed = SpawnFrame(pilot.Position + IntVec3.East);
+                DownByMissingLegs(destroyed);
+                Check(destroyed.Recovery.IsRecoverablyDisabled, "empty destruction fixture reaches disabled state");
+                destroyed.Destroy();
+                Check(destroyed.Destroyed && !destroyed.Recovery.CanRecover && !destroyed.Recovery.TryRecover(), "destroyed disabled chassis cannot be recovered");
+                Unique(pilot, "recovery lifecycle complete");
                 Finish();
             }
+        }
+
+        private static void DownByMissingLegs(FramePawn targetFrame)
+        {
+            foreach (BodyPartRecord leg in targetFrame.RaceProps.body.AllParts.Where(part => part.def.tags.Contains(BodyPartTagDefOf.MovingLimbCore)))
+                if (!targetFrame.health.hediffSet.PartIsMissing(leg))
+                    targetFrame.health.AddHediff(HediffDefOf.MissingBodyPart, leg);
+        }
+
+        private static bool DownByOrdinaryDamage(FramePawn targetFrame)
+        {
+            foreach (BodyPartRecord leg in targetFrame.RaceProps.body.AllParts.Where(part => part.def.tags.Contains(BodyPartTagDefOf.MovingLimbCore)))
+            {
+                for (int hit = 0; hit < 20 && !targetFrame.Downed && !targetFrame.Dead && !targetFrame.health.hediffSet.PartIsMissing(leg); hit++)
+                    targetFrame.TakeDamage(new DamageInfo(DamageDefOf.Blunt, 4f, 999f, hitPart: leg));
+            }
+            return targetFrame.Downed && !targetFrame.Dead;
         }
         private FramePawn SpawnFrame(IntVec3 cell) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfPlayer), cell, Find.CurrentMap);
         private void Next(int nextStep, int ticks = 2500) { step = nextStep; deadline = Find.TickManager.TicksGame + ticks; }
