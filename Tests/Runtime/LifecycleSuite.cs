@@ -143,6 +143,7 @@ namespace ZenithFrame.Tests
                 Check(frame.CanTakeOrder && !frame.IsPlayerControlled && !frame.IsColonyMech, "Frame receives orders without impersonating a colonist or Biotech mech");
                 var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
+                Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc2), "vanilla melee attack gizmo is available for a drafted Frame");
                 Check(!frameCommands.Any(command => command.defaultLabel == "Move" || command.defaultLabel == "Fire rifle"), "temporary Move/Fire chess-piece gizmos are absent");
                 Thing looseRifle = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"));
                 GenSpawn.Spawn(looseRifle, frame.Position + new IntVec3(2, 0, 0), frame.Map);
@@ -176,8 +177,10 @@ namespace ZenithFrame.Tests
                 targetHealth = target.HitPoints;
                 var attackSelection = new List<Pawn> { frame };
                 var attackOptions = FloatMenuMakerMap.GetOptions(attackSelection, target.DrawPos, out var _);
+                Check(FloatMenuUtility.GetMeleeAttackAction(frame, target, out var meleeFail) != null, "ordinary melee attack action is available as a valid alternative");
                 var attackOption = FloatMenuMakerMap.GetAutoTakeOption(attackOptions);
-                Check(attackOption != null && attackOption.Priority == MenuOptionPriority.AttackEnemy, "ordinary hostile right-click attack is directly auto-takeable");
+                Check(attackOption != null && attackOption.Priority == MenuOptionPriority.AttackEnemy && attackOption.autoTakeablePriority == 40f,
+                    "ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid");
                 attackOption.Chosen(colonistOrdering: true, null);
                 Next(2);
             }

@@ -44,8 +44,10 @@ The revised runtime harness checks, among other things:
 - the temporary custom **Move** / **Fire rifle** gizmos are absent
 - enabling Frame orders does not expose colonist equip/pickup/work actions
 - ordinary right-click movement is available with no command-range rejection
-- a hostile right-click attack is directly auto-takeable
-- the attack remains active beyond the first burst
+- a valid melee attack alternative exists through normal `AttackMelee`
+- when ranged and melee are both valid, hostile right-click still defaults to ranged using vanilla attack-option priority
+- the vanilla melee attack gizmo is available when explicitly forcing melee
+- the ranged attack remains active beyond the first burst
 - one multiselect movement order reaches two piloted Frames
 - both Frames physically move from that group order
 - one multiselect attack order gives both Frames an `AttackStatic` job

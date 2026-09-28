@@ -20,6 +20,15 @@
       <bloodDef>Filth_MachineBits</bloodDef>
       <lifeStageAges><li><def>MechanoidFullyFormed</def><minAge>0</minAge></li></lifeStageAges>
     </race>
+    <tools>
+      <li>
+        <id>ZF_FrameStrike</id>
+        <label>Frame strike</label>
+        <capacities><li>Blunt</li></capacities>
+        <power>12</power>
+        <cooldownTime>2</cooldownTime>
+      </li>
+    </tools>
     <comps><li Class="ZenithFrame.CompProperties_PilotableMech" /></comps><butcherProducts><Steel>20</Steel></butcherProducts>
   </ThingDef>
   <PawnKindDef>

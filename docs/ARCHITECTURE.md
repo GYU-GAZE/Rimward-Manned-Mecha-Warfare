@@ -60,15 +60,18 @@ Current patch points:
    - omits Biotech command-range checks because Frames are not Biotech mechs
 
 4. `FloatMenuUtility.GetMeleeAttackAction`
-   - for the current ranged-only MVP, suppresses the irrelevant melee fallback
-   - prevents a bogus disabled "non-controlled pawn" menu entry from blocking vanilla auto-take of the valid ranged attack
-   - future Frame melee support should implement real Frame melee semantics rather than extending this temporary suppression
+   - bridges Frames through the same reachability, violence, melee-verb and `AttackMelee` semantics used by ordinary Pawns
+   - removes only the hard-coded vanilla controlled-pawn / Biotech command-range assumptions
+
+5. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
+   - lets vanilla's own melee/squad attack gizmo logic recognize a valid piloted Frame
+   - Frames still remain neither colonists nor Biotech mechs
 
 `Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
 
 ## Weapon behavior
 
-The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown.
+The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
 
 A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
 
@@ -104,7 +107,7 @@ The game-over bridge remains explicit ownership-based presence logic. It does no
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- four narrowly scoped Harmony patch points described above
+- five narrowly scoped Harmony patch points described above
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL

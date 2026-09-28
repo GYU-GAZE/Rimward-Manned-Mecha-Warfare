@@ -48,21 +48,76 @@ namespace ZenithFrame
         }
     }
 
-    // DraftedAttack asks for a ranged option and then also asks for a melee
-    // option. For the ranged-only MVP, letting vanilla evaluate the melee path
-    // creates a bogus disabled "non-controlled pawn" entry that prevents the
-    // normal one-click attack option from auto-taking.
+    // Vanilla's melee order helper has the same hard-coded controlled-pawn
+    // gate as ranged attack. Frames use the same reachability, violence,
+    // melee-verb and AttackMelee job semantics, without Biotech command range.
     [HarmonyPatch(typeof(FloatMenuUtility), nameof(FloatMenuUtility.GetMeleeAttackAction))]
     internal static class Patch_FloatMenuUtility_GetMeleeAttackAction_Frame
     {
-        private static bool Prefix(Pawn pawn, ref Action __result, ref string failStr)
+        private static bool Prefix(Pawn pawn, LocalTargetInfo target, ref Action __result, ref string failStr, bool ignoreControlled)
         {
-            if (!(pawn is FramePawn) || !FloatMenuUtility.UseRangedAttack(pawn))
+            if (!(pawn is FramePawn frame))
                 return true;
 
             __result = null;
             failStr = "";
+
+            if (!ignoreControlled && !pawn.Drafted)
+            {
+                failStr = "IsNotDraftedLower".Translate(pawn.LabelShort, pawn);
+            }
+            else if (!frame.Cockpit.CanOperate)
+            {
+                failStr = "CannotOrderNonControlledLower".Translate();
+            }
+            else if (target.IsValid && !pawn.CanReach(target, PathEndMode.Touch, Danger.Deadly))
+            {
+                failStr = "NoPath".Translate();
+            }
+            else if (pawn.WorkTagIsDisabled(WorkTags.Violent))
+            {
+                failStr = "IsIncapableOfViolenceLower".Translate(pawn.LabelShort, pawn);
+            }
+            else if (pawn.meleeVerbs.TryGetMeleeVerb(target.Thing) == null)
+            {
+                failStr = "Incapable".Translate();
+            }
+            else if (pawn == target.Thing)
+            {
+                failStr = "CannotAttackSelf".Translate();
+            }
+            else if (target.Thing is Pawn targetPawn &&
+                     (pawn.InSameExtraFaction(targetPawn, ExtraFactionType.HomeFaction) ||
+                      pawn.InSameExtraFaction(targetPawn, ExtraFactionType.MiniFaction)))
+            {
+                failStr = "CannotAttackSameFactionMember".Translate();
+            }
+            else
+            {
+                __result = () =>
+                {
+                    Job job = JobMaker.MakeJob(JobDefOf.AttackMelee, target);
+                    if (target.Thing is Pawn downableTarget)
+                        job.killIncappedTarget = downableTarget.Downed;
+                    pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
+                };
+                return false;
+            }
+
+            failStr = failStr.CapitalizeFirst();
             return false;
+        }
+    }
+
+    // PawnAttackGizmoUtility is also hard-coded to vanilla player-controlled
+    // categories. Let its own melee/squad gizmos recognize operable Frames.
+    [HarmonyPatch(typeof(PawnAttackGizmoUtility), "CanOrderPlayerPawn")]
+    internal static class Patch_PawnAttackGizmoUtility_CanOrderPlayerPawn_Frame
+    {
+        private static void Postfix(Pawn pawn, ref bool __result)
+        {
+            if (pawn is FramePawn frame && frame.Cockpit?.CanOperate == true)
+                __result = true;
         }
     }
 

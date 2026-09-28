@@ -56,6 +56,9 @@ namespace ZenithFrame
             if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
             yield return new Command_Action { defaultLabel = "Disembark", defaultDesc = "Safely return the pilot to the map.", icon = TexCommand.Install,
                 action = () => { if (!Cockpit.TryDisembark()) Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false); } };
+
+            foreach (Gizmo attackGizmo in PawnAttackGizmoUtility.GetAttackGizmos(this))
+                yield return attackGizmo;
             var draft = new Command_Toggle
             {
                 hotKey = KeyBindingDefOf.Command_ColonistDraft,
