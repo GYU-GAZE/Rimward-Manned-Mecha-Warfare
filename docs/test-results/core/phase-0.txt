@@ -1,0 +1,17 @@
+PASS before boarding: exactly one pawn object with pilot ID
+PASS before boarding: live and exclusively owned
+PASS empty Frame refuses drafting
+PASS null and self boarding rejected
+PASS foreign faction pilot rejected
+PASS empty Frame refuses movement
+PASS nonadjacent boarding rejected
+PASS failed boarding preserves map ownership
+PASS real boarding job reaches Frame and transfers pilot
+PASS boarded: exactly one pawn object with pilot ID
+PASS boarded: live and exclusively owned
+PASS pilot owned by cockpit
+PASS map discovers contained pilot without spawning it
+PASS second pilot rejected without loss
+PASS boarded faction coherence
+PASS piloted Frame drafts
+PASS phase complete; saved for fresh-process reload

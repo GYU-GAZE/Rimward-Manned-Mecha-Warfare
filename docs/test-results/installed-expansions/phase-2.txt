@@ -1,0 +1,8 @@
+PASS rescue owner survives fresh-process load
+PASS rescue reload: exactly one pawn object with pilot ID
+PASS rescue reload: live and exclusively owned
+PASS rescue delivers pilot and empties owner
+PASS recovered: exactly one pawn object with pilot ID
+PASS recovered: live and exclusively owned
+PASS faction preserved through complete lifecycle
+PASS ALL LIFECYCLE PHASES COMPLETE

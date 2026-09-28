@@ -1,0 +1,116 @@
+PASS fresh-process save/load restores pilot identity and relationship
+PASS after load: exactly one pawn object with pilot ID
+PASS after load: live and exclusively owned
+PASS draft and control survive load
+PASS piloted control gizmos available
+PASS last-colonist fixture has only embarked pilot
+PASS last embarked colonist survives game-over countdown
+PASS manual move order accepted
+PASS real pathing reaches ordered destination
+PASS manual rifle attack accepted
+PASS real projectile damages target
+PASS single burst ends without automatic attack job
+PASS fire at will disabled
+PASS disembark succeeds
+PASS disembarked: exactly one pawn object with pilot ID
+PASS disembarked: live and exclusively owned
+PASS disembark empties cockpit and stops Frame
+PASS repeat board 0
+PASS repeat disembark 0
+PASS repeat 0: exactly one pawn object with pilot ID
+PASS repeat 0: live and exclusively owned
+PASS repeat board 1
+PASS repeat disembark 1
+PASS repeat 1: exactly one pawn object with pilot ID
+PASS repeat 1: live and exclusively owned
+PASS repeat board 2
+PASS repeat disembark 2
+PASS repeat 2: exactly one pawn object with pilot ID
+PASS repeat 2: live and exclusively owned
+PASS repeat board 3
+PASS repeat disembark 3
+PASS repeat 3: exactly one pawn object with pilot ID
+PASS repeat 3: live and exclusively owned
+PASS repeat board 4
+PASS repeat disembark 4
+PASS repeat 4: exactly one pawn object with pilot ID
+PASS repeat 4: live and exclusively owned
+PASS repeat board 5
+PASS repeat disembark 5
+PASS repeat 5: exactly one pawn object with pilot ID
+PASS repeat 5: live and exclusively owned
+PASS repeat board 6
+PASS repeat disembark 6
+PASS repeat 6: exactly one pawn object with pilot ID
+PASS repeat 6: live and exclusively owned
+PASS repeat board 7
+PASS repeat disembark 7
+PASS repeat 7: exactly one pawn object with pilot ID
+PASS repeat 7: live and exclusively owned
+PASS repeat board 8
+PASS repeat disembark 8
+PASS repeat 8: exactly one pawn object with pilot ID
+PASS repeat 8: live and exclusively owned
+PASS repeat board 9
+PASS repeat disembark 9
+PASS repeat 9: exactly one pawn object with pilot ID
+PASS repeat 9: live and exclusively owned
+PASS repeat board 10
+PASS repeat disembark 10
+PASS repeat 10: exactly one pawn object with pilot ID
+PASS repeat 10: live and exclusively owned
+PASS repeat board 11
+PASS repeat disembark 11
+PASS repeat 11: exactly one pawn object with pilot ID
+PASS repeat 11: live and exclusively owned
+PASS repeat board 12
+PASS repeat disembark 12
+PASS repeat 12: exactly one pawn object with pilot ID
+PASS repeat 12: live and exclusively owned
+PASS repeat board 13
+PASS repeat disembark 13
+PASS repeat 13: exactly one pawn object with pilot ID
+PASS repeat 13: live and exclusively owned
+PASS repeat board 14
+PASS repeat disembark 14
+PASS repeat 14: exactly one pawn object with pilot ID
+PASS repeat 14: live and exclusively owned
+PASS repeat board 15
+PASS repeat disembark 15
+PASS repeat 15: exactly one pawn object with pilot ID
+PASS repeat 15: live and exclusively owned
+PASS repeat board 16
+PASS repeat disembark 16
+PASS repeat 16: exactly one pawn object with pilot ID
+PASS repeat 16: live and exclusively owned
+PASS repeat board 17
+PASS repeat disembark 17
+PASS repeat 17: exactly one pawn object with pilot ID
+PASS repeat 17: live and exclusively owned
+PASS repeat board 18
+PASS repeat disembark 18
+PASS repeat 18: exactly one pawn object with pilot ID
+PASS repeat 18: live and exclusively owned
+PASS repeat board 19
+PASS repeat disembark 19
+PASS repeat 19: exactly one pawn object with pilot ID
+PASS repeat 19: live and exclusively owned
+PASS board before downing
+PASS downing fixture has two mechanical legs
+PASS real capacity-loss downing ejects immediately
+PASS downed Frame: exactly one pawn object with pilot ID
+PASS downed Frame: live and exclusively owned
+PASS board before death
+PASS death ejects before destruction
+PASS dead Frame: exactly one pawn object with pilot ID
+PASS dead Frame: live and exclusively owned
+PASS board before vanish
+PASS direct destruction ejects
+PASS vanished Frame: exactly one pawn object with pilot ID
+PASS vanished Frame: live and exclusively owned
+PASS board before off-map destruction
+PASS failed off-map disembark preserves owner
+PASS off-map destruction transfers to independent owner
+PASS rescue container: exactly one pawn object with pilot ID
+PASS rescue container: live and exclusively owned
+PASS phase complete; saved for fresh-process reload
