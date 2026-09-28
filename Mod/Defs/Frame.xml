@@ -13,7 +13,7 @@
       <PsychicSensitivity>0</PsychicSensitivity><ToxicResistance>1</ToxicResistance>
     </statBases>
     <race>
-      <intelligence>ToolUser</intelligence><fleshType>Mechanoid</fleshType><body>Lancer</body>
+      <intelligence>ToolUser</intelligence><fleshType>ZF_FrameMechanical</fleshType><body>Lancer</body>
       <thinkTreeMain>ZF_FrameIdle</thinkTreeMain><thinkTreeConstant>ZF_FrameConstant</thinkTreeConstant>
       <hasGenders>false</hasGenders><needsRest>false</needsRest><foodType>None</foodType>
       <baseBodySize>1.5</baseBodySize><baseHealthScale>2</baseHealthScale><lifeExpectancy>2500</lifeExpectancy>

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using LudeonTK;
 using RimWorld;
 using UnityEngine;
@@ -61,35 +60,27 @@ namespace ZenithFrame
             if (!Cockpit.CanOperate || !Drafted || verb == null || !target.IsValid || target.Thing == this || !verb.CanHitTarget(target)) return false;
             var job = JobMaker.MakeJob(JobDefOf.AttackStatic, target);
             job.verbToUse = verb;
-            job.maxNumStaticAttacks = 1;
-            job.endIfCantShootTargetFromCurPos = true;
             jobs.StartJob(job, JobCondition.InterruptForced);
             return true;
         }
 
         public override IEnumerable<Gizmo> GetGizmos()
         {
-            if (Faction != Faction.OfPlayer || !Spawned) yield break;
-            if (!Cockpit.HasPilot)
-            {
-                yield return new Command_Action
-                {
-                    defaultLabel = "Board Frame", defaultDesc = "Choose a colonist to approach and board this Frame.",
-                    icon = TexCommand.Install,
-                    action = () =>
-                    {
-                        var options = Map.mapPawns.FreeColonistsSpawned.Where(p => Cockpit.CanBoard(p, false))
-                            .Select(p => new FloatMenuOption(p.LabelShortCap, () => p.jobs.TryTakeOrderedJob(JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("ZF_BoardFrame"), this)))).ToList();
-                        if (options.Count == 0) options.Add(new FloatMenuOption("No eligible pilot", null));
-                        Find.WindowStack.Add(new FloatMenu(options));
-                    }
-                };
-                yield break;
-            }
+            if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
             yield return new Command_Action { defaultLabel = "Disembark", defaultDesc = "Safely return the pilot to the map.", icon = TexCommand.Install,
                 action = () => { if (!Cockpit.TryDisembark()) Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false); } };
-            var draft = new Command_Toggle { defaultLabel = "Draft Frame", defaultDesc = "Enable manual movement and fire orders.", icon = TexCommand.Draft,
-                isActive = () => Drafted, toggleAction = () => SetDrafted(!Drafted) };
+            var draft = new Command_Toggle
+            {
+                hotKey = KeyBindingDefOf.Command_ColonistDraft,
+                defaultLabel = (Drafted ? "CommandUndraftLabel" : "CommandDraftLabel").Translate(),
+                defaultDesc = "CommandToggleDraftDesc".Translate(),
+                icon = TexCommand.Draft,
+                turnOnSound = SoundDefOf.DraftOn,
+                turnOffSound = SoundDefOf.DraftOff,
+                groupKeyIgnoreContent = 81729172,
+                isActive = () => Drafted,
+                toggleAction = () => SetDrafted(!Drafted)
+            };
             if (!Cockpit.CanOperate) draft.Disable("Frame or pilot incapacitated.");
             yield return draft;
             var move = new Command_Target { defaultLabel = "Move", defaultDesc = "Select a reachable destination.", icon = TexCommand.Draft,
@@ -97,7 +88,7 @@ namespace ZenithFrame
                 action = t => { if (!OrderMove(t.Cell)) Messages.Message("Cannot move there.", MessageTypeDefOf.RejectInput, false); } };
             if (!Drafted || !Cockpit.CanOperate) move.Disable("Draft a piloted Frame first.");
             yield return move;
-            var attack = new Command_Target { defaultLabel = "Fire rifle", defaultDesc = "Fire one manually ordered burst using normal range, line of sight and projectile combat.", icon = TexCommand.Attack,
+            var attack = new Command_Target { defaultLabel = "Fire rifle", defaultDesc = "Order sustained fire on the selected target using normal range, line of sight and projectile combat.", icon = TexCommand.Attack,
                 targetingParams = TargetingParameters.ForAttackAny(),
                 action = t => { if (!OrderAttack(t)) Messages.Message("Target out of range or line of sight.", MessageTypeDefOf.RejectInput, false); } };
             if (!Drafted || !Cockpit.CanOperate) attack.Disable("Draft a piloted Frame first.");

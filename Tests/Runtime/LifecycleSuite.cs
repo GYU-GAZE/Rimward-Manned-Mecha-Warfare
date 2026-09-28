@@ -95,12 +95,16 @@ namespace ZenithFrame.Tests
                 }
                 foreach (Pawn p in map.mapPawns.FreeColonistsSpawned) p.drafter.Drafted = true;
                 frame = SpawnFrame(center);
+                Check(!frame.RaceProps.IsMechanoid, "Frame is not classified as a RimWorld/Biotech mechanoid");
                 pilot = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
                 other = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
                 GenSpawn.Spawn(pilot, center + new IntVec3(6, 0, 0), map);
                 GenSpawn.Spawn(other, center + new IntVec3(0, 0, 1), map);
                 other.drafter.Drafted = true;
                 pilotId = pilot.GetUniqueLoadID();
+                var boardMenuPawns = new List<Pawn> { pilot };
+                var boardOptions = FloatMenuMakerMap.GetOptions(boardMenuPawns, frame.DrawPos, out var _);
+                Check(boardOptions.Any(option => option.Label.Contains("Board Frame")), "pilot right-click menu offers Board Frame");
                 Unique(pilot, "before boarding");
                 Check(!frame.SetDrafted(true), "empty Frame refuses drafting");
                 Check(!frame.Cockpit.TryBoard(null) && !frame.Cockpit.TryBoard(frame), "null and self boarding rejected");
@@ -133,6 +137,7 @@ namespace ZenithFrame.Tests
                 Unique(pilot, "after load");
                 Check(frame.Drafted && frame.Cockpit.CanOperate, "draft and control survive load");
                 Check(frame.GetGizmos().Count() == 4, "piloted control gizmos available");
+                Check(frame.GetGizmos().OfType<Command>().Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
                 foreach (Pawn p in Find.CurrentMap.mapPawns.FreeColonistsSpawned.ToList()) p.SetFaction(null);
                 Check(Find.CurrentMap.mapPawns.FreeColonistsSpawned.Count == 0, "last-colonist fixture has only embarked pilot");
                 Next(10, 650);
@@ -160,8 +165,10 @@ namespace ZenithFrame.Tests
             }
             else if (step == 3 && Find.TickManager.TicksGame >= deadline - 100)
             {
-                Check(frame.CurJob == null || frame.CurJob.def != JobDefOf.AttackStatic, "single burst ends without automatic attack job");
+                Check(frame.CurJob != null && frame.CurJob.def == JobDefOf.AttackStatic, "player-ordered rifle attack remains active after the first burst");
                 Check(!frame.drafter.FireAtWill, "fire at will disabled");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
                 Check(frame.Cockpit.TryDisembark(), "disembark succeeds");
                 Unique(pilot, "disembarked");
                 Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted, "disembark empties cockpit and stops Frame");
