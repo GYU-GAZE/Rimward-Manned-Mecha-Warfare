@@ -1,28 +1,115 @@
 # Implemented MVP architecture
 
-`FramePawn : Pawn` is a real ToolUser, Mechanoid-flesh pawn with a vanilla lancer body and placeholder graphic. It uses its own idle think trees, not mechanoid combat/work AI. A rifle is created on first spawn; it is ordinary equipment and serializes normally.
+## Frame identity
 
-`CompPilotableMech : ThingComp, IThingHolder` owns exactly one `ThingOwner<Pawn>`. That container is the sole source of pilot identity, deep-scribed under `zenithPilot`. There is no second saved pilot object or speculative registry. Verse discovers the component holder during recursive map enumeration. RimWorld 1.6 also gives spawned pawns a map-owned ThingOwner; eligibility explicitly accepts that ownership and rejects other containers.
+`FramePawn : Pawn` is a real custom Pawn representing a humanoid pilotable mecha.
 
-`JobDriver_BoardFrame` reserves the Frame, walks to touch range, revalidates and despawns/transfers the pilot. Failed eligibility never mutates ownership. A failed/throwing insertion restores an unowned pawn to its original map in a finally block; exceptions propagate. Disembarking uses Verse's own TryDrop contract, which retains the container on failure. Pilots carrying another thing/pawn, slaves, prisoners and incapacitated/mental-state pawns cannot board. Both factions must be the player.
+It is deliberately **not** a RimWorld/Biotech controllable mech. The debug Frame uses:
 
-Controls use small Frame gizmos: Board, Disembark, Draft, Move and Fire rifle. Movement uses the real Goto job and pathfinder. Fire uses AttackStatic limited to one burst with Verb_Shoot, normal projectile/range/LOS/accuracy/cooldown. A Frame-only Verb checks the cockpit and draft state on every shot. No automatic firing, aim forwarding, pawn-stat forwarding or loadout system is implemented. Right-click vanilla mech orders are not used, since they require Biotech overseer control. This avoids patching vanilla player-control predicates globally.
+- `ToolUser` intelligence so it has ordinary Pawn equipment support
+- custom non-organic `ZF_FrameMechanical` flesh type
+- a vanilla lancer body/life-stage/graphic only as temporary placeholder content
+- its own idle think trees instead of normal colonist work AI or mechanoid combat/work AI
 
-The normal draft controller is used, with an additional serialized draft intent because vanilla removes/recreates a non-Biotech mech's drafter while loading. The Frame disables fire-at-will and stops invalid jobs before base ticking when its pilot cannot operate it.
+Because `RaceProps.IsMechanoid` is false, Mechanitor, Overseer, bandwidth, command-range and mech-control-group semantics are not the Frame control model.
 
-`Notify_Downed` ejects through the comp. FramePawn overrides `Kill` and `Destroy` to detach the pilot BEFORE the base destruction path. Ordinary destruction never owns a pilot by the time it reaches vanilla cleanup. If there is no map or a normal drop fails, ownership transfers to `PilotRecovery`, an independently deep-scribed GameComponent owner. This owner retries delivery near the home map's center once per second. With no home map, it retains the pilot across saves. If even the rescue owner is unavailable, destruction aborts loudly rather than destroying the pilot.
+A debug rifle is created on first spawn and serializes as ordinary Pawn equipment.
 
-The vanilla game-over check only recognizes a hard-coded set of pod types. PilotRecovery clears its public game-ending countdown flag on a tick when a live free colonist is held by a spawned Frame or the rescue owner. This is explicit ownership-based presence checking, not a fake Map/Position and not a Harmony patch. Regression tests let the 400-tick vanilla countdown duration elapse with the sole colonist embarked.
+## Pilot ownership
+
+`CompPilotableMech : ThingComp, IThingHolder` owns exactly one `ThingOwner<Pawn>`.
+
+That container is the sole source of pilot identity and is deep-scribed under `zenithPilot`. There is no second saved pilot object or speculative global pilot registry.
+
+`JobDriver_BoardFrame` reserves the Frame, walks the pilot into touch range, revalidates, despawns the pawn and transfers it into the cockpit owner. Failed eligibility never mutates ownership. If insertion throws or fails after despawn, the pilot is restored to the original map when possible and the exception is not swallowed.
+
+Disembarking uses Verse's normal `ThingOwner.TryDrop` contract.
+
+## Pawn-first control model
+
+With a valid pilot aboard, basic input is intended to feel like controlling a drafted colonist:
+
+- select pilot -> right-click Frame -> **Board Frame**
+- select piloted Frame -> **R** / normal draft command
+- right-click ground -> normal drafted-Pawn movement order
+- right-click hostile target -> normal ordered attack
+- multi-select Frames -> ordinary group movement / attack behavior
+
+The old temporary custom `Move` and `Fire rifle` gizmos were removed.
+
+`Disembark` remains a Frame-specific gizmo. Draft/undraft is represented by a small bridge command using the ordinary `Pawn_DraftController`, vanilla draft hotkey, labels, sounds and grouping key. This bridge exists because vanilla only exposes `Pawn_DraftController.GetGizmos()` for its hard-coded player-controlled pawn categories.
+
+The Frame's drafter is explicitly restored on spawn/load because a custom non-humanlike, non-mechanoid Pawn is outside the categories for which vanilla retains a draft controller automatically.
+
+## Harmony control bridge
+
+Harmony is a runtime dependency, but the patch surface is intentionally narrow. Frames are **not** reclassified as colonists or Biotech mechs.
+
+Current patch points:
+
+1. `Pawn.CanTakeOrder`
+   - returns true for a valid operable `FramePawn`
+   - this property is used by `FloatMenuContext` to decide which selected Pawns enter the ordinary right-click order pipeline
+
+2. `FloatMenuOptionProvider.SelectedPawnValid`
+   - for Frames, permits only the ordinary drafted movement and drafted attack providers
+   - prevents the `CanTakeOrder` bridge from accidentally exposing colonist work/equip/haul/tend/rescue/etc. orders
+
+3. `FloatMenuUtility.GetRangedAttackAction`
+   - supplies the ordinary `AttackStatic` job for a Frame's equipped ranged weapon
+   - omits Biotech command-range checks because Frames are not Biotech mechs
+
+4. `FloatMenuUtility.GetMeleeAttackAction`
+   - for the current ranged-only MVP, suppresses the irrelevant melee fallback
+   - prevents a bogus disabled "non-controlled pawn" menu entry from blocking vanilla auto-take of the valid ranged attack
+   - future Frame melee support should implement real Frame melee semantics rather than extending this temporary suppression
+
+`Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
+
+## Weapon behavior
+
+The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown.
+
+A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
+
+`FireAtWill` is forced off. This is intentional:
+
+- continuing to fire at the target the player ordered = manual targeting
+- independently acquiring a new target = autonomous target acquisition
+
+Only the second behavior is forbidden by default.
+
+## Ejection and destruction safety
+
+`Notify_Downed` ejects through the cockpit comp.
+
+`FramePawn.Kill` and `FramePawn.Destroy` detach the pilot **before** entering vanilla destruction cleanup. Ordinary destruction therefore never owns a pilot by the time base cleanup runs.
+
+If the Frame is off-map or a normal drop cannot occur, ownership transfers to `PilotRecovery`, an independently deep-scribed `GameComponent` owner. It retries safe delivery when a home map exists. If no safe owner can accept the pilot, destruction fails loudly instead of silently deleting the pawn.
+
+The game-over bridge remains explicit ownership-based presence logic. It does not fake `Map` or `Position`.
 
 ## Deliberate MVP boundaries
 
-- A stored pilot is not ticked: needs, injuries and aging are paused while embarked. Life-support, pilot damage and ongoing needs are future gameplay work.
-- No boarding of hostile/neutral Frames and no faction conversion. Invalid faction changes eject on the next tick.
-- One fixed weapon. No reload/ammunition, repair, energy, research, chassis variants or final art.
-- No caravan, transport-pod/gravship or temporary-map removal workflow is supported. Off-map destruction rescue is a safety fallback, not travel support.
-- No broad compatibility guarantee, Combat Extended support, multiplayer, autonomy or enemy raids.
-- The rescue owner is visible through a recovery message on delivery; there is no rescue management UI. A game with no home map retains rescue pawns until a home map exists.
+- Stored pilots are not ticked; needs, injuries and aging pause while embarked.
+- No hostile/neutral boarding or faction conversion yet.
+- One fixed debug weapon only.
+- No reload/ammunition, repair, power, research, loadout system, chassis variants or final art.
+- No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
+- No Combat Extended, multiplayer or broad compatibility guarantee.
+- No autonomous target acquisition.
 
 ## Patch and dependency audit
 
-Production has **zero Harmony patches, zero reflection and zero third-party runtime dependencies**. Only installed Verse/RimWorld/Unity assemblies are compile references, all with Copy Local disabled. The release contains only ZenithFrame.dll. No proprietary game assemblies, testing assemblies or decompiled game source are distributed.
+Production currently uses:
+
+- Harmony as the single third-party runtime dependency
+- four narrowly scoped Harmony patch points described above
+- zero reflection
+- zero Coventech references/dependencies
+- no bundled Harmony DLL
+- no proprietary RimWorld assemblies in the release
+
+Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
+
+The current pawn-first control refactor must be rebuilt and re-run through the live RimWorld test suite before it is considered validated.
