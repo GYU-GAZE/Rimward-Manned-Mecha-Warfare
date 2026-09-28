@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><AssemblyName>ZenithFrame.RuntimeTests</AssemblyName></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../Source/ZenithFrame/ZenithFrame.csproj" /></ItemGroup>
+</Project>
