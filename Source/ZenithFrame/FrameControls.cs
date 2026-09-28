@@ -41,6 +41,7 @@ namespace ZenithFrame
 
         public bool SetDrafted(bool value)
         {
+            if (drafter == null) return false;
             if (value && !Cockpit.CanOperate) return false;
             drafter.Drafted = value;
             drafter.FireAtWill = false;

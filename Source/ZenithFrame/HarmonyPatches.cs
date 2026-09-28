@@ -111,6 +111,10 @@ namespace ZenithFrame
                         : "CannotHitTarget".Translate();
                 }
             }
+            else if (pawn.WorkTagIsDisabled(WorkTags.Violent))
+            {
+                failStr = "IsIncapableOfViolenceLower".Translate(pawn.LabelShort, pawn);
+            }
             else if (pawn == target.Thing)
             {
                 failStr = "CannotAttackSelf".Translate();
