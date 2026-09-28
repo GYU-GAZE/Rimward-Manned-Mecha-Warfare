@@ -111,7 +111,7 @@ namespace ZenithFrame.Tests
                 other.SetFaction(null);
                 Check(!frame.Cockpit.TryBoard(other) && other.Spawned, "foreign faction pilot rejected");
                 other.SetFaction(Faction.OfPlayer);
-                Check(!frame.OrderMove(center + IntVec3.North), "empty Frame refuses movement");
+                Check(!frame.CanTakeOrder, "empty Frame refuses ordinary player orders");
                 Check(!frame.Cockpit.TryBoard(pilot), "nonadjacent boarding rejected");
                 Check(pilot.Spawned && pilot.holdingOwner.Owner == map, "failed boarding preserves map ownership");
                 pilot.jobs.TryTakeOrderedJob(JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("ZF_BoardFrame"), frame));
@@ -180,7 +180,7 @@ namespace ZenithFrame.Tests
                 frame.stances.CancelBusyStanceHard();
                 Check(frame.Cockpit.TryDisembark(), "disembark succeeds");
                 Unique(pilot, "disembarked");
-                Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted, "disembark empties cockpit and stops Frame");
+                Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "disembark empties cockpit, stops Frame and removes order eligibility");
                 for (int i = 0; i < 20; i++)
                 {
                     Check(frame.Cockpit.TryBoard(pilot), "repeat board " + i);
