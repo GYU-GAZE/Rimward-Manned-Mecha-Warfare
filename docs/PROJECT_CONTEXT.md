@@ -18,6 +18,28 @@ This is also **not intended to be marketed as a total RimWorld overhaul**. The m
 
 ---
 
+## 0.5. Terminology: Mecha / Frames Are Not Biotech Mechs
+
+This distinction is architectural, not cosmetic.
+
+A Zenith Frame is a custom humanoid pilotable **mecha / Frame** implemented by this mod. It is not a RimWorld Biotech controllable mech.
+
+Normal Frame operation must not depend on Mechanitors, Overseers, command range, bandwidth, mech control groups or other Biotech controllable-mech semantics.
+
+If vanilla routes a Frame through those systems, treat that as a classification/integration bug. Fix the Frame classification or bridge it into ordinary Pawn control rather than accepting the behavior or recreating Pawn controls as custom buttons.
+
+The intended model is:
+
+```text
+Frame = custom Pawn-based humanoid mecha
+Pilot = Pawn stored inside it
+Control = ordinary Pawn control semantics wherever practical
+```
+
+Biotech may coexist with this mod, but it is not the architectural basis of Zenith Frames.
+
+---
+
 ## 1. Project Goal
 
 This project is a **RimWorld mod centered around humanoid mecha warfare and pilotable humanoid mechs**.
@@ -64,8 +86,8 @@ The first priority is proving the technical foundation.
 The fundamental model should be:
 
 ```text
-MECH = PAWN
-PILOT = PAWN STORED INSIDE THE MECH
+FRAME / MECHA = PAWN
+PILOT = PAWN STORED INSIDE THE FRAME
 ```
 
 The mech should be a real RimWorld `Pawn`, not apparel worn by another pawn.
@@ -91,6 +113,24 @@ Pawn Mech
 ```
 
 The exact implementation may differ if RimWorld APIs make another representation cleaner, but this gameplay model should remain intact.
+
+### Pawn-first control rule
+
+`Frame = Pawn` also applies to input.
+
+A piloted Frame should feel like controlling a normal drafted pawn:
+
+```text
+select pilot -> right-click Frame -> Board Frame
+
+select piloted Frame -> R / normal draft command
+right-click ground -> move
+right-click hostile target -> attack
+```
+
+Multiple selected Frames should accept ordinary group movement and attack orders.
+
+Frame-specific gizmos are for genuinely Frame-specific actions such as Disembark, chassis abilities and future equipment functions. Do not recreate basic Pawn controls as custom `Draft Frame`, `Move` or `Fire` buttons.
 
 ---
 
@@ -167,14 +207,15 @@ Weapons should behave primarily like **weapons**, not autonomous turrets.
 
 This is an important departure from Coventech.
 
-Default expected interaction:
+Default expected interaction should follow ordinary drafted-Pawn combat:
 
 ```text
-select mech
-choose weapon / attack command
-choose target
-mech fires
+select drafted Frame
+right-click hostile target / issue normal attack order
+Frame attacks that target until the ordered job ends or is cancelled
 ```
+
+"Manually controlled" means the player chooses the target. It does not mean issuing a new fire command for every burst.
 
 Where practical, use RimWorld's normal combat concepts such as:
 
@@ -206,6 +247,8 @@ Allows selected compatible weapons to independently acquire and fire on targets.
 ```
 
 This turns autonomous fire into a build choice rather than a universal weapon rule.
+
+Do not confuse sustained execution of a player-issued attack order with autonomous target acquisition. Continuing to fire at Target A after the player ordered Target A is normal manual targeting. Independently choosing Target B without an order is automation.
 
 ---
 
@@ -503,65 +546,40 @@ Because the framework only supports this mod, simplicity is more valuable than a
 
 ## 13. Initial MVP
 
-Do **not** start by recreating the full old mod.
+Do not expand content until one ugly debug Frame proves the complete vertical slice:
 
-Do **not** start with research trees, balance, many chassis, elaborate UI or dozens of weapons.
+1. spawn Frame
+2. select pilot -> right-click Frame -> Board Frame
+3. pilot walks over and is stored correctly
+4. piloted Frame becomes normally draftable
+5. `R` drafts/undrafts
+6. normal right-click movement works
+7. normal right-click attack works
+8. the chosen attack continues beyond one burst until normal job completion/cancellation
+9. group movement/attack works for multiple selected Frames
+10. save and reload while embarked
+11. same pilot still exists correctly inside
+12. disembark restores the pawn
+13. downed Frame safely ejects pilot
+14. dead/destroyed Frame safely ejects pilot
+15. unpiloted Frame cannot operate
 
-Create one ugly debug mech.
+### First candidate manual result
 
-Example temporary concept:
+The first lifecycle candidate successfully proved boarding, explicit pilot ownership, save/load, multiple simultaneous embarked pilots, disembarking, no-game-over while all colonists were embarked, unpiloted inactivity and death ejection.
 
-```text
-GYG_TestMech
-```
+Human testing rejected its temporary control layer because:
 
-Minimal required content:
+- boarding was initiated backwards from a Frame gizmo
+- `R` did not draft normally
+- ordinary movement produced `Out of command range`
+- custom Move/Fire buttons were required
+- fire stopped after one forced burst
+- group attack behavior did not match ordinary Pawn control
 
-- 1 humanoid mech chassis
-- 1 pilot
-- 1 manually controlled ranged weapon
-- minimal boarding
-- minimal disembarking
-- minimal save/load support
-- minimal downed/death ejection behavior
+Those are implementation failures, not intended UX.
 
-The first milestone must prove this loop:
-
-```text
-spawn test mech
-    ->
-pawn approaches mech
-    ->
-pawn boards as pilot
-    ->
-pilot is stored correctly
-    ->
-mech becomes player-controllable
-    ->
-mech can move
-    ->
-mech can manually attack using its weapon
-    ->
-save game
-    ->
-load game
-    ->
-pilot is still inside correctly
-    ->
-pilot can disembark correctly
-    ->
-board again
-    ->
-mech becomes downed
-    ->
-pilot is ejected correctly
-    ->
-repeat with mech death
-    ->
-pilot is not deleted or lost
-```
-
-If this works reliably, the architecture is considered proven enough to continue.
+Before recovery, hacking or enemy Frames, the MVP must pass ordinary Pawn-style control with **no Mechanitor/Overseer/command-range requirement** while preserving the already working pilot ownership/save/ejection lifecycle.
 
 ---
 
@@ -572,29 +590,28 @@ After the MVP above, proceed incrementally.
 Suggested order:
 
 ```text
-1. Core mech pawn
+1. Core Frame pawn
 2. Pilot container
-3. Boarding
-4. Disembarking
-5. Draft/control behavior
-6. One manual weapon
+3. Boarding / disembarking
+4. Ordinary Pawn-style draft/control integration
+5. One manually targeted weapon using normal ordered combat
+6. Group movement/attack semantics
 7. Save/load reliability
 8. Downed/death emergency ejection
 9. Recovery of disabled chassis
 10. Hacking
-11. Enemy pilots / hostile mechs
+11. Enemy pilots / hostile Frames
 12. Game-over and map-retention edge cases
 13. Pilot skill bridging
-14. Mech abilities
+14. Frame abilities
 15. Pilot abilities / psycasts
 16. Loadout system
-17. Power-source add-ons
-18. Utility add-ons
-19. Proper UI
-20. Additional chassis/content
-21. Progression/research
-22. Balance
-23. Faction-wide mech integration
+17. Power / utility add-ons
+18. Proper UI
+19. Additional chassis/content
+20. Progression/research
+21. Balance
+22. Faction-wide Frame integration
 ```
 
 Do not rigidly obey this order if implementation realities require small changes, but preserve the principle:
@@ -696,6 +713,8 @@ Likely useful information:
 - later: recovery/hacking state
 
 Avoid recreating Coventech's very large slot-heavy interface.
+
+Do not spend custom UI space recreating normal Pawn controls. Drafting, movement and ordinary attack orders belong to normal Pawn interaction semantics.
 
 ---
 
