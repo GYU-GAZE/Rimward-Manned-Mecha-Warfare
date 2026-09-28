@@ -14,6 +14,7 @@
     </statBases>
     <race>
       <intelligence>ToolUser</intelligence><fleshType>ZF_FrameMechanical</fleshType><body>Lancer</body>
+      <trainability>None</trainability>
       <thinkTreeMain>ZF_FrameIdle</thinkTreeMain><thinkTreeConstant>ZF_FrameConstant</thinkTreeConstant>
       <hasGenders>false</hasGenders><needsRest>false</needsRest><foodType>None</foodType>
       <baseBodySize>1.5</baseBodySize><baseHealthScale>2</baseHealthScale><lifeExpectancy>2500</lifeExpectancy>
@@ -35,7 +36,15 @@
     <defName>ZF_DebugFrame</defName><label>debug Frame</label><race>ZF_DebugFrame</race><combatPower>150</combatPower>
     <lifeStages><li><bodyGraphicData><texPath>Things/Pawn/Mechanoid/Lancer</texPath><graphicClass>Graphic_Multi</graphicClass><drawSize>2</drawSize></bodyGraphicData></li></lifeStages>
   </PawnKindDef>
-  <ThinkTreeDef><defName>ZF_FrameIdle</defName><thinkRoot Class="ZenithFrame.JobGiver_FrameIdle" /></ThinkTreeDef>
+  <ThinkTreeDef>
+    <defName>ZF_FrameIdle</defName>
+    <thinkRoot Class="ThinkNode_Priority">
+      <subNodes>
+        <li Class="ThinkNode_QueuedJob" />
+        <li Class="ZenithFrame.JobGiver_FrameIdle" />
+      </subNodes>
+    </thinkRoot>
+  </ThinkTreeDef>
   <ThinkTreeDef><defName>ZF_FrameConstant</defName><thinkRoot Class="ThinkNode_Priority" /></ThinkTreeDef>
   <JobDef><defName>ZF_BoardFrame</defName><driverClass>ZenithFrame.JobDriver_BoardFrame</driverClass><reportString>Boarding TargetA.</reportString></JobDef>
   <ThingDef ParentName="BaseWeapon">
