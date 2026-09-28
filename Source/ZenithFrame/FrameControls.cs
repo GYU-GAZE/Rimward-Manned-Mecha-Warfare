@@ -48,6 +48,9 @@ namespace ZenithFrame
 
         public override IEnumerable<Gizmo> GetGizmos()
         {
+            foreach (Gizmo gizmo in base.GetGizmos())
+                yield return gizmo;
+
             if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
             yield return new Command_Action { defaultLabel = "Disembark", defaultDesc = "Safely return the pilot to the map.", icon = TexCommand.Install,
                 action = () => { if (!Cockpit.TryDisembark()) Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false); } };
@@ -60,6 +63,7 @@ namespace ZenithFrame
                 turnOnSound = SoundDefOf.DraftOn,
                 turnOffSound = SoundDefOf.DraftOff,
                 groupKeyIgnoreContent = 81729172,
+                tutorTag = (!Drafted ? "Draft" : "Undraft"),
                 isActive = () => Drafted,
                 toggleAction = () => SetDrafted(!Drafted)
             };

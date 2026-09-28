@@ -28,6 +28,44 @@ namespace ZenithFrame
         }
     }
 
+    // CanTakeOrder is intentionally broader than the set of actions a Frame
+    // should receive. Keep the ordinary Pawn move/attack providers, but do not
+    // accidentally turn a Frame into a worker that can equip, haul, tend, open,
+    // rescue, trade, or perform other colonist right-click jobs.
+    [HarmonyPatch(typeof(FloatMenuOptionProvider), nameof(FloatMenuOptionProvider.SelectedPawnValid))]
+    internal static class Patch_FloatMenuOptionProvider_SelectedPawnValid_Frame
+    {
+        private static void Postfix(FloatMenuOptionProvider __instance, Pawn pawn, ref bool __result)
+        {
+            if (!(pawn is FramePawn))
+                return;
+
+            bool ordinaryCombatProvider =
+                __instance is FloatMenuOptionProvider_DraftedMove ||
+                __instance is FloatMenuOptionProvider_DraftedAttack;
+
+            __result = __result && ordinaryCombatProvider;
+        }
+    }
+
+    // DraftedAttack asks for a ranged option and then also asks for a melee
+    // option. For the ranged-only MVP, letting vanilla evaluate the melee path
+    // creates a bogus disabled "non-controlled pawn" entry that prevents the
+    // normal one-click attack option from auto-taking.
+    [HarmonyPatch(typeof(FloatMenuUtility), nameof(FloatMenuUtility.GetMeleeAttackAction))]
+    internal static class Patch_FloatMenuUtility_GetMeleeAttackAction_Frame
+    {
+        private static bool Prefix(Pawn pawn, ref Action __result, ref string failStr)
+        {
+            if (!(pawn is FramePawn) || !FloatMenuUtility.UseRangedAttack(pawn))
+                return true;
+
+            __result = null;
+            failStr = "";
+            return false;
+        }
+    }
+
     // Vanilla ranged orders reject anything that is not a colonist, colony mech,
     // or controllable subhuman. Frames intentionally belong to none of those
     // categories, so only that control gate is bridged here. The resulting job
