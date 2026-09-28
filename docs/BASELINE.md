@@ -1,5 +1,7 @@
 # Baseline and constraints
 
+> Historical initial-development baseline. The current `fix/pawn-first-controls` branch intentionally adds Harmony as a runtime dependency for the narrow Pawn-order bridge; statements below describing "no production NuGet dependencies" refer to the pre-refactor baseline.
+
 Inspected 2026-09-27: origin/main `cc34af14c69e03194a2ee390e0375b65f911d15a`, clean, README only. No repository AGENTS.md or referenced project documents existed. The user's supplied AGENTS instructions and `Zenith_Frame_Rimward_Work_Context.md` were read before implementation. The latter is preserved in PROJECT_CONTEXT.md.
 
 Installed game: RimWorld **1.6.4871 rev590**, Steam build 23969874. Discovered from Steam libraryfolders.vdf and appmanifest_294100.acf, verified with Version.txt. Managed references come from the installed game's RimWorldWin64_Data/Managed directory; proprietary binaries are never committed or packaged.
