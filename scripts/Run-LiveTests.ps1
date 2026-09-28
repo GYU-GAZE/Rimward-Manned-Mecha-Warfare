@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')))
+param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
@@ -15,12 +15,27 @@ Copy-Item "$repo/artifacts/ZenithFrame" "$runtime/Mods" -Recurse -Force
 New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
 Copy-Item "$repo/Tests/Runtime/About" "$runtime/Mods/ZenithTests" -Recurse -Force
 Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$runtime/Mods/ZenithTests/Assemblies" -Force
+$expansionMods = ''
+if ($WithInstalledExpansions) {
+    foreach ($name in @('Royalty','Ideology','Biotech','Anomaly','Odyssey')) {
+        if (Test-Path "$RimWorldDir/Data/$name/About/About.xml") {
+            Copy-Item "$RimWorldDir/Data/$name" "$runtime/Data" -Recurse -Force
+            [xml]$metadata = Get-Content "$RimWorldDir/Data/$name/About/About.xml" -Raw
+            $expansionMods += '<li>' + $metadata.ModMetaData.packageId.ToLowerInvariant() + '</li>'
+        }
+    }
+}
+$knownExpansionMods = ''
+foreach ($expansion in Get-ChildItem "$runtime/Data" -Directory | Where-Object Name -NE 'Core') {
+    [xml]$metadata = Get-Content "$($expansion.FullName)/About/About.xml" -Raw
+    $knownExpansionMods += '<li>' + $metadata.ModMetaData.packageId.ToLowerInvariant() + '</li>'
+}
 $profile = Join-Path $repo "artifacts/$RunName"
 if (Test-Path $profile) { throw "Use a new RunName; profile already exists: $profile" }
 New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Null
 @'
 <ModsConfigData><version>1.6.4871</version><activeMods><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
-'@ | Set-Content "$profile/Config/ModsConfig.xml"
+'@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
@@ -43,6 +58,8 @@ foreach ($phase in 0..2) {
     if (!(Test-Path $report)) { throw "Runtime exited without a report; inspect $profile/Player-$phase.log" }
     Get-Content $report
     if ((Get-Content $report -Raw) -match '(?m)^FAIL ' -or $process.ExitCode -ne 0) { throw "Phase $phase failed" }
+    $runtimeErrors = Select-String -Path "$profile/Player-$phase.log" -Pattern 'Exception|Config error|Could not resolve|XML error|Error while|Error in|Could not execute|Could not load asset bundle'
+    if ($runtimeErrors) { throw "Runtime log contains errors: $($runtimeErrors.Line -join [Environment]::NewLine)" }
 }
 Write-Host "PASS live lifecycle suite: $profile"
 

@@ -172,8 +172,10 @@ namespace ZenithFrame.Tests
                     Unique(pilot, "repeat " + i);
                 }
                 Check(frame.Cockpit.TryBoard(pilot), "board before downing");
-                HealthUtility.DamageUntilDowned(frame);
-                Check(frame.Downed && !frame.Cockpit.HasPilot && pilot.Spawned, "real downing ejects immediately");
+                var legs = frame.RaceProps.body.AllParts.Where(part => part.def.tags.Contains(BodyPartTagDefOf.MovingLimbCore)).ToList();
+                Check(legs.Count == 2, "downing fixture has two mechanical legs");
+                foreach (var leg in legs) frame.health.AddHediff(HediffDefOf.MissingBodyPart, leg);
+                Check(frame.Downed && !frame.Dead && !frame.Cockpit.HasPilot && pilot.Spawned, "real capacity-loss downing ejects immediately");
                 Unique(pilot, "downed Frame");
                 FramePawn deadFrame = SpawnFrame(pilot.Position);
                 Check(deadFrame.Cockpit.TryBoard(pilot), "board before death");
