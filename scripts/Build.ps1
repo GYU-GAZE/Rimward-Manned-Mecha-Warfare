@@ -11,6 +11,7 @@ if ($Clean) {
 dotnet build $project -c Release "-p:RimWorldDir=$RimWorldDir" --nologo
 if ($LASTEXITCODE) { throw 'Build failed' }
 $release = Join-Path $repo 'artifacts/ZenithFrame'
+if (Test-Path $release) { Remove-Item $release -Recurse -Force }
 New-Item -ItemType Directory -Force "$release/Assemblies" | Out-Null
 Copy-Item "$repo/Mod/*" $release -Recurse -Force
 Copy-Item "$repo/Source/ZenithFrame/bin/Release/net472/ZenithFrame.dll" "$release/Assemblies/"
