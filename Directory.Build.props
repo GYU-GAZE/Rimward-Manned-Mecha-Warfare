@@ -9,6 +9,7 @@
     <RimWorldManaged>$(RimWorldDir)/RimWorldWin64_Data/Managed</RimWorldManaged>
   </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Reference Include="Assembly-CSharp-firstpass"><HintPath>$(RimWorldManaged)/Assembly-CSharp-firstpass.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(RimWorldManaged)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(RimWorldManaged)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
