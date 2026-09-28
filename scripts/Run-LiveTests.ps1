@@ -11,12 +11,14 @@ if (!(Test-Path "$runtime/RimWorldWin64.exe")) {
     Copy-Item "$RimWorldDir/MonoBleedingEdge","$RimWorldDir/RimWorldWin64_Data" $runtime -Recurse
     Copy-Item "$RimWorldDir/Data/Core" "$runtime/Data" -Recurse
 }
+if (Test-Path "$runtime/Mods/ZenithFrame") { Remove-Item "$runtime/Mods/ZenithFrame" -Recurse -Force }
 Copy-Item "$repo/artifacts/ZenithFrame" "$runtime/Mods" -Recurse -Force
 if ([string]::IsNullOrWhiteSpace($HarmonyDir)) {
     $steamApps = Split-Path (Split-Path $RimWorldDir -Parent) -Parent
     $HarmonyDir = Join-Path $steamApps "workshop/content/294100/2009463077"
 }
 if (!(Test-Path "$HarmonyDir/About/About.xml")) { throw "Harmony missing. Install Workshop item 2009463077 or pass -HarmonyDir PATH." }
+if (Test-Path "$runtime/Mods/Harmony") { Remove-Item "$runtime/Mods/Harmony" -Recurse -Force }
 Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
 New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
 Copy-Item "$repo/Tests/Runtime/About" "$runtime/Mods/ZenithTests" -Recurse -Force
