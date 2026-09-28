@@ -49,9 +49,13 @@ New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Nul
 '@ | Set-Content "$profile/Config/Prefs.xml"
 foreach ($phase in 0..2) {
     if ($phase -gt 0) { Copy-Item "$profile/Saves/ZenithLifecycle.rws" "$profile/Saves/Autostart.rws" -Force }
-    $arguments = @('-batchmode', ('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player-$phase.log" + '"'))
+    # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
+    # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.
+    # A minimized window keeps a real Unity window/event loop without interrupting
+    # the desktop; WindowStyle Hidden creates no handle and suppresses OnGUI.
+    $arguments = @(('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player-$phase.log" + '"'))
     if ($phase -eq 0) { $arguments += '-quicktest' }
-    $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Hidden -PassThru
+    $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Minimized -PassThru
     $null = $process.Handle
     Write-Host "Live phase $phase PID $($process.Id) profile $profile"
     $expires = (Get-Date).AddMinutes(6)

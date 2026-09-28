@@ -21,10 +21,10 @@ namespace ZenithFrame.Tests
         private Pawn other;
         private Thing target;
         private IntVec3 destination;
-        private int targetHealth;
         private FramePawn squadMateFrame;
         private IntVec3 squadStartA;
         private IntVec3 squadStartB;
+        private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "phase-" + phase + ".txt");
@@ -64,7 +64,7 @@ namespace ZenithFrame.Tests
         }
         public override void GameComponentUpdate()
         {
-            if (finished || Current.ProgramState != ProgramState.Playing || Find.CurrentMap == null || LongEventHandler.ShouldWaitForEvent) return;
+            if (finished || pendingGuiAction != null || Current.ProgramState != ProgramState.Playing || Find.CurrentMap == null || LongEventHandler.ShouldWaitForEvent) return;
             try
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
@@ -75,11 +75,24 @@ namespace ZenithFrame.Tests
             }
             catch (Exception e)
             {
-                finished = true;
-                File.WriteAllLines(ReportPath, passed.Concat(new[] { "FAIL " + e }));
-                Log.Error("ZENITH TEST FAILURE " + e);
-                Application.Quit(1);
+                Fail(e);
             }
+        }
+        public override void GameComponentOnGUI()
+        {
+            if (finished || pendingGuiAction == null) return;
+            Action action = pendingGuiAction;
+            pendingGuiAction = null;
+            try { action(); }
+            catch (Exception e) { Fail(e); }
+        }
+        private void OnGui(Action action) => pendingGuiAction = action;
+        private void Fail(Exception e)
+        {
+            finished = true;
+            File.WriteAllLines(ReportPath, passed.Concat(new[] { "FAIL " + e }));
+            Log.Error("ZENITH TEST FAILURE " + e);
+            Application.Quit(1);
         }
         private void BeforeSave()
         {
@@ -95,6 +108,7 @@ namespace ZenithFrame.Tests
                         if (!(t is Pawn) && !(t is IThingHolder) && (t.def.category == ThingCategory.Plant || t.def.category == ThingCategory.Building || t.def.category == ThingCategory.Item)) t.Destroy();
                     map.terrainGrid.SetTerrain(cell, TerrainDefOf.Soil);
                     map.roofGrid.SetRoof(cell, null);
+                    map.fogGrid.Unfog(cell);
                 }
                 foreach (Pawn p in map.mapPawns.FreeColonistsSpawned) p.drafter.Drafted = true;
                 frame = SpawnFrame(center);
@@ -105,9 +119,6 @@ namespace ZenithFrame.Tests
                 GenSpawn.Spawn(other, center + new IntVec3(0, 0, 1), map);
                 other.drafter.Drafted = true;
                 pilotId = pilot.GetUniqueLoadID();
-                var boardMenuPawns = new List<Pawn> { pilot };
-                var boardOptions = FloatMenuMakerMap.GetOptions(boardMenuPawns, frame.DrawPos, out var _);
-                Check(boardOptions.Any(option => option.Label.Contains("Board Frame")), "pilot right-click menu offers Board Frame");
                 Unique(pilot, "before boarding");
                 Check(!frame.SetDrafted(true), "empty Frame refuses drafting");
                 Check(!frame.Cockpit.TryBoard(null) && !frame.Cockpit.TryBoard(frame), "null and self boarding rejected");
@@ -117,8 +128,18 @@ namespace ZenithFrame.Tests
                 Check(!frame.CanTakeOrder, "empty Frame refuses ordinary player orders");
                 Check(!frame.Cockpit.TryBoard(pilot), "nonadjacent boarding rejected");
                 Check(pilot.Spawned && pilot.holdingOwner.Owner == map, "failed boarding preserves map ownership");
-                pilot.jobs.TryTakeOrderedJob(JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("ZF_BoardFrame"), frame));
-                Next(1);
+                OnGui(() =>
+                {
+                    var boardMenuPawns = new List<Pawn> { pilot };
+                    var boardOptions = FloatMenuMakerMap.GetOptions(boardMenuPawns, frame.DrawPos, out var _);
+                    var boardOption = boardOptions.FirstOrDefault(option => option.Label.Contains("Board Frame"));
+                    Check(boardOption != null,
+                        "pilot right-click menu offers Board Frame; actual options: " +
+                        string.Join(" | ", boardOptions.Select(option => option.Label)));
+                    boardOption.Chosen(colonistOrdering: true, null);
+                    Check(pilot.CurJobDef == DefDatabase<JobDef>.GetNamed("ZF_BoardFrame"), "Board Frame menu option issues the real boarding job");
+                    Next(1);
+                });
             }
             else if (frame.Cockpit.HasPilot)
             {
@@ -141,6 +162,8 @@ namespace ZenithFrame.Tests
                 Unique(pilot, "after load");
                 Check(frame.Drafted && frame.Cockpit.CanOperate, "draft and control survive load");
                 Check(frame.CanTakeOrder && !frame.IsPlayerControlled && !frame.IsColonyMech, "Frame receives orders without impersonating a colonist or Biotech mech");
+                Find.Selector.ClearSelection();
+                Find.Selector.Select(frame);
                 var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc2), "vanilla melee attack gizmo is available for a drafted Frame");
@@ -159,32 +182,48 @@ namespace ZenithFrame.Tests
             {
                 Check(!Find.GameEnder.gameEnding && !Find.LetterStack.LettersListForReading.Any(l => l.def == LetterDefOf.GameEnded), "last embarked colonist survives game-over countdown");
                 destination = frame.Position + new IntVec3(0, 0, 5);
-                var moveSelection = new List<Pawn> { frame };
-                var moveOptions = FloatMenuMakerMap.GetOptions(moveSelection, destination.ToVector3Shifted(), out var _);
-                string commandRangeText = "OutOfCommandRange".Translate();
-                Check(!moveOptions.Any(option => option.Label.Contains(commandRangeText)), "ordinary movement never exposes Biotech command-range rejection");
-                var gotoOption = moveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
-                Check(gotoOption != null, "ordinary drafted-pawn right-click movement option available");
-                gotoOption.Chosen(colonistOrdering: true, null);
+                OnGui(() =>
+                {
+                    var moveSelection = new List<Pawn> { frame };
+                    var moveOptions = FloatMenuMakerMap.GetOptions(moveSelection, destination.ToVector3Shifted(), out var _);
+                    string commandRangeText = "OutOfCommandRange".Translate();
+                    Check(!moveOptions.Any(option => option.Label.Contains(commandRangeText)), "ordinary movement never exposes Biotech command-range rejection");
+                    var gotoOption = moveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
+                    Check(gotoOption != null, "ordinary drafted-pawn right-click movement option available");
+                    gotoOption.Chosen(colonistOrdering: true, null);
+                    Next(11);
+                });
+            }
+            else if (step == 11 && frame.CurJobDef == JobDefOf.Goto)
+            {
+                Check(true, "ordinary movement option issues Goto");
+                destination = frame.CurJob.targetA.Cell;
                 Next(1);
             }
             else if (step == 1 && frame.Position == destination)
             {
                 Check(true, "real pathing reaches ordered destination");
-                target = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
-                target.SetFaction(Faction.OfAncientsHostile);
-                GenSpawn.Spawn(target, frame.Position + new IntVec3(8, 0, 0), frame.Map);
-                targetHealth = target.HitPoints;
-                var attackSelection = new List<Pawn> { frame };
-                var attackOptions = FloatMenuMakerMap.GetOptions(attackSelection, target.DrawPos, out var _);
-                Check(FloatMenuUtility.GetMeleeAttackAction(frame, target, out var meleeFail) != null, "ordinary melee attack action is available as a valid alternative");
-                var attackOption = FloatMenuMakerMap.GetAutoTakeOption(attackOptions);
-                Check(attackOption != null && attackOption.Priority == MenuOptionPriority.AttackEnemy && attackOption.autoTakeablePriority == 40f,
-                    "ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid");
-                attackOption.Chosen(colonistOrdering: true, null);
-                Next(2);
+                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile),
+                    frame.Position + new IntVec3(8, 0, 0), frame.Map);
+                OnGui(() =>
+                {
+                    var attackSelection = new List<Pawn> { frame };
+                    var attackOptions = FloatMenuMakerMap.GetOptions(attackSelection, target.DrawPos, out var attackContext);
+                    Check(target.Spawned && target.HostileTo(Faction.OfPlayer) && !target.Position.Fogged(target.Map),
+                        "hostile ranged target is spawned and visible");
+                    Check(attackContext.ClickedThings.Contains(target),
+                        $"hostile target is present under its draw position; target={target.Position} clicked={attackContext.ClickedCell} things={string.Join(", ", attackContext.ClickedThings)}");
+                    Check(FloatMenuUtility.GetMeleeAttackAction(frame, target, out var meleeFail) != null, "ordinary melee attack action is available as a valid alternative");
+                    var attackOption = FloatMenuMakerMap.GetAutoTakeOption(attackOptions);
+                    Check(attackOption != null && attackOption.Priority == MenuOptionPriority.AttackEnemy && attackOption.autoTakeablePriority == 40f,
+                        "ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: " +
+                        string.Join(" | ", attackOptions.Select(option =>
+                            $"{option.Label} disabled={option.Disabled} priority={option.Priority} auto={option.autoTakeable} autoPriority={option.autoTakeablePriority}")));
+                    attackOption.Chosen(colonistOrdering: true, null);
+                    Next(2);
+                });
             }
-            else if (step == 2 && target.HitPoints < targetHealth)
+            else if (step == 2 && TargetDamaged())
             {
                 Check(true, "real projectile damages target");
                 Next(3, 300);
@@ -205,32 +244,43 @@ namespace ZenithFrame.Tests
                 squadStartA = frame.Position;
                 squadStartB = squadMateFrame.Position;
                 IntVec3 groupDestination = frame.Position + new IntVec3(0, 0, 6);
-                var groupSelection = new List<Pawn> { frame, squadMateFrame };
-                var groupMoveOptions = FloatMenuMakerMap.GetOptions(groupSelection, groupDestination.ToVector3Shifted(), out var _);
-                Check(!groupMoveOptions.Any(option => option.Label.Contains("OutOfCommandRange".Translate())), "group move has no Biotech command-range rejection");
-                var groupGoto = groupMoveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
-                Check(groupGoto != null, "ordinary multiselect movement option available");
-                groupGoto.Chosen(colonistOrdering: true, null);
-                Check(frame.CurJobDef == JobDefOf.Goto && squadMateFrame.CurJobDef == JobDefOf.Goto, "one group move command reaches both Frames");
+                OnGui(() =>
+                {
+                    var groupSelection = new List<Pawn> { frame, squadMateFrame };
+                    var groupMoveOptions = FloatMenuMakerMap.GetOptions(groupSelection, groupDestination.ToVector3Shifted(), out var _);
+                    Check(!groupMoveOptions.Any(option => option.Label.Contains("OutOfCommandRange".Translate())), "group move has no Biotech command-range rejection");
+                    var groupGoto = groupMoveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
+                    Check(groupGoto != null, "ordinary multiselect movement option available");
+                    groupGoto.Chosen(colonistOrdering: true, null);
+                    Next(31, 1200);
+                });
+            }
+            else if (step == 31 && frame.CurJobDef == JobDefOf.Goto && squadMateFrame.CurJobDef == JobDefOf.Goto)
+            {
+                Check(true, "one group move command reaches both Frames");
                 Next(4, 1200);
             }
             else if (step == 4 && frame.Position != squadStartA && squadMateFrame.Position != squadStartB)
             {
                 Check(true, "both Frames physically move under one group order");
-                target = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
-                target.SetFaction(Faction.OfAncientsHostile);
                 IntVec3 targetCell = frame.Position + new IntVec3(8, 0, 0);
-                GenSpawn.Spawn(target, targetCell, frame.Map);
-                targetHealth = target.HitPoints;
-                var groupSelection = new List<Pawn> { frame, squadMateFrame };
-                var groupAttackOptions = FloatMenuMakerMap.GetOptions(groupSelection, target.DrawPos, out var _);
-                var groupAttack = FloatMenuMakerMap.GetAutoTakeOption(groupAttackOptions);
-                Check(groupAttack != null && groupAttack.Priority == MenuOptionPriority.AttackEnemy, "ordinary multiselect hostile attack is directly auto-takeable");
-                groupAttack.Chosen(colonistOrdering: true, null);
-                Check(frame.CurJobDef == JobDefOf.AttackStatic && squadMateFrame.CurJobDef == JobDefOf.AttackStatic, "one group attack command reaches both Frames");
+                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), targetCell, frame.Map);
+                OnGui(() =>
+                {
+                    var groupSelection = new List<Pawn> { frame, squadMateFrame };
+                    var groupAttackOptions = FloatMenuMakerMap.GetOptions(groupSelection, target.DrawPos, out var _);
+                    var groupAttack = FloatMenuMakerMap.GetAutoTakeOption(groupAttackOptions);
+                    Check(groupAttack != null && groupAttack.Priority == MenuOptionPriority.AttackEnemy, "ordinary multiselect hostile attack is directly auto-takeable");
+                    groupAttack.Chosen(colonistOrdering: true, null);
+                    Next(41, 1200);
+                });
+            }
+            else if (step == 41 && frame.CurJobDef == JobDefOf.AttackStatic && squadMateFrame.CurJobDef == JobDefOf.AttackStatic)
+            {
+                Check(true, "one group attack command reaches both Frames");
                 Next(5, 1200);
             }
-            else if (step == 5 && (target.Destroyed || target.HitPoints < targetHealth))
+            else if (step == 5 && TargetDamaged())
             {
                 Check(true, "group-issued Frame attack produces real projectile damage");
                 frame.jobs.StopAll();
@@ -277,6 +327,13 @@ namespace ZenithFrame.Tests
                 frame = null;
                 SaveNext(2);
             }
+        }
+        private bool TargetDamaged()
+        {
+            if (target == null || target.Destroyed) return true;
+            if (target is Pawn pawnTarget)
+                return pawnTarget.Dead || pawnTarget.Downed || pawnTarget.health.hediffSet.hediffs.OfType<Hediff_Injury>().Any();
+            return false;
         }
         private void RecoveryLoad()
         {
