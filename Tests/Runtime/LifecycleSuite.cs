@@ -22,6 +22,9 @@ namespace ZenithFrame.Tests
         private Thing target;
         private IntVec3 destination;
         private int targetHealth;
+        private FramePawn squadMateFrame;
+        private IntVec3 squadStartA;
+        private IntVec3 squadStartB;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "phase-" + phase + ".txt");
@@ -137,8 +140,16 @@ namespace ZenithFrame.Tests
                 Check(pilot != null && frame != null && frame.Cockpit.Pilot == pilot && pilot.GetUniqueLoadID() == pilotId, "fresh-process save/load restores pilot identity and relationship");
                 Unique(pilot, "after load");
                 Check(frame.Drafted && frame.Cockpit.CanOperate, "draft and control survive load");
-                Check(frame.GetGizmos().Count() == 2, "only Frame-specific disembark plus normal-semantics draft gizmo remain");
-                Check(frame.GetGizmos().OfType<Command>().Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
+                Check(frame.CanTakeOrder && !frame.IsPlayerControlled && !frame.IsColonyMech, "Frame receives orders without impersonating a colonist or Biotech mech");
+                var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
+                Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
+                Check(!frameCommands.Any(command => command.defaultLabel == "Move" || command.defaultLabel == "Fire rifle"), "temporary Move/Fire chess-piece gizmos are absent");
+                Thing looseRifle = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"));
+                GenSpawn.Spawn(looseRifle, frame.Position + new IntVec3(2, 0, 0), frame.Map);
+                var itemSelection = new List<Pawn> { frame };
+                var itemOptions = FloatMenuMakerMap.GetOptions(itemSelection, looseRifle.DrawPos, out var _);
+                Check(itemOptions.Count == 1 && itemOptions[0].isGoto, "Frame order bridge does not expose colonist equip/pickup/work actions");
+                looseRifle.Destroy();
                 foreach (Pawn p in Find.CurrentMap.mapPawns.FreeColonistsSpawned.ToList()) p.SetFaction(null);
                 Check(Find.CurrentMap.mapPawns.FreeColonistsSpawned.Count == 0, "last-colonist fixture has only embarked pilot");
                 Next(10, 650);
@@ -149,6 +160,8 @@ namespace ZenithFrame.Tests
                 destination = frame.Position + new IntVec3(0, 0, 5);
                 var moveSelection = new List<Pawn> { frame };
                 var moveOptions = FloatMenuMakerMap.GetOptions(moveSelection, destination.ToVector3Shifted(), out var _);
+                string commandRangeText = "OutOfCommandRange".Translate();
+                Check(!moveOptions.Any(option => option.Label.Contains(commandRangeText)), "ordinary movement never exposes Biotech command-range rejection");
                 var gotoOption = moveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
                 Check(gotoOption != null, "ordinary drafted-pawn right-click movement option available");
                 gotoOption.Chosen(colonistOrdering: true, null);
@@ -158,12 +171,13 @@ namespace ZenithFrame.Tests
             {
                 Check(true, "real pathing reaches ordered destination");
                 target = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                target.SetFaction(Faction.OfAncientsHostile);
                 GenSpawn.Spawn(target, frame.Position + new IntVec3(8, 0, 0), frame.Map);
                 targetHealth = target.HitPoints;
                 var attackSelection = new List<Pawn> { frame };
                 var attackOptions = FloatMenuMakerMap.GetOptions(attackSelection, target.DrawPos, out var _);
-                var attackOption = attackOptions.FirstOrDefault(option => option.Priority == MenuOptionPriority.AttackEnemy && !option.Disabled);
-                Check(attackOption != null, "ordinary drafted-pawn right-click attack option available");
+                var attackOption = FloatMenuMakerMap.GetAutoTakeOption(attackOptions);
+                Check(attackOption != null && attackOption.Priority == MenuOptionPriority.AttackEnemy, "ordinary hostile right-click attack is directly auto-takeable");
                 attackOption.Chosen(colonistOrdering: true, null);
                 Next(2);
             }
@@ -178,6 +192,53 @@ namespace ZenithFrame.Tests
                 Check(!frame.drafter.FireAtWill, "fire at will disabled");
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+
+                other.SetFaction(Faction.OfPlayer);
+                IntVec3 mateCell = other.Position + IntVec3.East;
+                squadMateFrame = SpawnFrame(mateCell);
+                Check(squadMateFrame.Cockpit.TryBoard(other), "second Frame accepts second pilot for group-control test");
+                Check(squadMateFrame.SetDrafted(true), "second piloted Frame drafts");
+                squadStartA = frame.Position;
+                squadStartB = squadMateFrame.Position;
+                IntVec3 groupDestination = frame.Position + new IntVec3(0, 0, 6);
+                var groupSelection = new List<Pawn> { frame, squadMateFrame };
+                var groupMoveOptions = FloatMenuMakerMap.GetOptions(groupSelection, groupDestination.ToVector3Shifted(), out var _);
+                Check(!groupMoveOptions.Any(option => option.Label.Contains("OutOfCommandRange".Translate())), "group move has no Biotech command-range rejection");
+                var groupGoto = groupMoveOptions.FirstOrDefault(option => option.isGoto && !option.Disabled);
+                Check(groupGoto != null, "ordinary multiselect movement option available");
+                groupGoto.Chosen(colonistOrdering: true, null);
+                Check(frame.CurJobDef == JobDefOf.Goto && squadMateFrame.CurJobDef == JobDefOf.Goto, "one group move command reaches both Frames");
+                Next(4, 1200);
+            }
+            else if (step == 4 && frame.Position != squadStartA && squadMateFrame.Position != squadStartB)
+            {
+                Check(true, "both Frames physically move under one group order");
+                target = ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel);
+                target.SetFaction(Faction.OfAncientsHostile);
+                IntVec3 targetCell = frame.Position + new IntVec3(8, 0, 0);
+                GenSpawn.Spawn(target, targetCell, frame.Map);
+                targetHealth = target.HitPoints;
+                var groupSelection = new List<Pawn> { frame, squadMateFrame };
+                var groupAttackOptions = FloatMenuMakerMap.GetOptions(groupSelection, target.DrawPos, out var _);
+                var groupAttack = FloatMenuMakerMap.GetAutoTakeOption(groupAttackOptions);
+                Check(groupAttack != null && groupAttack.Priority == MenuOptionPriority.AttackEnemy, "ordinary multiselect hostile attack is directly auto-takeable");
+                groupAttack.Chosen(colonistOrdering: true, null);
+                Check(frame.CurJobDef == JobDefOf.AttackStatic && squadMateFrame.CurJobDef == JobDefOf.AttackStatic, "one group attack command reaches both Frames");
+                Next(5, 1200);
+            }
+            else if (step == 5 && (target.Destroyed || target.HitPoints < targetHealth))
+            {
+                Check(true, "group-issued Frame attack produces real projectile damage");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                squadMateFrame.jobs.StopAll();
+                squadMateFrame.stances.CancelBusyStanceHard();
+                Check(squadMateFrame.Cockpit.TryDisembark(), "group-test pilot disembarks");
+                squadMateFrame.Destroy();
+                squadMateFrame = null;
+                if (target != null && !target.Destroyed) target.Destroy();
+
                 Check(frame.Cockpit.TryDisembark(), "disembark succeeds");
                 Unique(pilot, "disembarked");
                 Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "disembark empties cockpit, stops Frame and removes order eligibility");
