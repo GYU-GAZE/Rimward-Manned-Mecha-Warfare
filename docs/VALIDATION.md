@@ -1,5 +1,59 @@
 # MVP validation status
 
+## Validated disabled-chassis recovery foundation
+
+Branch:
+
+```text
+feat/disabled-frame-recovery
+```
+
+Runtime-tested implementation commit:
+
+```text
+f7a4696c75a111d9b800ca9d32553eae8dc291cf
+```
+
+Commit `c99a6a7` then narrowed an overbroad static-test expression without changing production code, runtime tests or the staged DLL. The narrowed 49-check static suite and the 144-case policy suite both passed after that change.
+
+Executed 2026-09-28 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590), Unity 2022.3.35f1 on Windows, with Harmony 2.4.2.0 from Workshop item `2009463077`.
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive boolean cases |
+| XML/Core def/package/source/recovery checks | PASS, 49 checks |
+| Live Core-only suite | PASS, 209 assertions, 4 fresh processes, 3 save/load transitions |
+| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 209 assertions, 4 fresh processes, 3 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Tested DLL SHA-256:
+
+```text
+89882F30DB1A97688E7CE54B45D6E785D3202CCE4089D08A31E48D9085A4FF10
+```
+
+The four current phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+### Recovery behavior proven
+
+- recoverable disablement is derived from the existing Frame Pawn being spawned, downed, alive, not destroyed and empty; no second saved disabled flag exists
+- loss of both moving-limb-core parts ejects the exact pilot and leaves the same Frame on the map
+- the disabled chassis is selectable, inspectable, rejects draft/move/ranged/melee/boarding orders and shows a concise recoverable status
+- a save made while disabled reloads the same `GetUniqueLoadID()` and the same scribed Frame reference in a fresh process
+- the Dev Mode-only recovery action repairs one missing part or injury at a time and stops when RimWorld's real health state becomes mobile
+- unrelated remaining chassis loss is retained rather than silently full-healed
+- the existing debug rifle dropped by vanilla incapacity is transferred back from the immediate recovery site; no replacement rifle or Frame is created
+- recovery leaves the Frame empty, undrafted and unable to take orders until the same pilot boards through the existing job
+- after reboarding, ordinary movement, ranged attack and forced melee all work again
+- ordinary applied damage can also create a recoverable downed state, and a second recovery cycle preserves identity without duplicate pilot state
+- truly dead or destroyed disabled Frames are rejected by the recovery API
+- the same behavior passes with Biotech present without Mechanitor, Overseer, bandwidth, command-range or control-group semantics
+
+This is a technical lifecycle proof only. The command is explicitly development-only. No material cost, repair work, recovery bay, towing, hostile capture, hacking or faction conversion is implemented.
+
+---
+
 ## Validated pawn-first control baseline
 
 Branch:

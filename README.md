@@ -2,7 +2,7 @@
 
 Experimental RimWorld 1.6 vertical MVP for pilotable humanoid **Frames / mecha**.
 
-The current target is deliberately small: one debug Frame, one real colonist pilot, explicit pilot ownership, ordinary Pawn-style combat input, save/load, and safe pilot ejection. Placeholder vanilla lancer art is still used. There is no research, progression, chassis library or final loadout UI yet.
+The current target is deliberately small: one debug Frame, one real colonist pilot, explicit pilot ownership, ordinary Pawn-style combat input, save/load, safe pilot ejection, and a Dev-only disabled-chassis recovery proof. Placeholder vanilla lancer art is still used. There is no final repair economy, research, progression, chassis library or final loadout UI yet.
 
 ## Important terminology
 
@@ -50,7 +50,7 @@ Live tests use a disposable runtime/profile under ignored `artifacts` paths. The
 
 The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
 
-`fix/pawn-first-controls` replaces that temporary control layer. **This refactor still requires a fresh local build and live-runtime test pass before it is considered validated.** Historical results in `docs/VALIDATION.md` are not evidence that the new Harmony control bridge already passes.
+`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` builds on it and proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. Exact evidence is recorded in `docs/VALIDATION.md`.
 
 ## Manual MVP validation after the automated suite is green
 
@@ -64,7 +64,11 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 6. Pilot two or more Frames, select them together, then issue one move order and one attack order. Every eligible selected Frame should receive the group command.
 7. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
 8. Disembark and verify the pawns return normally.
-9. Board again, down a Frame, and verify emergency ejection. Repeat with a fresh Frame using kill/destruction.
+9. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
+10. Save and reload while the chassis is disabled. Confirm its identity and disabled state remain.
+11. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
+12. Board the same recovered chassis again and repeat draft, movement, ranged and forced-melee checks.
+13. Disable and recover it a second time, then disable and kill/destroy test Frames. Dead or destroyed Frames must not offer or accept recovery.
 
 "Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. Fire-at-will remains disabled, so the Frame should not independently acquire a new target.
 

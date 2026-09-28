@@ -5,4 +5,14 @@ PASS rescue delivers pilot and empties owner
 PASS recovered: exactly one pawn object with pilot ID
 PASS recovered: live and exclusively owned
 PASS faction preserved through complete lifecycle
-PASS ALL LIFECYCLE PHASES COMPLETE
+PASS recovery fixture boards pilot before disablement
+PASS recovery fixture drafts before disablement
+PASS missing moving limbs create a recoverable disabled chassis
+PASS disabled transition ejects exact pilot
+PASS disabled chassis rejects drafting, orders and boarding
+PASS disabled chassis has concise recoverable inspect status
+PASS disabled chassis remains selectable
+PASS disabled chassis exposes development-only recovery command in Dev Mode
+PASS disabled before save: exactly one pawn object with pilot ID
+PASS disabled before save: live and exclusively owned
+PASS phase complete; saved for fresh-process reload

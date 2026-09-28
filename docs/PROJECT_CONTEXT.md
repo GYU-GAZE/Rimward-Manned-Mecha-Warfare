@@ -328,6 +328,12 @@ This creates a meaningful distinction between:
 - killing or incapacitating its pilot
 - recovering the chassis
 
+### Current recovery foundation
+
+The first player-owned disabled-chassis vertical slice is implemented with Pawn health as the source of truth. A recoverable disabled chassis is the same spawned `FramePawn` while downed, alive, not destroyed and empty after pilot ejection. Do not add a parallel saved disabled Boolean.
+
+The current recovery operation is a Dev Mode-only technical proof: it repairs only until normal Pawn health evaluation clears downing, preserves the same Frame identity, leaves it empty/inactive and requires normal reboarding. It is not a final repair economy. Hostile recovery still requires the separate future hacking/ownership-conversion milestone.
+
 The previous mod already contains a hacking implementation that can be studied as behavioral reference.
 
 ---

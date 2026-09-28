@@ -92,12 +92,28 @@ If the Frame is off-map or a normal drop cannot occur, ownership transfers to `P
 
 The game-over bridge remains explicit ownership-based presence logic. It does not fake `Map` or `Position`.
 
+## Disabled-chassis recovery
+
+`CompFrameRecovery` is a focused Frame-only lifecycle component. It does not save a parallel `isDisabled` flag. `IsRecoverablyDisabled` is derived from the existing Pawn and cockpit state:
+
+- the Frame is spawned and downed
+- it is alive and not destroyed
+- its cockpit exists and contains no pilot
+
+The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
+
+`TryRecover` operates on the existing `FramePawn`. It restores missing-part common ancestors one at a time, then individual injuries largest-first only if still needed, stopping as soon as RimWorld's normal health evaluation clears the downed state. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. If vanilla dropped the fixed debug rifle during incapacity, recovery transfers that exact nearby item back into the equipment owner; it does not create another weapon.
+
+Successful recovery leaves the chassis unpiloted, undrafted and inactive. A pilot must board again through the normal boarding job before Pawn-first controls become available. Dead and destroyed Frames fail recovery.
+
+This is deliberately a technical development action, not the final repair economy. Costs, work, facilities, towing, hostile recovery, hacking and ownership conversion remain future systems.
+
 ## Deliberate MVP boundaries
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
 - No hostile/neutral boarding or faction conversion yet.
 - One fixed debug weapon only.
-- No reload/ammunition, repair, power, research, loadout system, chassis variants or final art.
+- No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
 - No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No autonomous target acquisition.
@@ -115,4 +131,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor was validated in Core-only and all-installed-expansions configurations at source commit `74c2cf4c71a80cc691571c2051deeb25675a6b01`; see `docs/VALIDATION.md` for the exact environment, gates, binary hash and retained phase reports.
+The pawn-first control refactor and disabled-chassis recovery foundation were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

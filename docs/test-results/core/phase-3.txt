@@ -1,0 +1,39 @@
+PASS fresh-process disabled load restores the same Frame identity
+PASS fresh-process load preserves disabled empty chassis state
+PASS loaded disabled chassis remains inactive and rejects boarding
+PASS disabled reload: exactly one pawn object with pilot ID
+PASS disabled reload: live and exclusively owned
+PASS disabled chassis receives no move or attack right-click orders
+PASS disabled chassis receives no forced melee order
+PASS pilot right-click offers no boarding action for disabled chassis
+PASS development recovery restores disabled chassis
+PASS recovery preserves exact Frame object and load identity
+PASS recovered Frame is mobile and alive
+PASS recovered Frame remains unpiloted, undrafted and inactive
+PASS development recovery stops before full-healing unrelated remaining chassis loss
+PASS recovery reclaims the existing debug weapon dropped at disablement
+PASS recovered Frame re-enters normal pilot right-click boarding flow
+PASS recovered Frame boarding uses and completes the existing boarding job
+PASS same pilot boards same recovered Frame
+PASS recovered and reboarded Frame drafts through Pawn-first controls
+PASS recovered Frame receives ordinary movement action
+PASS recovered Frame receives ordinary Goto job
+PASS recovered Frame physically moves
+PASS recovered Frame ordinary hostile action selects ranged attack; actual options: Fire at Toa disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Toa disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
+PASS recovered Frame ranged attack causes real damage
+PASS recovered Frame retains ordinary forced melee action; failure=
+PASS recovered Frame forced melee uses AttackMelee and closes distance
+PASS recovered Frame melee attack causes real damage
+PASS pilot disembarks after recovered-control checks
+PASS Frame is empty before ordinary-damage disablement
+PASS ordinary applied chassis damage can create recoverable downing
+PASS empty damage-downed Frame is recoverable and inactive
+PASS second disable/recover cycle succeeds
+PASS second recovery preserves identity without creating a pilot
+PASS recovered Frame can be disabled again without stale recovery state
+PASS dead disabled chassis cannot be recovered
+PASS empty destruction fixture reaches disabled state
+PASS destroyed disabled chassis cannot be recovered
+PASS recovery lifecycle complete: exactly one pawn object with pilot ID
+PASS recovery lifecycle complete: live and exclusively owned
+PASS ALL LIFECYCLE PHASES COMPLETE
