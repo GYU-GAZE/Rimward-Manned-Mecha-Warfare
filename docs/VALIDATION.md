@@ -1,58 +1,123 @@
-# MVP candidate validation
+# MVP validation status
 
-Executed 2026-09-27 on the user's installed RimWorld 1.6.4871 binary (runtime reports rev591; Version.txt reports rev590). Unity 2022.3.35f1, Windows, Direct3D 11. All game references were taken from that installation.
+## Current branch: pawn-first control refactor
 
-## Final results
+Branch:
 
-| Layer | Result |
+```text
+fix/pawn-first-controls
+```
+
+The lifecycle foundation inherited from `feat/mvp-pilot-lifecycle` was previously validated, but the control layer has since changed materially:
+
+- Frame classification changed from vanilla `Mechanoid` flesh to custom `ZF_FrameMechanical`
+- Harmony became a runtime dependency
+- the temporary custom Move and Fire gizmos were removed
+- pilot boarding moved into the normal pilot right-click flow
+- Frames now enter the ordinary Pawn right-click order pipeline through narrow Harmony bridges
+- ordered ranged attacks are sustained rather than capped to one burst
+- automated tests now cover ordinary right-click controls and group orders
+
+**No fresh local RimWorld run has been performed on this branch yet.**
+
+Therefore the branch is not considered validated until the following are rerun against the user's installed RimWorld 1.6 build:
+
+```powershell
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
+./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
+dotnet run --project Tests/Policy -c Release
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithInstalledExpansions
+```
+
+The live suite now expects Harmony to be installed. `Run-LiveTests.ps1` auto-detects Steam Workshop item `2009463077` or accepts `-HarmonyDir PATH`.
+
+### New control regressions that must pass
+
+The revised runtime harness checks, among other things:
+
+- `FramePawn.RaceProps.IsMechanoid == false`
+- a piloted Frame can enter `FloatMenuContext` through `CanTakeOrder`
+- the Frame still does **not** report itself as vanilla `IsPlayerControlled` or `IsColonyMech`
+- selecting a human pilot and right-clicking the Frame offers **Board Frame**
+- the normal draft hotkey binding is present
+- the temporary custom **Move** / **Fire rifle** gizmos are absent
+- enabling Frame orders does not expose colonist equip/pickup/work actions
+- ordinary right-click movement is available with no command-range rejection
+- a hostile right-click attack is directly auto-takeable
+- the attack remains active beyond the first burst
+- one multiselect movement order reaches two piloted Frames
+- both Frames physically move from that group order
+- one multiselect attack order gives both Frames an `AttackStatic` job
+- the group-issued attack causes real projectile damage
+- unpiloted/disembarked Frames lose ordinary order eligibility
+
+The pre-existing ownership, save/load, downing, death, direct destruction and recovery assertions remain in the same live suite.
+
+---
+
+## Historical validated baseline
+
+The results below apply to the earlier commit line ending at `0f2d9676` on `feat/mvp-pilot-lifecycle`.
+
+They **do not** prove that the current Harmony/pawn-first branch passes.
+
+Executed 2026-09-27 on the user's installed RimWorld 1.6.4871 binary (runtime reports rev591; Version.txt reports rev590), Unity 2022.3.35f1 on Windows.
+
+| Layer | Historical result |
 |---|---|
 | Clean Release build | PASS, 0 warnings, 0 errors |
 | Deterministic rebuild | PASS, identical DLL SHA-256 |
 | Pure eligibility policy | PASS, 144 exhaustive boolean cases |
-| XML, Core def references, package and source checks | PASS, 27 checks |
+| XML/Core def/package/source checks | PASS, 27 checks |
 | Live Core-only suite | PASS, 138 assertions, 3 fresh processes, 2 save/load transitions |
-| Live Core + all five installed expansions | PASS, 138 assertions, 3 fresh processes, 2 save/load transitions |
-| Runtime log gates | PASS, no exceptions, config/XML/reference or asset-loading errors in the six final logs |
+| Live Core + five installed expansions | PASS, 138 assertions, 3 fresh processes, 2 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
 
-The 141 PASS lines per configuration include 138 assertions plus three phase-completion markers. Twenty board/disembark cycles are included per configuration; they are repetitions for regression coverage, not 20 distinct features. All six game processes exited with code 0.
-
-Final profiles: `artifacts/final-core` and `artifacts/final-dlc`. The latter enabled Royalty, Ideology, Biotech, Anomaly and Odyssey. Both profiles used only official content, the production mod and the separate development harness. No existing user save or mod configuration was modified.
-
-Tested production DLL SHA-256:
+Historical tested DLL SHA-256:
 
 ```text
 8E509A617C803D089FFD97AD293F8758E7B5C2B877243CD38B8EFE20B82AFC43
 ```
 
-Per-assertion reports are committed in `docs/test-results`. Full engine logs are included in the delivered validation evidence archive, not committed as game-generated output. A Steam API initialization message occurs when the disposable runtime runs outside Steam; offline game initialization and all tests succeeded. No claim is made about Steam/Workshop integration.
+That hash belongs to the old control candidate and must not be reported as the current branch binary.
 
-## Verified inside the real game
+### What the historical runtime suite established
 
-- Actual reservation/pathing/boarding job and single-pilot container ownership; no spawned cockpit pawn and no second object with the same pilot load ID.
-- Null/self, foreign-faction, nonadjacent and occupied-cockpit rejection; no ownership mutation on rejection.
-- Recursive map discovery of the unspawned pilot, faction coherence and no-pilot draft/move refusal.
-- Deep-scribed pilot identity and relationship across process restarts; draft restoration with and without Biotech.
-- Sole living player colonist embarked across longer than the normal game-over countdown.
-- Real Goto job/pathfinder and real rifle projectile damage; single attack job completes, fire-at-will disabled.
-- Normal disembark and 20 repeated transfer cycles per configuration.
-- Real downing from removal of both mechanical legs, normal Kill, direct Destroy and off-map Destroy.
-- Failed off-map disembark retains cockpit ownership; emergency rescue transfers ownership before destruction.
-- Rescue owner survives another process restart and delivers the same pilot alive to the home map.
+The earlier suite established the lifecycle foundation:
 
-## Faults found and fixed during development
+- real reservation/pathing/boarding job
+- exactly one pilot object with explicit cockpit ownership
+- rejection of null/self/foreign/nonadjacent/second-pilot boarding without pawn loss
+- deep-scribed pilot identity across fresh-process save/load
+- embarked last colonist surviving the vanilla game-over countdown
+- real pathfinding and real projectile damage
+- repeated board/disembark ownership transfers
+- deterministic downing by loss of both mechanical moving limbs
+- ejection on down, kill and direct destroy
+- off-map destruction transfer to `PilotRecovery`
+- recovery-owner save/load and eventual delivery of the same pilot
 
-- Initial eligibility wrongly assumed spawned pawns had no ThingOwner; 1.6 uses map ownership.
-- Vanilla removes/recreates the mech draft controller without Biotech; explicit saved draft intent fixes reload.
-- Repeatedly setting FireAtWill=false cancels vanilla warmup even when already false; update only when true.
-- Required Def metadata was caught by runtime validation and corrected.
-- Harness fixes: do not combine autostart loading with quicktest; preserve native process handles; match FAIL only at line start; wait for arrival pods before arranging the arena; normalize expansion IDs and record known expansions to prevent duplicate activation; use deterministic leg-capacity loss instead of the randomized damage-until-downed helper.
+The user's manual test independently confirmed:
 
-## Audits and limits
+- three simultaneous embarked pilots remained present
+- save/load preserved all three
+- mass disembark restored all three
+- killing a Frame ejected its pilot alive
+- an unpiloted Frame could not be operated
 
-No production references to Coventech, no reflection, no Harmony patches, no third-party runtime dependency, and no swallowed exceptions. The harness catches failures to write a report and exits nonzero. Historical project documentation mentions the old dependency only to explain its exclusion.
+The same manual test rejected the old control UX because it required custom Draft/Move/Fire buttons, triggered Biotech command-range behavior on normal movement, limited fire to one burst and failed expected group attack behavior. Those failures are the reason the current branch exists.
 
-Legacy Test Mech.rar was not found locally and was not inspected. The supplied work-context document was read and preserved. No legacy implementation was copied.
+## Limits
 
-Automated coverage does not validate human mouse interactions, final visual appearance or game feel. It does not establish compatibility with other mods or support for caravans, map abandonment, gravships, long-duration campaign balance, research or progression. The tested game version is the installed 1.6.4871 build only. Pilot needs/health/aging pause while stored. The manual procedure is in README.md.
+Even after automated tests pass, human validation is still required for:
 
-The release package contains only About metadata, Frame defs and ZenithFrame.dll. The separate test mod and all proprietary binaries are excluded.
+- actual keyboard/mouse feel
+- selection behavior in the real UI
+- visual aiming/rendering feedback
+- whether grouped control feels natural rather than merely functioning
+- unexpected menu clutter not represented by automated fixtures
+
+Compatibility with other mods, caravans, map abandonment, gravships, long campaigns, research/progression and balance remain outside the MVP.
+
+Legacy `Test Mech.rar` was not available to the original Work runtime and was not used to implement the validated baseline.
