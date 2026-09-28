@@ -65,6 +65,12 @@ Assert-Static ($code -match 'Patch_Pawn_CanTakeOrder_Frame' -and $code -match 'P
 Assert-Static ($code -match 'Patch_FloatMenuUtility_GetMeleeAttackAction_Frame' -and $code -match 'Patch_PawnAttackGizmoUtility_CanOrderPlayerPawn_Frame') 'Vanilla melee-control bridge is incomplete'
 Assert-Static ($frame.Defs.ThingDef[0].tools.li.id -eq 'ZF_FrameStrike') 'Debug Frame requires a real melee verb for normal pawn attack semantics'
 Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(Pawn\),\s*nameof\(Pawn\.IsPlayerControlled') 'Frame must not globally impersonate vanilla player-controlled pawn categories'
+$frameCompClasses = @($frame.Defs.ThingDef[0].comps.li | ForEach-Object { $_.GetAttribute('Class') })
+Assert-Static ($frameCompClasses -contains 'ZenithFrame.CompProperties_FrameRecovery') 'Frame must include its focused recovery component'
+Assert-Static ($code -match 'IsRecoverablyDisabled\s*=>' -and $code -match 'Frame\.Downed' -and $code -match '!Frame\.Dead' -and $code -match '!Frame\.Destroyed') 'Recoverable state must derive from actual living downed Frame health'
+Assert-Static ($code -notmatch 'isDisabled\s*[;=]') 'Recovery must not persist a second disabled-state boolean'
+Assert-Static ($code -notmatch 'SetFaction\s*\(') 'Recovery must not convert hostile Frame ownership'
+Assert-Static ($code -notmatch 'GenSpawn\.Spawn\s*\([^\r\n]*(Frame|frame)') 'Recovery must not replace the existing Frame Pawn'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"
