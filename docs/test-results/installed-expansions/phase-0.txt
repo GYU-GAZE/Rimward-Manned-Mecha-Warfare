@@ -1,11 +1,14 @@
+PASS Frame is not classified as a RimWorld/Biotech mechanoid
 PASS before boarding: exactly one pawn object with pilot ID
 PASS before boarding: live and exclusively owned
 PASS empty Frame refuses drafting
 PASS null and self boarding rejected
 PASS foreign faction pilot rejected
-PASS empty Frame refuses movement
+PASS empty Frame refuses ordinary player orders
 PASS nonadjacent boarding rejected
 PASS failed boarding preserves map ownership
+PASS pilot right-click menu offers Board Frame; actual options: Board Frame
+PASS Board Frame menu option issues the real boarding job
 PASS real boarding job reaches Frame and transfers pilot
 PASS boarded: exactly one pawn object with pilot ID
 PASS boarded: live and exclusively owned
@@ -13,5 +16,6 @@ PASS pilot owned by cockpit
 PASS map discovers contained pilot without spawning it
 PASS second pilot rejected without loss
 PASS boarded faction coherence
+PASS piloted Frame enters ordinary pawn order pipeline
 PASS piloted Frame drafts
 PASS phase complete; saved for fresh-process reload

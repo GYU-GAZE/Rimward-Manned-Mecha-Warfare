@@ -1,6 +1,6 @@
 # MVP validation status
 
-## Current branch: pawn-first control refactor
+## Validated pawn-first control baseline
 
 Branch:
 
@@ -18,9 +18,32 @@ The lifecycle foundation inherited from `feat/mvp-pilot-lifecycle` was previousl
 - ordered ranged attacks are sustained rather than capped to one burst
 - automated tests now cover ordinary right-click controls and group orders
 
-**No fresh local RimWorld run has been performed on this branch yet.**
+Validated source commit:
 
-Therefore the branch is not considered validated until the following are rerun against the user's installed RimWorld 1.6 build:
+```text
+74c2cf4c71a80cc691571c2051deeb25675a6b01
+```
+
+Executed 2026-09-28 on the user's installed RimWorld 1.6.4871 binary (runtime reports rev591; `Version.txt` reports rev590), Unity 2022.3.35f1 on Windows. Harmony 2.4.2.0 was loaded from Steam Workshop item `2009463077`.
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive boolean cases |
+| XML/Core def/package/source checks | PASS, 44 checks |
+| Live Core-only suite | PASS, 161 assertions, 3 fresh processes, 2 save/load transitions |
+| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 161 assertions, 3 fresh processes, 2 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Tested DLL SHA-256:
+
+```text
+97870E2275D21B803C3A015CA6C50B301CC80C86F7FBBD9D53C63E93ECBDFF0A
+```
+
+The clean build was repeated after both live runs and produced the hash above. The tracked phase reports are in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+Reproduction commands:
 
 ```powershell
 ./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
@@ -32,7 +55,7 @@ dotnet run --project Tests/Policy -c Release
 
 The live suite now expects Harmony to be installed. `Run-LiveTests.ps1` auto-detects Steam Workshop item `2009463077` or accepts `-HarmonyDir PATH`.
 
-### New control regressions that must pass
+### Control regressions covered
 
 The revised runtime harness checks, among other things:
 
@@ -54,7 +77,7 @@ The revised runtime harness checks, among other things:
 - the group-issued attack causes real projectile damage
 - unpiloted/disembarked Frames lose ordinary order eligibility
 
-The pre-existing ownership, save/load, downing, death, direct destruction and recovery assertions remain in the same live suite.
+The pre-existing ownership, save/load, downing, death, direct destruction and pilot-recovery assertions pass in the same live suite.
 
 ---
 
@@ -62,7 +85,7 @@ The pre-existing ownership, save/load, downing, death, direct destruction and re
 
 The results below apply to the earlier commit line ending at `0f2d9676` on `feat/mvp-pilot-lifecycle`.
 
-They **do not** prove that the current Harmony/pawn-first branch passes.
+They do not replace or extend the current validation above.
 
 Executed 2026-09-27 on the user's installed RimWorld 1.6.4871 binary (runtime reports rev591; Version.txt reports rev590), Unity 2022.3.35f1 on Windows.
 

@@ -2,19 +2,38 @@ PASS fresh-process save/load restores pilot identity and relationship
 PASS after load: exactly one pawn object with pilot ID
 PASS after load: live and exclusively owned
 PASS draft and control survive load
-PASS piloted control gizmos available
+PASS Frame receives orders without impersonating a colonist or Biotech mech
+PASS draft command uses normal colonist draft hotkey
+PASS vanilla melee attack gizmo is available for a drafted Frame
+PASS temporary Move/Fire chess-piece gizmos are absent
+PASS Frame order bridge does not expose colonist equip/pickup/work actions
 PASS last-colonist fixture has only embarked pilot
 PASS last embarked colonist survives game-over countdown
-PASS manual move order accepted
+PASS ordinary movement never exposes Biotech command-range rejection
+PASS ordinary drafted-pawn right-click movement option available
+PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
-PASS manual rifle attack accepted
+PASS hostile ranged target is spawned and visible
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=Bustbargoscu
+PASS ordinary melee attack action is available as a valid alternative
+PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at Bustbargoscu disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Bustbargoscu disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target
-PASS single burst ends without automatic attack job
+PASS ordinary player-issued attack remains active after the first burst
 PASS fire at will disabled
+PASS second Frame accepts second pilot for group-control test
+PASS second piloted Frame drafts
+PASS group move has no Biotech command-range rejection
+PASS ordinary multiselect movement option available
+PASS one group move command reaches both Frames
+PASS both Frames physically move under one group order
+PASS ordinary multiselect hostile attack is directly auto-takeable
+PASS one group attack command reaches both Frames
+PASS group-issued Frame attack produces real projectile damage
+PASS group-test pilot disembarks
 PASS disembark succeeds
 PASS disembarked: exactly one pawn object with pilot ID
 PASS disembarked: live and exclusively owned
-PASS disembark empties cockpit and stops Frame
+PASS disembark empties cockpit, stops Frame and removes order eligibility
 PASS repeat board 0
 PASS repeat disembark 0
 PASS repeat 0: exactly one pawn object with pilot ID

@@ -115,4 +115,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The current pawn-first control refactor must be rebuilt and re-run through the live RimWorld test suite before it is considered validated.
+The pawn-first control refactor was validated in Core-only and all-installed-expansions configurations at source commit `74c2cf4c71a80cc691571c2051deeb25675a6b01`; see `docs/VALIDATION.md` for the exact environment, gates, binary hash and retained phase reports.
