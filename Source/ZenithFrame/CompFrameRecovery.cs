@@ -60,8 +60,28 @@ namespace ZenithFrame
                 }
             }
 
+            ReclaimDroppedDebugWeapon();
             Frame.Cockpit.StopFrame();
             return !Frame.Downed && !Frame.Dead && !Frame.Destroyed;
+        }
+
+        private void ReclaimDroppedDebugWeapon()
+        {
+            if (Frame.Downed || Frame.equipment?.Primary != null || !Frame.Spawned)
+                return;
+
+            ThingDef debugRifle = DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle");
+            ThingWithComps droppedRifle = GenRadial
+                .RadialDistinctThingsAround(Frame.Position, Frame.Map, 2f, true)
+                .OfType<ThingWithComps>()
+                .FirstOrDefault(thing => thing.Spawned && thing.def == debugRifle);
+            if (droppedRifle == null) return;
+
+            IntVec3 originalPosition = droppedRifle.Position;
+            droppedRifle.DeSpawn();
+            Frame.equipment.AddEquipment(droppedRifle);
+            if (Frame.equipment.Primary != droppedRifle && droppedRifle.holdingOwner == null && !droppedRifle.Destroyed)
+                GenSpawn.Spawn(droppedRifle, originalPosition, Frame.Map);
         }
 
         public override string CompInspectStringExtra()
