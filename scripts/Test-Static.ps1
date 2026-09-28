@@ -70,7 +70,8 @@ Assert-Static ($frameCompClasses -contains 'ZenithFrame.CompProperties_FrameReco
 Assert-Static ($code -match 'IsRecoverablyDisabled\s*=>' -and $code -match 'Frame\.Downed' -and $code -match '!Frame\.Dead' -and $code -match '!Frame\.Destroyed') 'Recoverable state must derive from actual living downed Frame health'
 Assert-Static ($code -notmatch 'isDisabled\s*[;=]') 'Recovery must not persist a second disabled-state boolean'
 Assert-Static ($code -notmatch 'SetFaction\s*\(') 'Recovery must not convert hostile Frame ownership'
-Assert-Static ($code -notmatch 'GenSpawn\.Spawn\s*\([^\r\n]*(Frame|frame)') 'Recovery must not replace the existing Frame Pawn'
+$recoveryCode = Get-Content "$repo/Source/ZenithFrame/CompFrameRecovery.cs" -Raw
+Assert-Static ($recoveryCode -notmatch 'PawnGenerator|ThingMaker\.MakeThing') 'Recovery must not construct or replace the existing Frame Pawn'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"
