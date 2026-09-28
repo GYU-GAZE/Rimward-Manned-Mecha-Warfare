@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions)
+param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
@@ -12,6 +12,12 @@ if (!(Test-Path "$runtime/RimWorldWin64.exe")) {
     Copy-Item "$RimWorldDir/Data/Core" "$runtime/Data" -Recurse
 }
 Copy-Item "$repo/artifacts/ZenithFrame" "$runtime/Mods" -Recurse -Force
+if ([string]::IsNullOrWhiteSpace($HarmonyDir)) {
+    $steamApps = Split-Path (Split-Path $RimWorldDir -Parent) -Parent
+    $HarmonyDir = Join-Path $steamApps "workshop/content/294100/2009463077"
+}
+if (!(Test-Path "$HarmonyDir/About/About.xml")) { throw "Harmony missing. Install Workshop item 2009463077 or pass -HarmonyDir PATH." }
+Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
 New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
 Copy-Item "$repo/Tests/Runtime/About" "$runtime/Mods/ZenithTests" -Recurse -Force
 Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$runtime/Mods/ZenithTests/Assemblies" -Force
@@ -34,7 +40,7 @@ $profile = Join-Path $repo "artifacts/$RunName"
 if (Test-Path $profile) { throw "Use a new RunName; profile already exists: $profile" }
 New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Null
 @'
-<ModsConfigData><version>1.6.4871</version><activeMods><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
+<ModsConfigData><version>1.6.4871</version><activeMods><li>brrainz.harmony</li><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
 '@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
