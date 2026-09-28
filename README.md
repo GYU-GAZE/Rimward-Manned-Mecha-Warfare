@@ -1,34 +1,71 @@
 # ZENITH FRAME: RIMWARD - Mecha Warfare
 
-Experimental RimWorld 1.6 vertical MVP: one real humanoid mech Pawn, one real colonist pilot, explicit pilot ownership, manual movement/fire and safe ejection. Placeholder vanilla lancer art; no research or progression.
+Experimental RimWorld 1.6 vertical MVP for pilotable humanoid **Frames / mecha**.
 
-## Build and test
+The current target is deliberately small: one debug Frame, one real colonist pilot, explicit pilot ownership, ordinary Pawn-style combat input, save/load, and safe pilot ejection. Placeholder vanilla lancer art is still used. There is no research, progression, chassis library or final loadout UI yet.
 
-Windows prerequisites: .NET SDK 10 (global.json), .NET Framework 4.7.2 targeting pack and a local RimWorld 1.6 installation. No proprietary binaries or testing dependencies are distributed.
+## Important terminology
+
+A Zenith Frame is **not** a RimWorld Biotech controllable mech.
+
+Frames do not use Mechanitors, Overseers, command range, bandwidth or mech control groups. The debug Frame is a custom non-organic Pawn with its own mechanical flesh type. A valid piloted Frame is bridged into ordinary drafted-Pawn orders.
+
+## Runtime dependency
+
+The mod now depends on **Harmony**:
+
+- package ID: `brrainz.harmony`
+- Steam Workshop item: `2009463077`
+
+Harmony is a shared RimWorld mod dependency. ZENITH FRAME does **not** bundle its own `0Harmony.dll`.
+
+Biotech is not required.
+
+## Build and automated tests
+
+Windows prerequisites:
+
+- .NET SDK selected by `global.json`
+- .NET Framework 4.7.2 targeting pack
+- a local RimWorld 1.6 installation
+- Harmony installed for live-runtime tests
+
+From the repository root:
 
 ```powershell
 ./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
 dotnet run --project Tests/Policy -c Release
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
-# Optional: repeat with all locally installed official expansions
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithInstalledExpansions
 ```
 
-The build produces `artifacts/ZenithFrame`. Copy that folder into RimWorld's Mods directory and enable **ZENITH FRAME: RIMWARD - Mecha Warfare**. Core is sufficient; no Biotech, Harmony or third-party framework is required.
+`Run-LiveTests.ps1` auto-detects the Steam Workshop Harmony install in the same Steam library. A different install can be supplied with `-HarmonyDir PATH`.
 
-Live tests copy the game runtime and Core data into ignored `artifacts/runtime`, use an isolated save-data directory and start/stop only their own game processes. The development harness is a separate mod that is never included in the release package. Logs, save files and per-phase assertion reports remain in the disposable profile. Do not run two suites concurrently against the shared staged runtime. Graphical device initialization is required: `-nographics` breaks vanilla texture initialization on this build; tests run hidden with `-batchmode` and Direct3D.
+The build produces `artifacts/ZenithFrame`. The release folder contains this mod's data and `ZenithFrame.dll`; it does not copy RimWorld assemblies, Harmony DLLs or the development test harness.
 
-## In-game validation
+Live tests use a disposable runtime/profile under ignored `artifacts` paths. They do not modify the user's normal save folder or mod configuration.
 
-Use a disposable colony with the mod enabled and Dev Mode on.
+## Current validation status
 
-1. Debug actions → ZENITH FRAME → Spawn debug Frame. Click a clear cell near a colonist.
-2. Select the Frame → Board Frame → choose the colonist. Verify the colonist walks over, disappears from the ground and appears in the Frame's pilot inspection text.
-3. Draft Frame → Move → select a reachable cell. Fire rifle → choose a target within 30 cells and line of sight. One command fires one burst; issue another command to fire again.
-4. Save while embarked, return to the menu and load. Verify the same pilot is aboard and the Frame remains controllable. Disembark and verify the pilot returns.
-5. Board again and disable the Frame (the damage-until-downed debug action may require repeated attempts on a mech; loss of both mechanical legs is deterministic). Verify the pilot is ejected alive. Repeat on a fresh Frame with the kill debug action.
+The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
 
-Human validation is primarily visual: selection, menu usability, sprite, aiming feedback and whether movement/fire feel correct. Automated tests exercise the actual jobs, combat, ownership, down/death and fresh-process save/load.
+`fix/pawn-first-controls` replaces that temporary control layer. **This refactor still requires a fresh local build and live-runtime test pass before it is considered validated.** Historical results in `docs/VALIDATION.md` are not evidence that the new Harmony control bridge already passes.
 
-See [architecture](docs/ARCHITECTURE.md), [baseline](docs/BASELINE.md), [project context](docs/PROJECT_CONTEXT.md) and [validation results](docs/VALIDATION.md).
+## Manual MVP validation after the automated suite is green
+
+Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
+
+1. Debug actions -> ZENITH FRAME -> Spawn debug Frame.
+2. Select a colonist, right-click the Frame, choose **Board Frame**. The pawn should walk to it and embark.
+3. Select the piloted Frame and press **R**. It should draft/undraft like an ordinary pawn.
+4. While drafted, right-click clear ground. The Frame should move normally. There must be no Mechanitor/command-range message and no custom **Move** gizmo.
+5. Right-click a hostile target. The Frame should use the normal ordered attack flow and keep attacking that chosen target beyond one burst until the job ends or another order interrupts it. There must be no custom **Fire rifle** gizmo.
+6. Pilot two or more Frames, select them together, then issue one move order and one attack order. Every eligible selected Frame should receive the group command.
+7. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
+8. Disembark and verify the pawns return normally.
+9. Board again, down a Frame, and verify emergency ejection. Repeat with a fresh Frame using kill/destruction.
+
+"Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. Fire-at-will remains disabled, so the Frame should not independently acquire a new target.
+
+See [architecture](docs/ARCHITECTURE.md), [baseline](docs/BASELINE.md), [project context](docs/PROJECT_CONTEXT.md) and [validation status](docs/VALIDATION.md).
