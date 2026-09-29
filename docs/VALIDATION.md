@@ -1,6 +1,6 @@
 # MVP validation status
 
-## Validated disabled-chassis recovery foundation
+## Validated disabled-chassis recovery foundation and control cleanup
 
 Branch:
 
@@ -11,26 +11,24 @@ feat/disabled-frame-recovery
 Runtime-tested implementation commit:
 
 ```text
-f7a4696c75a111d9b800ca9d32553eae8dc291cf
+acbb9325b3c1ee32371aa15c0b9f951c144d512a
 ```
 
-Commit `c99a6a7` then narrowed an overbroad static-test expression without changing production code, runtime tests or the staged DLL. The narrowed 49-check static suite and the 144-case policy suite both passed after that change.
-
-Executed 2026-09-28 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590), Unity 2022.3.35f1 on Windows, with Harmony 2.4.2.0 from Workshop item `2009463077`.
+Executed 2026-09-29 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590), Unity 2022.3.35f1 on Windows, with Harmony 2.4.2.0 from Workshop item `2009463077`.
 
 | Layer | Result |
 |---|---|
 | Clean Release build | PASS, 0 warnings, 0 errors |
 | Pure eligibility policy | PASS, 144 exhaustive boolean cases |
-| XML/Core def/package/source/recovery checks | PASS, 49 checks |
-| Live Core-only suite | PASS, 209 assertions, 4 fresh processes, 3 save/load transitions |
-| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 209 assertions, 4 fresh processes, 3 save/load transitions |
+| XML/Core def/package/source/recovery checks | PASS, 51 checks |
+| Live Core-only suite | PASS, 219 assertions, 4 fresh processes, 3 save/load transitions |
+| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 219 assertions, 4 fresh processes, 3 save/load transitions |
 | Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
 
 Tested DLL SHA-256:
 
 ```text
-89882F30DB1A97688E7CE54B45D6E785D3202CCE4089D08A31E48D9085A4FF10
+AE685B5B6EA5BEB68C8310D12E04231DE820DA2700B3CF5934FAA24EBCB348BB
 ```
 
 The four current phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
@@ -49,6 +47,19 @@ The four current phase reports for each configuration are retained in `docs/test
 - ordinary applied damage can also create a recoverable downed state, and a second recovery cycle preserves identity without duplicate pilot state
 - truly dead or destroyed disabled Frames are rejected by the recovery API
 - the same behavior passes with Biotech present without Mechanitor, Overseer, bandwidth, command-range or control-group semantics
+- disabled player and hostile Frames are excluded from vanilla Rescue/Capture eligibility, autonomous `RescueDowned` work and their right-click options
+- the equipped rifle exposes vanilla `Command_VerbTarget` on `Misc1` / `B` while piloted and drafted; the old custom Fire gizmo remains absent
+- disembarking immediately makes the same weapon verb unavailable
+
+### Recovery regression and manual checklist
+
+- down a player Frame and confirm the pilot ejects, no **Rescue** option appears and no colonist starts rescue work
+- down a hostile empty Frame and confirm neither **Capture** nor **Rescue** appears
+- board and draft a recovered Frame, press **B**, select a target and confirm the normal weapon command fires the existing equipped rifle
+- disembark and confirm **B** can no longer fire the Frame weapon
+- save and reload once while disabled, then recover and reboard the exact same chassis
+
+During the all-expansions run, random DLC pawn generation attached an off-map ex-spouse to a disposable test colonist. The fixture now clears random generated relationships before its first save. The repeated four-process DLC run completed without unresolved references or other gated log errors.
 
 This is a technical lifecycle proof only. The command is explicitly development-only. No material cost, repair work, recovery bay, towing, hostile capture, hacking or faction conversion is implemented.
 

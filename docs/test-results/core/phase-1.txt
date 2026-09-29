@@ -5,6 +5,9 @@ PASS draft and control survive load
 PASS Frame receives orders without impersonating a colonist or Biotech mech
 PASS draft command uses normal colonist draft hotkey
 PASS vanilla melee attack gizmo is available for a drafted Frame
+PASS drafted Frame exposes the equipped rifle through vanilla Command_VerbTarget
+PASS vanilla ranged weapon command uses Misc1 / B
+PASS normal ranged command uses the Frame weapon verb and is available while piloted and drafted
 PASS temporary Move/Fire chess-piece gizmos are absent
 PASS Frame order bridge does not expose colonist equip/pickup/work actions
 PASS last-colonist fixture has only embarked pilot
@@ -14,7 +17,7 @@ PASS ordinary drafted-pawn right-click movement option available
 PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
 PASS hostile ranged target is spawned and visible
-PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame65679
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame45107
 PASS ordinary melee attack action is available as a valid alternative
 PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target
@@ -34,6 +37,7 @@ PASS disembark succeeds
 PASS disembarked: exactly one pawn object with pilot ID
 PASS disembarked: live and exclusively owned
 PASS disembark empties cockpit, stops Frame and removes order eligibility
+PASS unpiloted Frame cannot fire through the normal ranged command
 PASS repeat board 0
 PASS repeat disembark 0
 PASS repeat 0: exactly one pawn object with pilot ID
@@ -119,6 +123,12 @@ PASS downing fixture has two mechanical legs
 PASS real capacity-loss downing ejects immediately
 PASS downed Frame: exactly one pawn object with pilot ID
 PASS downed Frame: live and exclusively owned
+PASS downed player Frame is semantically excluded from forced rescue
+PASS automatic RescueDowned work rejects a disabled Frame
+PASS downed player Frame exposes no Rescue Pawn option
+PASS hostile rescue fixture is disabled and remains hostile
+PASS hostile disabled Frame is excluded from forced rescue/capture eligibility
+PASS hostile disabled Frame exposes neither Capture Pawn nor Rescue Pawn
 PASS board before death
 PASS death ejects before destruction
 PASS dead Frame: exactly one pawn object with pilot ID

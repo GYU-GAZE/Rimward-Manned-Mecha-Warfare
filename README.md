@@ -61,14 +61,16 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 3. Select the piloted Frame and press **R**. It should draft/undraft like an ordinary pawn.
 4. While drafted, right-click clear ground. The Frame should move normally. There must be no Mechanitor/command-range message and no custom **Move** gizmo.
 5. Right-click a hostile target. The Frame should use the normal ordered attack flow and keep attacking that chosen target beyond one burst until the job ends or another order interrupts it. There must be no custom **Fire rifle** gizmo.
-6. Pilot two or more Frames, select them together, then issue one move order and one attack order. Every eligible selected Frame should receive the group command.
-7. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
-8. Disembark and verify the pawns return normally.
-9. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
-10. Save and reload while the chassis is disabled. Confirm its identity and disabled state remain.
-11. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
-12. Board the same recovered chassis again and repeat draft, movement, ranged and forced-melee checks.
-13. Disable and recover it a second time, then disable and kill/destroy test Frames. Dead or destroyed Frames must not offer or accept recovery.
+6. Press **B** while the Frame is drafted. The normal equipped-weapon targeting command should appear and fire the same rifle. Disembark and confirm the weapon command becomes unavailable.
+7. Pilot two or more Frames, select them together, then issue one move order and one attack order. Every eligible selected Frame should receive the group command.
+8. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
+9. Disembark and verify the pawns return normally.
+10. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
+11. Select a colonist and right-click the player disabled Frame. **Rescue** must not appear. Repeat with a hostile disabled empty Frame; neither **Capture** nor **Rescue** may appear.
+12. Save and reload while the chassis is disabled. Confirm its identity and disabled state remain.
+13. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
+14. Board the same recovered chassis again and repeat draft, movement, **B**, ranged right-click and forced-melee checks.
+15. Disable and recover it a second time, then disable and kill/destroy test Frames. Dead or destroyed Frames must not offer or accept recovery.
 
 "Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. Fire-at-will remains disabled, so the Frame should not independently acquire a new target.
 

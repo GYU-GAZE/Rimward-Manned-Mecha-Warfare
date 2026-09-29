@@ -47,23 +47,27 @@ Harmony is a runtime dependency, but the patch surface is intentionally narrow. 
 
 Current patch points:
 
-1. `Pawn.CanTakeOrder`
+1. `HealthAIUtility.CanRescueNow`
+   - rejects every `FramePawn` from vanilla rescue/capture semantics
+   - also blocks autonomous `WorkGiver_RescueDowned` jobs while leaving ordinary Pawns unchanged
+
+2. `Pawn.CanTakeOrder`
    - returns true for a valid operable `FramePawn`
    - this property is used by `FloatMenuContext` to decide which selected Pawns enter the ordinary right-click order pipeline
 
-2. `FloatMenuOptionProvider.SelectedPawnValid`
+3. `FloatMenuOptionProvider.SelectedPawnValid`
    - for Frames, permits only the ordinary drafted movement and drafted attack providers
    - prevents the `CanTakeOrder` bridge from accidentally exposing colonist work/equip/haul/tend/rescue/etc. orders
 
-3. `FloatMenuUtility.GetRangedAttackAction`
+4. `FloatMenuUtility.GetRangedAttackAction`
    - supplies the ordinary `AttackStatic` job for a Frame's equipped ranged weapon
    - omits Biotech command-range checks because Frames are not Biotech mechs
 
-4. `FloatMenuUtility.GetMeleeAttackAction`
+5. `FloatMenuUtility.GetMeleeAttackAction`
    - bridges Frames through the same reachability, violence, melee-verb and `AttackMelee` semantics used by ordinary Pawns
    - removes only the hard-coded vanilla controlled-pawn / Biotech command-range assumptions
 
-5. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
+6. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
    - lets vanilla's own melee/squad attack gizmo logic recognize a valid piloted Frame
    - Frames still remain neither colonists nor Biotech mechs
 
@@ -71,7 +75,7 @@ Current patch points:
 
 ## Weapon behavior
 
-The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
+The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown. Its standard equipment command is enabled, so a piloted drafted Frame receives vanilla `Command_VerbTarget` on `Misc1` / **B**. No Frame-specific Fire gizmo exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
 
 A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
 
@@ -100,7 +104,7 @@ The game-over bridge remains explicit ownership-based presence logic. It does no
 - it is alive and not destroyed
 - its cockpit exists and contains no pilot
 
-The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
+The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. A narrow Frame-only Harmony gate also prevents vanilla Rescue/Capture actions and autonomous rescue jobs from treating the chassis as an injured or imprisonable biological Pawn. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
 
 `TryRecover` operates on the existing `FramePawn`. It restores missing-part common ancestors one at a time, then individual injuries largest-first only if still needed, stopping as soon as RimWorld's normal health evaluation clears the downed state. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. If vanilla dropped the fixed debug rifle during incapacity, recovery transfers that exact nearby item back into the equipment owner; it does not create another weapon.
 
@@ -123,7 +127,7 @@ This is deliberately a technical development action, not the final repair econom
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- five narrowly scoped Harmony patch points described above
+- six narrowly scoped Harmony patch points described above
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL
