@@ -25,6 +25,7 @@ namespace ZenithFrame.Tests
         private FramePawn squadMateFrame;
         private IntVec3 squadStartA;
         private IntVec3 squadStartB;
+        private int hackStartedTick;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -74,7 +75,9 @@ namespace ZenithFrame.Tests
                 if (phase == 0) BeforeSave();
                 else if (phase == 1) AfterLoad();
                 else if (phase == 2) RecoveryLoad();
-                else DisabledFrameLoad();
+                else if (phase == 3) DisabledFrameLoad();
+                else if (phase == 4) HackingLoad();
+                else HackedFrameLoad();
             }
             catch (Exception e)
             {
@@ -116,13 +119,8 @@ namespace ZenithFrame.Tests
                 foreach (Pawn p in map.mapPawns.FreeColonistsSpawned) p.drafter.Drafted = true;
                 frame = SpawnFrame(center);
                 Check(!frame.RaceProps.IsMechanoid, "Frame is not classified as a RimWorld/Biotech mechanoid");
-                pilot = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
-                other = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
-                // DLC pawn generation can attach an off-map relative which the test fixture
-                // deliberately does not retain. Remove those random relationships so every
-                // saved reference belongs to the lifecycle graph under test.
-                pilot.relations.ClearAllRelations();
-                other.relations.ClearAllRelations();
+                pilot = GenerateHuman(Faction.OfPlayer);
+                other = GenerateHuman(Faction.OfPlayer);
                 GenSpawn.Spawn(pilot, center + new IntVec3(6, 0, 0), map);
                 GenSpawn.Spawn(other, center + new IntVec3(0, 0, 1), map);
                 other.drafter.Drafted = true;
@@ -276,7 +274,7 @@ namespace ZenithFrame.Tests
             {
                 Check(true, "both Frames physically move under one group order");
                 IntVec3 targetCell = frame.Position + new IntVec3(8, 0, 0);
-                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), targetCell, frame.Map);
+                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), targetCell, frame.Map);
                 OnGui(() =>
                 {
                     var groupSelection = new List<Pawn> { frame, squadMateFrame };
@@ -457,7 +455,7 @@ namespace ZenithFrame.Tests
             else if (step == 2 && frame.Position == destination)
             {
                 Check(true, "recovered Frame physically moves");
-                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), frame.Position + new IntVec3(8, 0, 0), frame.Map);
+                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + new IntVec3(8, 0, 0), frame.Map);
                 OnGui(() =>
                 {
                     var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.Position.ToVector3Shifted(), out var _);
@@ -475,7 +473,7 @@ namespace ZenithFrame.Tests
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
-                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile), frame.Position + new IntVec3(5, 0, 0), frame.Map);
+                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + new IntVec3(5, 0, 0), frame.Map);
                 OnGui(() =>
                 {
                     Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out var fail);
@@ -513,6 +511,144 @@ namespace ZenithFrame.Tests
                 destroyed.Destroy();
                 Check(destroyed.Destroyed && !destroyed.Recovery.CanRecover && !destroyed.Recovery.TryRecover(), "destroyed disabled chassis cannot be recovered");
                 Unique(pilot, "recovery lifecycle complete");
+
+                OnGui(() =>
+                {
+                    FramePawn operationalHostile = SpawnFrame(pilot.Position + IntVec3.East * 3, Faction.OfAncientsHostile);
+                    Check(!operationalHostile.Hacking.CanHack(pilot, false), "operational hostile Frame is not hackable");
+                    Check(!HasHackOption(pilot, operationalHostile), "Hack Frame is absent for an operational hostile chassis");
+                    operationalHostile.Destroy();
+
+                    FramePawn playerDisabled = SpawnFrame(pilot.Position + IntVec3.North * 3);
+                    DownByMissingLegs(playerDisabled);
+                    Check(!playerDisabled.Hacking.CanHack(pilot, false), "player-owned disabled Frame is not hackable");
+                    Check(!HasHackOption(pilot, playerDisabled), "Hack Frame is absent for a player-owned disabled chassis");
+                    playerDisabled.Destroy();
+
+                    FramePawn occupied = SpawnFrame(pilot.Position + IntVec3.West);
+                    Check(occupied.Cockpit.TryBoard(pilot), "occupied hacking-negative fixture accepts a pilot");
+                    Check(!occupied.Hacking.CanHack(other, false), "Frame containing a pilot is not hackable");
+                    Check(!HasHackOption(other, occupied), "Hack Frame is absent for a chassis containing a pilot");
+                    Check(occupied.Cockpit.TryDisembark(), "occupied hacking-negative fixture returns its pilot");
+                    occupied.Destroy();
+
+                    FramePawn deadHostile = SpawnFrame(pilot.Position + IntVec3.South * 3, Faction.OfAncientsHostile);
+                    DownByMissingLegs(deadHostile);
+                    deadHostile.Kill(null);
+                    Check(!deadHostile.Hacking.CanHack(pilot, false), "dead hostile Frame is not hackable");
+
+                    FramePawn destroyedHostile = SpawnFrame(pilot.Position + IntVec3.South * 4, Faction.OfAncientsHostile);
+                    DownByMissingLegs(destroyedHostile);
+                    destroyedHostile.Destroy();
+                    Check(!destroyedHostile.Hacking.CanHack(pilot, false), "destroyed hostile Frame is not hackable");
+
+                    frame = SpawnFrame(pilot.Position + IntVec3.East * 5, Faction.OfAncientsHostile);
+                    DownByMissingLegs(frame);
+                    frameId = frame.GetUniqueLoadID();
+                    Check(frame.Hacking.IsHostileDisabledChassis && frame.Hacking.CanHack(pilot, true), "hostile empty downed Frame is hackable by an eligible colonist");
+                    Check(HasHackOption(pilot, frame), "Hack Frame appears only for the eligible hostile disabled chassis");
+                    UniqueFrame(frame, "hostile disabled before hacking save");
+                    SaveNext(4);
+                });
+            }
+        }
+
+        private void HackingLoad()
+        {
+            if (step == 0)
+            {
+                Check(frame != null && frame.GetUniqueLoadID() == frameId, "pre-hack fresh-process load restores the same hostile Frame identity");
+                Check(frame.Hacking.IsHostileDisabledChassis && frame.Downed && !frame.Cockpit.HasPilot, "pre-hack load preserves hostile empty disabled state");
+                UniqueFrame(frame, "pre-hack reload");
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    var hack = options.FirstOrDefault(option => option.Label == "Hack Frame" && !option.Disabled);
+                    Check(hack != null, "eligible colonist receives explicit Hack Frame right-click action");
+                    Check(!options.Any(option => option.Label.Contains("Capture".Translate()) || option.Label.Contains("Rescue".Translate())), "hostile disabled Frame still exposes no Capture or Rescue beside hacking");
+                    hack.Chosen(colonistOrdering: true, null);
+                    Check(pilot.CurJobDef == DefDatabase<JobDef>.GetNamed("ZF_HackFrame"), "Hack Frame option issues the real hacking job");
+                    Check(frame.Faction.HostileTo(Faction.OfPlayer), "hacking does not change ownership when the job is merely issued");
+                    hackStartedTick = Find.TickManager.TicksGame;
+                    Next(1, 1800);
+                });
+            }
+            else if (step == 1 && pilot.Position.AdjacentTo8WayOrInside(frame.Position))
+            {
+                Check(pilot.CurJobDef == DefDatabase<JobDef>.GetNamed("ZF_HackFrame"), "hacking job reserves and paths the colonist into touch range");
+                Check(frame.Faction.HostileTo(Faction.OfPlayer), "Frame remains hostile when timed hacking work begins");
+                Next(2, 1200);
+            }
+            else if (step == 2 && frame.Faction == Faction.OfPlayer)
+            {
+                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks, "hacking completes only after the visible work delay");
+                Check(frame.GetUniqueLoadID() == frameId && frame.Downed && !frame.Cockpit.HasPilot && !frame.Drafted, "hacking converts the same Frame and leaves it disabled empty and undrafted");
+                Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked Frame remains in the existing recovery lifecycle and cannot operate");
+                UniqueFrame(frame, "hacked before save");
+                SaveNext(5);
+            }
+        }
+
+        private void HackedFrameLoad()
+        {
+            if (step == 0)
+            {
+                Check(frame != null && frame.GetUniqueLoadID() == frameId, "post-hack fresh-process load restores the same Frame identity");
+                Check(frame.Faction == Faction.OfPlayer && frame.Downed && frame.Recovery.IsRecoverablyDisabled, "post-hack load preserves player ownership and disabled state");
+                Check(!frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "post-hack loaded Frame remains empty undrafted and inactive");
+                UniqueFrame(frame, "post-hack reload");
+                Check(frame.Recovery.TryRecover(), "hacked disabled Frame uses the existing recovery API");
+                Check(frame.GetUniqueLoadID() == frameId && !frame.Downed && !frame.Cockpit.HasPilot, "recovery preserves hacked Frame identity and empty cockpit");
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    var board = options.FirstOrDefault(option => option.Label.Contains("Board Frame") && !option.Disabled);
+                    Check(board != null, "recovered hacked Frame re-enters the existing boarding flow");
+                    board.Chosen(colonistOrdering: true, null);
+                    Next(1, 1800);
+                });
+            }
+            else if (step == 1 && frame.Cockpit.HasPilot)
+            {
+                Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && frame.SetDrafted(true), "same pilot boards and drafts the hacked recovered Frame");
+                Command_VerbTarget ranged = frame.GetGizmos().OfType<Command_VerbTarget>()
+                    .SingleOrDefault(command => command.verb == frame.equipment.PrimaryEq.PrimaryVerb);
+                Check(ranged != null && ranged.hotKey == KeyBindingDefOf.Misc1 && ranged.verb.Available(), "hacked recovered Frame restores the normal B ranged command");
+                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 8, frame.Map);
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.DrawPos, out var _);
+                    var attack = FloatMenuMakerMap.GetAutoTakeOption(options);
+                    Check(attack != null && attack.autoTakeablePriority == 40f, "hacked recovered Frame restores ordinary right-click ranged attack");
+                    attack.Chosen(colonistOrdering: true, null);
+                    Next(2, 1200);
+                });
+            }
+            else if (step == 2 && TargetDamaged())
+            {
+                Check(true, "hacked recovered Frame ranged attack causes real damage");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 5, frame.Map);
+                OnGui(() =>
+                {
+                    Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out var fail);
+                    Check(melee != null, "hacked recovered Frame restores forced melee; failure=" + fail);
+                    melee();
+                    Next(3, 1200);
+                });
+            }
+            else if (step == 3 && frame.CurJobDef == JobDefOf.AttackMelee)
+            {
+                Check(true, "hacked recovered Frame forced melee uses the ordinary AttackMelee job");
+                Next(4, 1200);
+            }
+            else if (step == 4 && TargetDamaged())
+            {
+                Check(true, "hacked recovered Frame melee attack causes real damage");
+                UniqueFrame(frame, "hacking lifecycle complete");
+                Unique(pilot, "hacking lifecycle pilot complete");
                 Finish();
             }
         }
@@ -534,6 +670,27 @@ namespace ZenithFrame.Tests
             return targetFrame.Downed && !targetFrame.Dead;
         }
         private FramePawn SpawnFrame(IntVec3 cell, Faction faction = null) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction ?? Faction.OfPlayer), cell, Find.CurrentMap);
+        private static Pawn GenerateHuman(Faction faction)
+        {
+            Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
+            // DLC generation may attach disposable fixtures to off-map relatives.
+            // Random relationships are unrelated to this ownership suite and can
+            // otherwise leave unresolved references after the fixture is destroyed.
+            pawn.relations.ClearAllRelations();
+            return pawn;
+        }
+        private static bool HasHackOption(Pawn actor, FramePawn targetFrame) =>
+            FloatMenuMakerMap.GetOptions(new List<Pawn> { actor }, targetFrame.DrawPos, out var _)
+                .Any(option => option.Label == "Hack Frame" && !option.Disabled);
+        private void UniqueFrame(FramePawn targetFrame, string stage)
+        {
+            var matches = Find.Maps.SelectMany(map => map.listerThings.AllThings)
+                .Concat<Thing>(Find.WorldPawns.AllPawnsAliveOrDead)
+                .Where(thing => thing.GetUniqueLoadID() == targetFrame.GetUniqueLoadID())
+                .Distinct()
+                .ToList();
+            Check(matches.Count == 1 && ReferenceEquals(matches[0], targetFrame), stage + ": exactly one Frame object with load ID");
+        }
         private void Next(int nextStep, int ticks = 2500) { step = nextStep; deadline = Find.TickManager.TicksGame + ticks; }
         private void SaveNext(int nextPhase)
         {
