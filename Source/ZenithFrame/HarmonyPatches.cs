@@ -15,6 +15,20 @@ namespace ZenithFrame
         }
     }
 
+    // A disabled Frame remains a mechanical chassis. Rescue and capture share
+    // this semantic gate in vanilla, so excluding the Frame here also prevents
+    // autonomous rescue work and prisoner-style acquisition without changing
+    // ordinary Pawn behavior.
+    [HarmonyPatch(typeof(HealthAIUtility), nameof(HealthAIUtility.CanRescueNow))]
+    internal static class Patch_HealthAIUtility_CanRescueNow_Frame
+    {
+        private static void Postfix(Pawn patient, ref bool __result)
+        {
+            if (patient is FramePawn)
+                __result = false;
+        }
+    }
+
     // Frames are deliberately neither human colonists nor Biotech colony mechs.
     // This narrow bridge lets the ordinary right-click order pipeline keep a
     // valid piloted Frame in FloatMenuContext without changing its race identity.

@@ -118,6 +118,11 @@ namespace ZenithFrame.Tests
                 Check(!frame.RaceProps.IsMechanoid, "Frame is not classified as a RimWorld/Biotech mechanoid");
                 pilot = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
                 other = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+                // DLC pawn generation can attach an off-map relative which the test fixture
+                // deliberately does not retain. Remove those random relationships so every
+                // saved reference belongs to the lifecycle graph under test.
+                pilot.relations.ClearAllRelations();
+                other.relations.ClearAllRelations();
                 GenSpawn.Spawn(pilot, center + new IntVec3(6, 0, 0), map);
                 GenSpawn.Spawn(other, center + new IntVec3(0, 0, 1), map);
                 other.drafter.Drafted = true;
@@ -170,6 +175,10 @@ namespace ZenithFrame.Tests
                 var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc2), "vanilla melee attack gizmo is available for a drafted Frame");
+                Command_VerbTarget rangedCommand = frameCommands.OfType<Command_VerbTarget>().SingleOrDefault(command => command.verb == frame.equipment.PrimaryEq.PrimaryVerb);
+                Check(rangedCommand != null, "drafted Frame exposes the equipped rifle through vanilla Command_VerbTarget");
+                Check(rangedCommand.hotKey == KeyBindingDefOf.Misc1, "vanilla ranged weapon command uses Misc1 / B");
+                Check(rangedCommand.verb is Verb_FrameShot && rangedCommand.verb.Available(), "normal ranged command uses the Frame weapon verb and is available while piloted and drafted");
                 Check(!frameCommands.Any(command => command.defaultLabel == "Move" || command.defaultLabel == "Fire rifle"), "temporary Move/Fire chess-piece gizmos are absent");
                 Thing looseRifle = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"));
                 GenSpawn.Spawn(looseRifle, frame.Position + new IntVec3(2, 0, 0), frame.Map);
@@ -298,6 +307,7 @@ namespace ZenithFrame.Tests
                 Check(frame.Cockpit.TryDisembark(), "disembark succeeds");
                 Unique(pilot, "disembarked");
                 Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "disembark empties cockpit, stops Frame and removes order eligibility");
+                Check(!frame.equipment.PrimaryEq.PrimaryVerb.Available(), "unpiloted Frame cannot fire through the normal ranged command");
                 for (int i = 0; i < 20; i++)
                 {
                     Check(frame.Cockpit.TryBoard(pilot), "repeat board " + i);
@@ -310,6 +320,25 @@ namespace ZenithFrame.Tests
                 foreach (var leg in legs) frame.health.AddHediff(HediffDefOf.MissingBodyPart, leg);
                 Check(frame.Downed && !frame.Dead && !frame.Cockpit.HasPilot && pilot.Spawned, "real capacity-loss downing ejects immediately");
                 Unique(pilot, "downed Frame");
+                Check(!HealthAIUtility.CanRescueNow(pilot, frame, forced: true), "downed player Frame is semantically excluded from forced rescue");
+                Check(!new WorkGiver_RescueDowned().HasJobOnThing(pilot, frame, forced: true), "automatic RescueDowned work rejects a disabled Frame");
+                OnGui(() =>
+                {
+                    var playerFrameOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    Check(!playerFrameOptions.Any(option => option.Label.Contains("Rescue".Translate())), "downed player Frame exposes no Rescue Pawn option");
+
+                    FramePawn hostileDisabled = SpawnFrame(pilot.Position + IntVec3.East * 3, Faction.OfAncientsHostile);
+                    DownByMissingLegs(hostileDisabled);
+                    Check(hostileDisabled.Downed && hostileDisabled.Faction.HostileTo(Faction.OfPlayer), "hostile rescue fixture is disabled and remains hostile");
+                    Check(!HealthAIUtility.CanRescueNow(pilot, hostileDisabled, forced: true), "hostile disabled Frame is excluded from forced rescue/capture eligibility");
+                    var hostileOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, hostileDisabled.DrawPos, out var _);
+                    Check(!hostileOptions.Any(option => option.Label.Contains("Capture".Translate()) || option.Label.Contains("Rescue".Translate())), "hostile disabled Frame exposes neither Capture Pawn nor Rescue Pawn");
+                    hostileDisabled.Destroy();
+                    Next(51);
+                });
+            }
+            else if (step == 51)
+            {
                 FramePawn deadFrame = SpawnFrame(pilot.Position);
                 Check(deadFrame.Cockpit.TryBoard(pilot), "board before death");
                 deadFrame.Kill(null);
@@ -504,7 +533,7 @@ namespace ZenithFrame.Tests
             }
             return targetFrame.Downed && !targetFrame.Dead;
         }
-        private FramePawn SpawnFrame(IntVec3 cell) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfPlayer), cell, Find.CurrentMap);
+        private FramePawn SpawnFrame(IntVec3 cell, Faction faction = null) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction ?? Faction.OfPlayer), cell, Find.CurrentMap);
         private void Next(int nextStep, int ticks = 2500) { step = nextStep; deadline = Find.TickManager.TicksGame + ticks; }
         private void SaveNext(int nextPhase)
         {
