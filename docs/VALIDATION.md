@@ -1,5 +1,64 @@
 # MVP validation status
 
+## Validated disabled hostile Frame hacking
+
+Branch:
+
+```text
+feat/disabled-frame-hacking
+```
+
+Runtime-tested implementation commit:
+
+```text
+84a2f23ccabc53f26c5ca239ccb6f7f17d5ea25a
+```
+
+Executed 2026-09-29 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590), Unity 2022.3.35f1 on Windows, with Harmony 2.4.2.0 from Workshop item `2009463077`.
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive boolean cases |
+| XML/Core def/package/source/recovery/hacking checks | PASS, 57 checks |
+| Live Core-only suite | PASS, 262 assertions, 6 fresh processes, 5 save/load transitions |
+| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 262 assertions, 6 fresh processes, 5 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Tested DLL SHA-256:
+
+```text
+617499C9A113CB5E7E86F1A6D02DFCF3E79C4F1D3A792550DD4E29ED84E1F8DD
+```
+
+The six current phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+### Hacking behavior proven
+
+- **Hack Frame** appears through the normal right-click menu only for an eligible player colonist targeting a spawned, living, empty, downed hostile Frame
+- operational hostile, player-owned disabled, pilot-containing, dead and destroyed Frames are rejected
+- the real `ZF_HackFrame` job reserves the target, paths into touch range, runs a visible 180-tick work delay and continuously fails if eligibility is lost
+- ownership changes only when work completes, using `FramePawn.SetFaction(Faction.OfPlayer)` on the existing object
+- the exact `GetUniqueLoadID()` survives a fresh-process save/load before hacking and a second fresh-process save/load after hacking
+- faction conversion leaves the Frame downed, empty, undrafted and unable to take orders
+- the existing recovery component restores mobility without replacing the Frame
+- the existing boarding job accepts the same pilot after recovery
+- the recovered hacked Frame regains ordinary draft, vanilla **B** / `Command_VerbTarget`, right-click ranged attack and forced melee behavior
+- vanilla Capture, Rescue and autonomous rescue remain unavailable throughout the hostile disabled state
+
+### Hacking manual checklist
+
+- down a hostile empty Frame and confirm **Hack Frame** appears while **Capture** and **Rescue** do not
+- issue **Hack Frame** from several cells away and confirm the colonist walks into touch range and displays work progress
+- interrupt the colonist or invalidate the target during work and confirm ownership does not change
+- complete the job and confirm the same chassis remains downed, empty and unusable but now belongs to the player
+- save and reload both before and after hacking, checking that no duplicate Frame appears
+- use the existing Dev recovery action, board a pilot, draft with **R**, target with **B**, attack by right-click and force melee
+
+The 180-tick duration, lack of skill/stat scaling, absence of material cost and plain **Hack Frame** presentation are provisional MVP tuning. The identity-preserving faction conversion, strict eligibility, job reservation/pathing/revalidation and post-hack disabled state are durable lifecycle decisions.
+
+---
+
 ## Validated disabled-chassis recovery foundation and control cleanup
 
 Branch:

@@ -2,7 +2,7 @@
 
 Experimental RimWorld 1.6 vertical MVP for pilotable humanoid **Frames / mecha**.
 
-The current target is deliberately small: one debug Frame, one real colonist pilot, explicit pilot ownership, ordinary Pawn-style combat input, save/load, safe pilot ejection, and a Dev-only disabled-chassis recovery proof. Placeholder vanilla lancer art is still used. There is no final repair economy, research, progression, chassis library or final loadout UI yet.
+The current target is deliberately small: one debug Frame, one real colonist pilot, explicit pilot ownership, ordinary Pawn-style combat input, save/load, safe pilot ejection, hostile disabled-chassis hacking, and a Dev-only recovery proof. Placeholder vanilla lancer art is still used. There is no final repair economy, research, progression, chassis library or final loadout UI yet.
 
 ## Important terminology
 
@@ -50,7 +50,7 @@ Live tests use a disposable runtime/profile under ignored `artifacts` paths. The
 
 The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
 
-`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` builds on it and proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. Exact evidence is recorded in `docs/VALIDATION.md`.
+`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds an explicit colonist job that converts the same hostile disabled Frame to player ownership while leaving it downed until recovery. Exact evidence is recorded in `docs/VALIDATION.md`.
 
 ## Manual MVP validation after the automated suite is green
 
@@ -66,11 +66,13 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 8. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
 9. Disembark and verify the pawns return normally.
 10. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
-11. Select a colonist and right-click the player disabled Frame. **Rescue** must not appear. Repeat with a hostile disabled empty Frame; neither **Capture** nor **Rescue** may appear.
-12. Save and reload while the chassis is disabled. Confirm its identity and disabled state remain.
-13. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
-14. Board the same recovered chassis again and repeat draft, movement, **B**, ranged right-click and forced-melee checks.
-15. Disable and recover it a second time, then disable and kill/destroy test Frames. Dead or destroyed Frames must not offer or accept recovery.
+11. Select a colonist and right-click the player disabled Frame. **Rescue** and **Hack Frame** must not appear.
+12. Down a hostile empty Frame. **Hack Frame** should appear while **Capture** and **Rescue** remain absent. Save and reload before hacking, then confirm the same chassis still has the action.
+13. Issue **Hack Frame** from several cells away. The colonist should reserve it, walk into touch range and display work progress. Ownership must remain hostile until the work finishes.
+14. After completion, confirm the same chassis belongs to the player but remains downed, empty, undrafted and inactive. Save and reload again and check the same identity.
+15. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
+16. Board the same recovered chassis again and repeat draft, movement, **B**, ranged right-click and forced-melee checks.
+17. Verify **Hack Frame** is absent for operational hostile, player-owned disabled, pilot-containing, dead and destroyed Frames.
 
 "Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. Fire-at-will remains disabled, so the Frame should not independently acquire a new target.
 

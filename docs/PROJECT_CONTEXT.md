@@ -328,13 +328,13 @@ This creates a meaningful distinction between:
 - killing or incapacitating its pilot
 - recovering the chassis
 
-### Current recovery foundation
+### Current recovery and hacking foundation
 
 The first player-owned disabled-chassis vertical slice is implemented with Pawn health as the source of truth. A recoverable disabled chassis is the same spawned `FramePawn` while downed, alive, not destroyed and empty after pilot ejection. Do not add a parallel saved disabled Boolean.
 
-The current recovery operation is a Dev Mode-only technical proof: it repairs only until normal Pawn health evaluation clears downing, preserves the same Frame identity, leaves it empty/inactive and requires normal reboarding. It is not a final repair economy. Hostile recovery still requires the separate future hacking/ownership-conversion milestone.
+The current recovery operation is a Dev Mode-only technical proof: it repairs only until normal Pawn health evaluation clears downing, preserves the same Frame identity, leaves it empty/inactive and requires normal reboarding. It is not a final repair economy.
 
-The previous mod already contains a hacking implementation that can be studied as behavioral reference.
+Hostile ownership conversion now begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty, downed hostile Frame, complete a visible work delay and remain eligible throughout. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking duration, skill/stat scaling, costs and presentation remain provisional; identity preservation and the disabled post-hack state are durable.
 
 ---
 

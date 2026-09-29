@@ -17,7 +17,7 @@ PASS ordinary drafted-pawn right-click movement option available
 PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
 PASS hostile ranged target is spawned and visible
-PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame62180
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame40035
 PASS ordinary melee attack action is available as a valid alternative
 PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target

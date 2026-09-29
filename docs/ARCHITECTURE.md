@@ -110,12 +110,22 @@ The existing downed notification remains responsible for ejecting the pilot. Whi
 
 Successful recovery leaves the chassis unpiloted, undrafted and inactive. A pilot must board again through the normal boarding job before Pawn-first controls become available. Dead and destroyed Frames fail recovery.
 
-This is deliberately a technical development action, not the final repair economy. Costs, work, facilities, towing, hostile recovery, hacking and ownership conversion remain future systems.
+This is deliberately a technical development action, not the final repair economy. Costs, work, facilities and towing remain future systems.
+
+## Disabled hostile Frame hacking
+
+`CompFrameHacking` owns the acquisition eligibility and final ownership transition. A target must be the existing spawned, living, empty, downed Frame represented by `CompFrameRecovery.IsRecoverablyDisabled`, and its current faction must be hostile to the player. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
+
+`FloatMenuOptionProvider_HackFrame` adds **Hack Frame** to that colonist's ordinary right-click flow. `JobDriver_HackFrame` reserves the target, uses normal touch-range pathing, performs a visible 180-tick delay and rechecks the complete eligibility predicate throughout the job. If any condition changes, the job becomes incompletable without changing faction.
+
+Successful completion calls the normal `FramePawn.SetFaction(Faction.OfPlayer)` API on the same object. It creates no replacement Frame and saves no separate hacked flag. The chassis remains downed, empty, undrafted and inactive, then proceeds through the existing recovery and boarding systems.
+
+The 180-tick duration and absence of hacking skill, stat, resource or tool requirements are provisional MVP tuning. The same-object ownership conversion and disabled post-hack state are lifecycle constraints.
 
 ## Deliberate MVP boundaries
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
-- No hostile/neutral boarding or faction conversion yet.
+- No hostile/neutral boarding. Hostile ownership conversion exists only for an empty disabled Frame through the explicit hacking job.
 - One fixed debug weapon only.
 - No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
 - No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
@@ -135,4 +145,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor and disabled-chassis recovery foundation were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery foundation and hostile disabled Frame hacking slice were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

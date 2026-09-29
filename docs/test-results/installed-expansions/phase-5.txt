@@ -1,0 +1,18 @@
+PASS post-hack fresh-process load restores the same Frame identity
+PASS post-hack load preserves player ownership and disabled state
+PASS post-hack loaded Frame remains empty undrafted and inactive
+PASS post-hack reload: exactly one Frame object with load ID
+PASS hacked disabled Frame uses the existing recovery API
+PASS recovery preserves hacked Frame identity and empty cockpit
+PASS recovered hacked Frame re-enters the existing boarding flow
+PASS same pilot boards and drafts the hacked recovered Frame
+PASS hacked recovered Frame restores the normal B ranged command
+PASS hacked recovered Frame restores ordinary right-click ranged attack
+PASS hacked recovered Frame ranged attack causes real damage
+PASS hacked recovered Frame restores forced melee; failure=
+PASS hacked recovered Frame forced melee uses the ordinary AttackMelee job
+PASS hacked recovered Frame melee attack causes real damage
+PASS hacking lifecycle complete: exactly one Frame object with load ID
+PASS hacking lifecycle pilot complete: exactly one pawn object with pilot ID
+PASS hacking lifecycle pilot complete: live and exclusively owned
+PASS ALL LIFECYCLE PHASES COMPLETE

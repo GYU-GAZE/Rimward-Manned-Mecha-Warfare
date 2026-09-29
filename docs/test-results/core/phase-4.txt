@@ -1,0 +1,14 @@
+PASS pre-hack fresh-process load restores the same hostile Frame identity
+PASS pre-hack load preserves hostile empty disabled state
+PASS pre-hack reload: exactly one Frame object with load ID
+PASS eligible colonist receives explicit Hack Frame right-click action
+PASS hostile disabled Frame still exposes no Capture or Rescue beside hacking
+PASS Hack Frame option issues the real hacking job
+PASS hacking does not change ownership when the job is merely issued
+PASS hacking job reserves and paths the colonist into touch range
+PASS Frame remains hostile when timed hacking work begins
+PASS hacking completes only after the visible work delay
+PASS hacking converts the same Frame and leaves it disabled empty and undrafted
+PASS hacked Frame remains in the existing recovery lifecycle and cannot operate
+PASS hacked before save: exactly one Frame object with load ID
+PASS phase complete; saved for fresh-process reload

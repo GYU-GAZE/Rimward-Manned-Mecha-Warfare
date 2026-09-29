@@ -12,5 +12,5 @@
       <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
     </li>
   </modDependencies>
-  <description>Experimental pilotable humanoid Frame. Development MVP: one chassis, one pilot, manual combat and safe pilot ownership.</description>
+  <description>Experimental pilotable humanoid Frame. Development MVP: one chassis, one pilot, manual combat, safe pilot ownership, disabled-chassis recovery and hostile Frame hacking.</description>
 </ModMetaData>

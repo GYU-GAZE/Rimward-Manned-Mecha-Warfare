@@ -19,7 +19,7 @@ PASS recovered and reboarded Frame drafts through Pawn-first controls
 PASS recovered Frame receives ordinary movement action
 PASS recovered Frame receives ordinary Goto job
 PASS recovered Frame physically moves
-PASS recovered Frame ordinary hostile action selects ranged attack; actual options: Fire at Toxtros disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Toxtros disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
+PASS recovered Frame ordinary hostile action selects ranged attack; actual options: Fire at Kenno disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Kenno disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS recovered Frame ranged attack causes real damage
 PASS recovered Frame retains ordinary forced melee action; failure=
 PASS recovered Frame forced melee uses AttackMelee and closes distance
@@ -36,4 +36,17 @@ PASS empty destruction fixture reaches disabled state
 PASS destroyed disabled chassis cannot be recovered
 PASS recovery lifecycle complete: exactly one pawn object with pilot ID
 PASS recovery lifecycle complete: live and exclusively owned
-PASS ALL LIFECYCLE PHASES COMPLETE
+PASS operational hostile Frame is not hackable
+PASS Hack Frame is absent for an operational hostile chassis
+PASS player-owned disabled Frame is not hackable
+PASS Hack Frame is absent for a player-owned disabled chassis
+PASS occupied hacking-negative fixture accepts a pilot
+PASS Frame containing a pilot is not hackable
+PASS Hack Frame is absent for a chassis containing a pilot
+PASS occupied hacking-negative fixture returns its pilot
+PASS dead hostile Frame is not hackable
+PASS destroyed hostile Frame is not hackable
+PASS hostile empty downed Frame is hackable by an eligible colonist
+PASS Hack Frame appears only for the eligible hostile disabled chassis
+PASS hostile disabled before hacking save: exactly one Frame object with load ID
+PASS phase complete; saved for fresh-process reload
