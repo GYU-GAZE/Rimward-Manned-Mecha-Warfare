@@ -52,7 +52,7 @@ Current patch points:
    - also blocks autonomous `WorkGiver_RescueDowned` jobs while leaving ordinary Pawns unchanged
 
 2. `Pawn.CanTakeOrder`
-   - returns true for a valid operable `FramePawn`
+   - returns true only for an operational player-owned `FramePawn` with a valid player colonist pilot
    - this property is used by `FloatMenuContext` to decide which selected Pawns enter the ordinary right-click order pipeline
 
 3. `Pawn_MeleeVerbs.TryMeleeAttack`
@@ -79,16 +79,31 @@ Current patch points:
 
 ## Weapon behavior
 
-The debug rifle uses a normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown. Its standard equipment command is enabled, so a piloted drafted Frame receives vanilla `Command_VerbTarget` on `Misc1` / **B**. No Frame-specific Fire gizmo exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
+The debug rifle uses normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown behavior. It has two narrowly gated verb entries because RimWorld's player and AI attack pipelines consult different weapon metadata:
+
+- `Verb_FrameShot` is the manually targeted standard command used by a drafted player Frame on `Misc1` / **B**
+- `Verb_HostileFrameShot` is the primary non-command verb used by vanilla hostile combat AI and is unavailable without a valid operational hostile cockpit
+
+The player right-click bridge binds the selected manual verb and marks the resulting `AttackStatic` job as player-forced. The primary execution verb is allowed to service that exact job because RimWorld's attack driver consults the equipment primary verb while firing. It receives no player command and cannot initiate a player target on its own. No Frame-specific Fire gizmo exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
 
 A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
 
-`FireAtWill` is forced off. This is intentional:
+For player Frames, the internal firing permission is enabled only while executing an explicit player-forced `AttackStatic` job bound to `Verb_FrameShot`, then returns to off. This is intentional:
 
 - continuing to fire at the target the player ordered = manual targeting
 - independently acquiring a new target = autonomous target acquisition
 
-Only the second behavior is forbidden by default.
+Only the second behavior is forbidden by default. Player Frames have no autonomous combat branch in their think tree.
+
+## Hostile piloted Frame operation
+
+`CanOperate` describes machine and pilot state without assuming player ownership: the Frame and pilot must both be functional, the cockpit must contain that exact pilot, and their non-null factions must match. `CanTakePlayerOrders` adds player ownership and player-colonist requirements. `CanUseHostileCombatAI` instead requires an operational Frame whose faction is hostile to the player. Harmony UI/order bridges consume `CanTakePlayerOrders`; machine shutdown, ejection and melee execution boundaries consume `CanOperate`.
+
+The development action **Spawn hostile piloted Frame** generates one hostile debug Frame and one real same-faction human pawn, then transfers that pawn into the existing cockpit `ThingOwner<Pawn>` through the same ownership-safe storage path used by normal boarding. The pilot is neither a fake stat record nor a duplicate world pawn. Faction mismatch, invalid pilot state or pilot loss prevents operation immediately.
+
+The Frame think tree contains one conditional hostile branch before inert idle. It runs only while `CanUseHostileCombatAI` is true and delegates target acquisition, movement, ranged combat and melee to vanilla `JobGiver_AIFightEnemies`, normal pathing, `AttackStatic`, `AttackMelee` and weapon verbs. This AI represents the stored hostile pilot operating the machine. Faction alone never enables combat.
+
+Downing ejects the exact hostile pilot through the ordinary cockpit lifecycle. The same chassis then becomes empty, inert, recoverably disabled and eligible for the existing Hack Frame job. Hacking, recovery and player boarding preserve that Frame's identity and transition it back into the ordinary player control path.
 
 ## Ejection and destruction safety
 
@@ -135,12 +150,12 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 ## Deliberate MVP boundaries
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
-- No hostile/neutral boarding. Hostile ownership conversion exists only for an empty disabled Frame through the explicit hacking job.
+- No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
 - One fixed debug weapon only.
 - No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
 - No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
-- No autonomous target acquisition.
+- No raid generation, faction-wide hostile Frame spawning, Lord integration, retreat/exit behavior or enemy loadout generation.
 
 ## Patch and dependency audit
 
@@ -155,4 +170,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor, disabled-chassis recovery foundation and hostile disabled Frame hacking slice were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery, hacking and single hostile-pilot lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

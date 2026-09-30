@@ -12,5 +12,14 @@ PASS hacked factionless Frame remains inactive in the recovery lifecycle
 PASS factionless hacking complete: exactly one Frame object with load ID
 PASS factionless hacking pilot complete: exactly one pawn object with pilot ID
 PASS factionless hacking pilot complete: live and exclusively owned
-PASS ALL LIFECYCLE PHASES COMPLETE
-
+PASS hostile Frame rejects a mismatched player-faction pilot without consuming it
+PASS rejected mismatched pilot remains safely map-owned
+PASS debug action creates one hostile Frame with a same-faction human pilot
+PASS hostile pilot is stored directly in the Frame cockpit ThingOwner
+PASS hostile Frame can operate through combat AI without accepting player orders
+PASS hostile Frame rejects ordinary player order and draft entry points
+PASS operational occupied hostile Frame is not hackable
+PASS hostile piloted before save: exactly one Frame object with load ID
+PASS hostile pilot before save: exactly one pawn object with pilot ID
+PASS hostile pilot before save: live and exclusively owned
+PASS phase complete; saved for fresh-process reload

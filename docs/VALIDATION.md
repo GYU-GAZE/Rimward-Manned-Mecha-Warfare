@@ -1,5 +1,60 @@
 # MVP validation status
 
+## Validated single hostile-pilot Frame lifecycle
+
+Branch:
+
+```text
+feat/hostile-frame-pilots
+```
+
+Runtime-tested implementation commit:
+
+```text
+26c05218a758b285c3b2b002a56064f16dc3825a
+```
+
+Executed 2026-09-30 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590), Unity 2022.3.35f1 on Windows, with Harmony 2.4.2.0 from Workshop item `2009463077`.
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive boolean cases |
+| XML/Core def/package/source/recovery/hacking/hostile-AI checks | PASS, 70 checks |
+| Live Core-only suite | PASS, 356 assertions, 8 fresh processes, 7 save/load transitions |
+| Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 356 assertions, 8 fresh processes, 7 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Tested DLL SHA-256:
+
+```text
+3FAAF4E2A2B5F228B0F19D4B54A881D3B9B18E30033AF35E7F6509B3A8025405
+```
+
+The eight final phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+### Hostile-pilot behavior proven
+
+- the debug action creates one hostile Frame and one real same-faction human pilot, then transfers that exact Pawn into the existing cockpit `ThingOwner`
+- no duplicate pilot remains spawned or independently world-owned; exact Frame and pilot identities survive a fresh-process save/load
+- faction mismatch is rejected without consuming the candidate pilot
+- `CanOperate`, `CanTakePlayerOrders` and `CanUseHostileCombatAI` separate machine validity, player input and enemy AI eligibility
+- the hostile operational Frame rejects player orders, drafting and hacking
+- vanilla `JobGiver_AIFightEnemies` acquires a real player target, ordinary pathing closes weapon range and the AI-only rifle verb causes real projectile damage
+- dropping the rifle makes the same piloted hostile Frame choose vanilla `AttackMelee` and cause real melee damage
+- deterministic downing ejects the exact hostile pilot safely, leaves the same hostile Frame empty and recoverably disabled, and enables the existing hacking job
+- the ejected empty hostile chassis remains stationary, runs only the inert Frame idle job and causes zero retaliatory melee damage for 360 ticks beside a player Pawn
+- the real timed Hack Frame job converts that same chassis without recovering or boarding it
+- Dev recovery preserves identity, the original player pilot boards, **R** drafting and **B** return, and ordinary right-click ranged and forced melee both cause real damage
+- player manual fire and hostile AI fire use separately gated verbs; the player order binds its explicit manual verb while the primary execution verb is limited to hostile AI or that exact player-forced job
+- all prior boarding, group control, save/load, ejection, Rescue/Capture exclusion, recovery, hostile hacking, factionless hacking and empty-Frame inertness regressions remain green
+
+### Scope retained
+
+This milestone deliberately spawns one development fixture. It does not add raids, faction composition, enemy Frame frequency, Lord integration, retreat/map exit, generated loadouts, multiple chassis or ace pilots. The next milestone is enemy Frame raid and faction integration.
+
+---
+
 ## Validated disabled Frame hacking and empty-Frame inertness
 
 Branch:

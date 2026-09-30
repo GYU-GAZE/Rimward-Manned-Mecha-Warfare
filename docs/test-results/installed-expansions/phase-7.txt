@@ -1,0 +1,42 @@
+PASS fresh-process load preserves hostile Frame and pilot identities
+PASS fresh-process load preserves exact hostile cockpit ownership
+PASS loaded hostile Frame operates through AI and still rejects player orders
+PASS loaded hostile Frame enables vanilla autonomous target acquisition
+PASS loaded operational hostile Frame remains ineligible for hacking
+PASS hostile piloted after load: exactly one Frame object with load ID
+PASS hostile pilot after load: exactly one pawn object with pilot ID
+PASS hostile pilot after load: live and exclusively owned
+PASS hostile AI fixture provides a spawned mutually hostile humanlike target
+PASS hostile Frame weapon verb is available to vanilla combat AI
+PASS hostile piloted Frame uses ordinary pathing to close weapon range; observed job=Goto
+PASS hostile piloted Frame acquires and damages the player pawn through vanilla ranged combat AI
+PASS hostile Frame can temporarily drop its rifle for the melee fixture
+PASS hostile piloted Frame chooses vanilla AttackMelee when unarmed
+PASS hostile piloted Frame causes legitimate melee damage
+PASS downing preserves the exact hostile Frame and pilot identities
+PASS downing ejects the exact hostile pilot safely beside the chassis
+PASS ejected hostile chassis becomes inert recoverable and hackable; canOperate=False recoverable=True canHack=True playerPilotDead=False playerPilotDowned=False
+PASS hostile pilot after ejection: exactly one pawn object with pilot ID
+PASS hostile pilot after ejection: live and exclusively owned
+PASS ejected hostile Frame remains stationary for 360 ticks beside a player pawn
+PASS ejected hostile Frame causes no retaliatory melee damage
+PASS ejected hostile Frame runs only its inert idle job
+PASS ejected hostile chassis exposes the real Hack Frame action
+PASS captured hostile chassis completes the normal timed hacking job
+PASS hacking preserves hostile chassis identity and leaves it disabled empty
+PASS captured hostile chassis enters the normal recovery API
+PASS recovered captured chassis exposes normal player boarding
+PASS original player pilot boards and drafts the captured hostile chassis
+PASS same chassis transitions from hostile AI to ordinary player control
+PASS captured reused Frame restores the normal B ranged command
+PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Nekosbas disabled=False auto=40 | Melee attack Nekosbas disabled=False auto=30 | Go here disabled=False auto=10
+PASS captured reused Frame causes real ranged damage under player control
+PASS captured reused Frame accepts forced melee; failure=
+PASS captured reused Frame uses the ordinary AttackMelee job
+PASS captured reused Frame causes real melee damage under player control
+PASS hostile Frame lifecycle complete: exactly one Frame object with load ID
+PASS player pilot in captured Frame lifecycle complete: exactly one pawn object with pilot ID
+PASS player pilot in captured Frame lifecycle complete: live and exclusively owned
+PASS ejected hostile pilot lifecycle complete: exactly one pawn object with pilot ID
+PASS ejected hostile pilot lifecycle complete: live and exclusively owned
+PASS ALL LIFECYCLE PHASES COMPLETE

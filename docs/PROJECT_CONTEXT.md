@@ -336,6 +336,8 @@ The current recovery operation is a Dev Mode-only technical proof: it repairs on
 
 Ownership conversion now begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty, downed Frame that is either hostile or factionless, complete a visible work delay and remain eligible throughout. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking duration, skill/stat scaling, costs and presentation remain provisional; identity preservation, acquisition eligibility and the disabled post-hack state are durable.
 
+The first hostile-pilot vertical slice is also implemented. Machine operation is faction-agnostic but requires a real same-faction functional pilot in the cockpit; player order eligibility and hostile AI eligibility are separate gates. One development action creates a hostile Frame and real hostile human pilot, stores the pilot in the existing cockpit owner and lets vanilla enemy combat jobs operate the Frame. Downing ejects that exact pilot and immediately restores the faction-independent empty-chassis invariant. Raid generation, faction composition and Lord behavior remain later milestones.
+
 ---
 
 ## 9. The Attached Legacy `.rar`
