@@ -32,7 +32,7 @@ namespace ZenithFrame
         {
             if (!Cockpit.CanOperate)
             {
-                if (Drafted || pather.Moving || (CurJob != null && CurJob.def != JobDefOf.Wait)) Cockpit.StopFrame();
+                if (Drafted || pather.Moving || (CurJob != null && CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob)) Cockpit.StopFrame();
                 if (Cockpit.HasPilot) Cockpit.EmergencyEject();
             }
             if (drafter != null && drafter.FireAtWill) drafter.FireAtWill = false;

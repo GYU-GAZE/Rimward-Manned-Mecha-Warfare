@@ -51,6 +51,7 @@
   </ThinkTreeDef>
   <ThinkTreeDef><defName>ZF_FrameConstant</defName><thinkRoot Class="ThinkNode_Priority" /></ThinkTreeDef>
   <JobDef><defName>ZF_BoardFrame</defName><driverClass>ZenithFrame.JobDriver_BoardFrame</driverClass><reportString>Boarding TargetA.</reportString></JobDef>
+  <JobDef><defName>ZF_FrameIdleJob</defName><driverClass>ZenithFrame.JobDriver_FrameIdle</driverClass><reportString>Inactive.</reportString></JobDef>
   <JobDef><defName>ZF_HackFrame</defName><driverClass>ZenithFrame.JobDriver_HackFrame</driverClass><reportString>Hacking TargetA.</reportString></JobDef>
   <ThingDef ParentName="BaseWeapon">
     <techLevel>Industrial</techLevel><defName>ZF_DebugRifle</defName><label>Frame debug rifle</label><description>Development weapon for manually targeted sustained attack orders.</description>

@@ -15,13 +15,14 @@ namespace ZenithFrame
         public const int WorkTicks = 180;
         public FramePawn Frame => (FramePawn)parent;
 
-        public bool IsHostileDisabledChassis =>
+        public bool IsHackableDisabledChassis =>
             Frame.Recovery?.IsRecoverablyDisabled == true &&
-            Frame.Faction != null && Frame.Faction.HostileTo(Faction.OfPlayer);
+            Frame.Faction != Faction.OfPlayer &&
+            (Frame.Faction == null || Frame.Faction.HostileTo(Faction.OfPlayer));
 
         public bool CanHack(Pawn hacker, bool requireReachAndReserve)
         {
-            if (!IsHostileDisabledChassis || hacker == null || hacker == Frame)
+            if (!IsHackableDisabledChassis || hacker == null || hacker == Frame)
                 return false;
 
             bool eligibleColonist =
@@ -94,7 +95,7 @@ namespace ZenithFrame
             return new FloatMenuOption("Hack Frame", () =>
             {
                 hacker.jobs.TryTakeOrderedJob(
-                    JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("ZF_HackFrame"), frame));
+                    JobMaker.MakeJob(ZenithJobDefOf.ZF_HackFrame, frame));
             });
         }
     }

@@ -42,6 +42,24 @@ namespace ZenithFrame
         }
     }
 
+    // Melee retaliation can be invoked outside the current JobDriver when an
+    // adjacent enemy attacks. Keep the no-pilot invariant at the actual melee
+    // entry point as well as in the Frame-specific inert idle job.
+    [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryMeleeAttack))]
+    internal static class Patch_Pawn_MeleeVerbs_TryMeleeAttack_Frame
+    {
+        private static bool Prefix(Pawn_MeleeVerbs __instance, ref bool __result)
+        {
+            if (__instance.Pawn is FramePawn frame && !frame.Cockpit.CanOperate)
+            {
+                __result = false;
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     // CanTakeOrder is intentionally broader than the set of actions a Frame
     // should receive. Keep the ordinary Pawn move/attack providers, but do not
     // accidentally turn a Frame into a worker that can equip, haul, tend, open,

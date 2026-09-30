@@ -18,8 +18,15 @@ if ([string]::IsNullOrWhiteSpace($HarmonyDir)) {
     $HarmonyDir = Join-Path $steamApps "workshop/content/294100/2009463077"
 }
 if (!(Test-Path "$HarmonyDir/About/About.xml")) { throw "Harmony missing. Install Workshop item 2009463077 or pass -HarmonyDir PATH." }
-if (Test-Path "$runtime/Mods/Harmony") { Remove-Item "$runtime/Mods/Harmony" -Recurse -Force }
-Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
+if (!(Test-Path "$runtime/Mods/Harmony/About/About.xml")) {
+    if (Test-Path "$runtime/Mods/Harmony") {
+        New-Item -ItemType Directory -Force "$runtime/Mods/Harmony/About" | Out-Null
+        Copy-Item "$HarmonyDir/About/About.xml" "$runtime/Mods/Harmony/About/About.xml" -Force
+    }
+    else {
+        Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
+    }
+}
 New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
 Copy-Item "$repo/Tests/Runtime/About" "$runtime/Mods/ZenithTests" -Recurse -Force
 Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$runtime/Mods/ZenithTests/Assemblies" -Force
@@ -27,10 +34,20 @@ $expansionMods = ''
 if ($WithInstalledExpansions) {
     foreach ($name in @('Royalty','Ideology','Biotech','Anomaly','Odyssey')) {
         if (Test-Path "$RimWorldDir/Data/$name/About/About.xml") {
-            Copy-Item "$RimWorldDir/Data/$name" "$runtime/Data" -Recurse -Force
+            if (!(Test-Path "$runtime/Data/$name/About/About.xml")) {
+                Copy-Item "$RimWorldDir/Data/$name" "$runtime/Data" -Recurse -Force
+            }
             [xml]$metadata = Get-Content "$RimWorldDir/Data/$name/About/About.xml" -Raw
             $expansionMods += '<li>' + $metadata.ModMetaData.packageId.ToLowerInvariant() + '</li>'
         }
+    }
+}
+else {
+    foreach ($directory in Get-ChildItem "$runtime/Data" -Directory | Where-Object Name -NE 'Core') {
+        Get-ChildItem $directory.FullName -Recurse -Force -File | ForEach-Object {
+            $_.Attributes = $_.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+        }
+        Remove-Item -LiteralPath $directory.FullName -Recurse -Force
     }
 }
 $knownExpansionMods = ''
@@ -47,7 +64,7 @@ New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Nul
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-foreach ($phase in 0..5) {
+foreach ($phase in 0..6) {
     if ($phase -gt 0) { Copy-Item "$profile/Saves/ZenithLifecycle.rws" "$profile/Saves/Autostart.rws" -Force }
     # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
     # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.

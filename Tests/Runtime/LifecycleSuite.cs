@@ -26,6 +26,10 @@ namespace ZenithFrame.Tests
         private IntVec3 squadStartA;
         private IntVec3 squadStartB;
         private int hackStartedTick;
+        private int inertUntil;
+        private IntVec3 inertFrameStart;
+        private float inertTargetInjurySeverity;
+        private string inertCase;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -77,7 +81,8 @@ namespace ZenithFrame.Tests
                 else if (phase == 2) RecoveryLoad();
                 else if (phase == 3) DisabledFrameLoad();
                 else if (phase == 4) HackingLoad();
-                else HackedFrameLoad();
+                else if (phase == 5) HackedFrameLoad();
+                else FactionlessHackingLoad();
             }
             catch (Exception e)
             {
@@ -545,9 +550,10 @@ namespace ZenithFrame.Tests
                     frame = SpawnFrame(pilot.Position + IntVec3.East * 5, Faction.OfAncientsHostile);
                     DownByMissingLegs(frame);
                     frameId = frame.GetUniqueLoadID();
-                    Check(frame.Hacking.IsHostileDisabledChassis && frame.Hacking.CanHack(pilot, true), "hostile empty downed Frame is hackable by an eligible colonist");
+                    Check(frame.Hacking.IsHackableDisabledChassis && frame.Hacking.CanHack(pilot, true), "hostile empty downed Frame is hackable by an eligible colonist");
                     Check(HasHackOption(pilot, frame), "Hack Frame appears only for the eligible hostile disabled chassis");
                     UniqueFrame(frame, "hostile disabled before hacking save");
+                    ClearCombatNoise();
                     SaveNext(4);
                 });
             }
@@ -557,8 +563,9 @@ namespace ZenithFrame.Tests
         {
             if (step == 0)
             {
+                ClearCombatNoise();
                 Check(frame != null && frame.GetUniqueLoadID() == frameId, "pre-hack fresh-process load restores the same hostile Frame identity");
-                Check(frame.Hacking.IsHostileDisabledChassis && frame.Downed && !frame.Cockpit.HasPilot, "pre-hack load preserves hostile empty disabled state");
+                Check(frame.Hacking.IsHackableDisabledChassis && frame.Downed && !frame.Cockpit.HasPilot, "pre-hack load preserves hostile empty disabled state");
                 UniqueFrame(frame, "pre-hack reload");
                 OnGui(() =>
                 {
@@ -586,6 +593,13 @@ namespace ZenithFrame.Tests
                 Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked Frame remains in the existing recovery lifecycle and cannot operate");
                 UniqueFrame(frame, "hacked before save");
                 SaveNext(5);
+            }
+            else if (step == 2 && pilot.CurJobDef != ZenithJobDefOf.ZF_HackFrame)
+            {
+                throw new InvalidOperationException("hostile hacking job ended before conversion; job=" +
+                    (pilot.CurJobDef?.defName ?? "null") + " mental=" + pilot.InMentalState +
+                    " downed=" + pilot.Downed + " canHack=" + frame.Hacking.CanHack(pilot, false) +
+                    " forbidden=" + frame.IsForbidden(pilot) + " spawned=" + frame.Spawned);
             }
         }
 
@@ -649,7 +663,136 @@ namespace ZenithFrame.Tests
                 Check(true, "hacked recovered Frame melee attack causes real damage");
                 UniqueFrame(frame, "hacking lifecycle complete");
                 Unique(pilot, "hacking lifecycle pilot complete");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                Check(frame.Cockpit.TryDisembark(), "pilot disembarks before empty-Frame inertness checks");
+                frame.Destroy();
+                StartInertCase(Faction.OfPlayer, Faction.OfAncientsHostile, "player-owned empty Frame", 5);
+            }
+            else if (step == 5 && Find.TickManager.TicksGame >= inertUntil)
+            {
+                FinishInertCase();
+                StartInertCase(Faction.OfAncientsHostile, Faction.OfPlayer, "hostile-faction empty Frame", 6);
+            }
+            else if (step == 6 && Find.TickManager.TicksGame >= inertUntil)
+            {
+                FinishInertCase();
+                StartInertCase(null, Faction.OfAncientsHostile, "factionless empty Frame", 7);
+            }
+            else if (step == 7 && Find.TickManager.TicksGame >= inertUntil)
+            {
+                FinishInertCase();
+                OnGui(() =>
+                {
+                    FramePawn operationalFactionless = SpawnFactionlessFrame(pilot.Position + IntVec3.East * 3);
+                    Check(!operationalFactionless.Hacking.CanHack(pilot, false), "operational factionless Frame is not hackable");
+                    Check(!HasHackOption(pilot, operationalFactionless), "Hack Frame is absent for an operational factionless chassis");
+                    operationalFactionless.Destroy();
+
+                    Faction neutralFaction = Faction.OfAncients;
+                    Check(neutralFaction != null && neutralFaction != Faction.OfPlayer && !neutralFaction.HostileTo(Faction.OfPlayer), "neutral faction fixture is friendly or neutral to the player");
+                    FramePawn neutralDisabled = SpawnFrame(pilot.Position + IntVec3.North * 3, neutralFaction);
+                    DownByMissingLegs(neutralDisabled);
+                    Check(!neutralDisabled.Hacking.IsHackableDisabledChassis && !neutralDisabled.Hacking.CanHack(pilot, false), "neutral or friendly disabled Frame is not hackable");
+                    Check(!HasHackOption(pilot, neutralDisabled), "Hack Frame is absent for a neutral or friendly disabled chassis");
+                    neutralDisabled.Destroy();
+
+                    frame = SpawnFactionlessFrame(pilot.Position + IntVec3.East * 5);
+                    DownByMissingLegs(frame);
+                    frameId = frame.GetUniqueLoadID();
+                    Check(frame.Faction == null && frame.Hacking.IsHackableDisabledChassis && frame.Hacking.CanHack(pilot, true), "factionless empty downed Frame is hackable by an eligible colonist");
+                    Check(HasHackOption(pilot, frame), "Hack Frame appears for an eligible factionless disabled chassis");
+                    UniqueFrame(frame, "factionless disabled before hacking save");
+                    SaveNext(6);
+                });
+            }
+        }
+
+        private void FactionlessHackingLoad()
+        {
+            if (step == 0)
+            {
+                Check(frame != null && frame.GetUniqueLoadID() == frameId, "pre-hack fresh-process load restores the same factionless Frame identity");
+                Check(frame.Faction == null && frame.Hacking.IsHackableDisabledChassis && frame.Downed && !frame.Cockpit.HasPilot, "pre-hack load preserves factionless empty disabled state");
+                UniqueFrame(frame, "factionless pre-hack reload");
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
+                    var hack = options.FirstOrDefault(option => option.Label == "Hack Frame" && !option.Disabled);
+                    Check(hack != null, "eligible colonist receives Hack Frame for a loaded factionless disabled chassis");
+                    hack.Chosen(colonistOrdering: true, null);
+                    Check(pilot.CurJobDef == ZenithJobDefOf.ZF_HackFrame, "factionless Hack Frame option issues the real hacking job");
+                    Check(frame.Faction == null, "factionless ownership is unchanged when the hacking job is merely issued");
+                    hackStartedTick = Find.TickManager.TicksGame;
+                    Next(1, 1800);
+                });
+            }
+            else if (step == 1 && pilot.Position.AdjacentTo8WayOrInside(frame.Position))
+            {
+                Check(pilot.CurJobDef == ZenithJobDefOf.ZF_HackFrame, "factionless hacking job reserves and paths into touch range");
+                Check(frame.Faction == null, "Frame remains factionless when timed hacking work begins");
+                Next(2, 1200);
+            }
+            else if (step == 2 && frame.Faction == Faction.OfPlayer)
+            {
+                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks, "factionless hacking completes only after the visible work delay");
+                Check(frame.GetUniqueLoadID() == frameId && frame.Downed && !frame.Cockpit.HasPilot && !frame.Drafted, "factionless hacking converts the same Frame and leaves it disabled empty and undrafted");
+                Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked factionless Frame remains inactive in the recovery lifecycle");
+                UniqueFrame(frame, "factionless hacking complete");
+                Unique(pilot, "factionless hacking pilot complete");
                 Finish();
+            }
+            else if (step == 2 && pilot.CurJobDef != ZenithJobDefOf.ZF_HackFrame)
+            {
+                throw new InvalidOperationException("factionless hacking job ended before conversion; job=" +
+                    (pilot.CurJobDef?.defName ?? "null") + " mental=" + pilot.InMentalState +
+                    " downed=" + pilot.Downed + " canHack=" + frame.Hacking.CanHack(pilot, false));
+            }
+        }
+
+        private void StartInertCase(Faction frameFaction, Faction targetFaction, string label, int nextStep)
+        {
+            IntVec3 cell = CellFinder.RandomClosewalkCellNear(pilot.Position, Find.CurrentMap, 8);
+            frame = frameFaction == null ? SpawnFactionlessFrame(cell) : SpawnFrame(cell, frameFaction);
+            Pawn adjacentTarget = GenerateHuman(targetFaction);
+            foreach (Hediff_Injury injury in adjacentTarget.health.hediffSet.hediffs.OfType<Hediff_Injury>().ToList())
+                adjacentTarget.health.RemoveHediff(injury);
+            target = GenSpawn.Spawn(adjacentTarget, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+            adjacentTarget.jobs.StopAll();
+            adjacentTarget.stances.stunner.StunFor(600, frame);
+            inertCase = label;
+            inertFrameStart = frame.Position;
+            inertTargetInjurySeverity = InjurySeverity(adjacentTarget);
+            inertUntil = Find.TickManager.TicksGame + 360;
+            Next(nextStep, 900);
+        }
+
+        private void FinishInertCase()
+        {
+            Pawn adjacentTarget = (Pawn)target;
+            Check(frame.Position == inertFrameStart && !frame.pather.Moving, inertCase + " remains stationary for 360 ticks beside an adjacent adversary");
+            float finalInjurySeverity = InjurySeverity(adjacentTarget);
+            Check(Math.Abs(finalInjurySeverity - inertTargetInjurySeverity) < 0.001f,
+                inertCase + " causes no melee damage during inert observation; start=" + inertTargetInjurySeverity +
+                " end=" + finalInjurySeverity + " FrameJob=" + (frame.CurJobDef?.defName ?? "null") +
+                " targetJob=" + (adjacentTarget.CurJobDef?.defName ?? "null"));
+            Check(frame.CurJobDef == null || frame.CurJobDef == ZenithJobDefOf.ZF_FrameIdleJob, inertCase + " runs only the Frame-specific inert idle job");
+            Check(!frame.Cockpit.HasPilot && !frame.CanTakeOrder, inertCase + " remains empty and ineligible for orders");
+            frame.Destroy();
+            adjacentTarget.Destroy();
+            target = null;
+        }
+
+        private static float InjurySeverity(Pawn pawn) => pawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().Sum(injury => injury.Severity);
+
+        private void ClearCombatNoise()
+        {
+            foreach (Thing thing in Find.CurrentMap.listerThings.AllThings.ToList())
+            {
+                bool disposablePawn = thing is Pawn pawn && pawn != pilot && pawn != other && pawn != frame;
+                if (disposablePawn || thing is Projectile || thing is Fire || thing is Explosion)
+                    thing.Destroy();
             }
         }
 
@@ -670,6 +813,12 @@ namespace ZenithFrame.Tests
             return targetFrame.Downed && !targetFrame.Dead;
         }
         private FramePawn SpawnFrame(IntVec3 cell, Faction faction = null) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction ?? Faction.OfPlayer), cell, Find.CurrentMap);
+        private FramePawn SpawnFactionlessFrame(IntVec3 cell)
+        {
+            FramePawn factionless = SpawnFrame(cell);
+            factionless.SetFaction(null);
+            return factionless;
+        }
         private static Pawn GenerateHuman(Faction faction)
         {
             Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
