@@ -13,6 +13,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - chassis = machine identity and intrinsic properties
 - add-ons = limited Weapon / Utility / Power customization
 - normal Frames require a pilot
+- no pilot means no Frame movement or combat, regardless of player, hostile or factionless ownership
 - preserve explicit ownership and save/load safety
 
 ### Frames are NOT Biotech mechs

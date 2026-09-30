@@ -1,0 +1,16 @@
+PASS pre-hack fresh-process load restores the same factionless Frame identity
+PASS pre-hack load preserves factionless empty disabled state
+PASS factionless pre-hack reload: exactly one Frame object with load ID
+PASS eligible colonist receives Hack Frame for a loaded factionless disabled chassis
+PASS factionless Hack Frame option issues the real hacking job
+PASS factionless ownership is unchanged when the hacking job is merely issued
+PASS factionless hacking job reserves and paths into touch range
+PASS Frame remains factionless when timed hacking work begins
+PASS factionless hacking completes only after the visible work delay
+PASS factionless hacking converts the same Frame and leaves it disabled empty and undrafted
+PASS hacked factionless Frame remains inactive in the recovery lifecycle
+PASS factionless hacking complete: exactly one Frame object with load ID
+PASS factionless hacking pilot complete: exactly one pawn object with pilot ID
+PASS factionless hacking pilot complete: live and exclusively owned
+PASS ALL LIFECYCLE PHASES COMPLETE
+

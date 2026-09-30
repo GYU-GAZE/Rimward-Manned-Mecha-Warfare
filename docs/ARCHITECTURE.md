@@ -55,19 +55,23 @@ Current patch points:
    - returns true for a valid operable `FramePawn`
    - this property is used by `FloatMenuContext` to decide which selected Pawns enter the ordinary right-click order pipeline
 
-3. `FloatMenuOptionProvider.SelectedPawnValid`
+3. `Pawn_MeleeVerbs.TryMeleeAttack`
+   - rejects melee execution for a Frame whose cockpit cannot operate
+   - closes vanilla retaliation paths that can invoke melee outside the current idle `JobDriver`
+
+4. `FloatMenuOptionProvider.SelectedPawnValid`
    - for Frames, permits only the ordinary drafted movement and drafted attack providers
    - prevents the `CanTakeOrder` bridge from accidentally exposing colonist work/equip/haul/tend/rescue/etc. orders
 
-4. `FloatMenuUtility.GetRangedAttackAction`
+5. `FloatMenuUtility.GetRangedAttackAction`
    - supplies the ordinary `AttackStatic` job for a Frame's equipped ranged weapon
    - omits Biotech command-range checks because Frames are not Biotech mechs
 
-5. `FloatMenuUtility.GetMeleeAttackAction`
+6. `FloatMenuUtility.GetMeleeAttackAction`
    - bridges Frames through the same reachability, violence, melee-verb and `AttackMelee` semantics used by ordinary Pawns
    - removes only the hard-coded vanilla controlled-pawn / Biotech command-range assumptions
 
-6. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
+7. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
    - lets vanilla's own melee/squad attack gizmo logic recognize a valid piloted Frame
    - Frames still remain neither colonists nor Biotech mechs
 
@@ -114,11 +118,17 @@ This is deliberately a technical development action, not the final repair econom
 
 ## Disabled hostile Frame hacking
 
-`CompFrameHacking` owns the acquisition eligibility and final ownership transition. A target must be the existing spawned, living, empty, downed Frame represented by `CompFrameRecovery.IsRecoverablyDisabled`, and its current faction must be hostile to the player. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
+`CompFrameHacking` owns the acquisition eligibility and final ownership transition. A target must be the existing spawned, living, empty, downed Frame represented by `CompFrameRecovery.IsRecoverablyDisabled`. Its current faction must be either null or hostile to the player. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
 
 `FloatMenuOptionProvider_HackFrame` adds **Hack Frame** to that colonist's ordinary right-click flow. `JobDriver_HackFrame` reserves the target, uses normal touch-range pathing, performs a visible 180-tick delay and rechecks the complete eligibility predicate throughout the job. If any condition changes, the job becomes incompletable without changing faction.
 
 Successful completion calls the normal `FramePawn.SetFaction(Faction.OfPlayer)` API on the same object. It creates no replacement Frame and saves no separate hacked flag. The chassis remains downed, empty, undrafted and inactive, then proceeds through the existing recovery and boarding systems.
+
+## Empty Frame inertness
+
+An empty or otherwise inoperable Frame receives `ZF_FrameIdleJob`, driven by a minimal delay-only `JobDriver_FrameIdle`. It does not use vanilla `JobDefOf.Wait`, whose wait driver can scan adjacent hostiles and initiate opportunistic melee.
+
+The melee execution boundary also rejects `Pawn_MeleeVerbs.TryMeleeAttack` when the cockpit cannot operate. This covers retaliation paths invoked outside the current job driver. The invariant is faction-independent: player-owned, hostile and factionless Frames cannot move, acquire targets, attack or retaliate without a valid pilot.
 
 The 180-tick duration and absence of hacking skill, stat, resource or tool requirements are provisional MVP tuning. The same-object ownership conversion and disabled post-hack state are lifecycle constraints.
 
@@ -137,7 +147,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- six narrowly scoped Harmony patch points described above
+- seven narrowly scoped Harmony patch points described above
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL

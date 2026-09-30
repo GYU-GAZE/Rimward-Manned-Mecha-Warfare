@@ -50,7 +50,7 @@ Live tests use a disposable runtime/profile under ignored `artifacts` paths. The
 
 The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
 
-`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds an explicit colonist job that converts the same hostile disabled Frame to player ownership while leaving it downed until recovery. Exact evidence is recorded in `docs/VALIDATION.md`.
+`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds an explicit colonist job that converts the same hostile or factionless disabled Frame to player ownership while leaving it downed until recovery. Empty Frames now use a dedicated inert idle job and reject melee retaliation regardless of faction. Exact evidence is recorded in `docs/VALIDATION.md`.
 
 ## Manual MVP validation after the automated suite is green
 
@@ -67,12 +67,13 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 9. Disembark and verify the pawns return normally.
 10. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
 11. Select a colonist and right-click the player disabled Frame. **Rescue** and **Hack Frame** must not appear.
-12. Down a hostile empty Frame. **Hack Frame** should appear while **Capture** and **Rescue** remain absent. Save and reload before hacking, then confirm the same chassis still has the action.
+12. Down a hostile empty Frame. **Hack Frame** should appear while **Capture** and **Rescue** remain absent. Repeat with a factionless disabled Frame. Save and reload before hacking, then confirm the same chassis still has the action.
 13. Issue **Hack Frame** from several cells away. The colonist should reserve it, walk into touch range and display work progress. Ownership must remain hostile until the work finishes.
 14. After completion, confirm the same chassis belongs to the player but remains downed, empty, undrafted and inactive. Save and reload again and check the same identity.
 15. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
 16. Board the same recovered chassis again and repeat draft, movement, **B**, ranged right-click and forced-melee checks.
-17. Verify **Hack Frame** is absent for operational hostile, player-owned disabled, pilot-containing, dead and destroyed Frames.
+17. Verify **Hack Frame** is absent for operational hostile or factionless Frames, player-owned disabled Frames, neutral/friendly disabled Frames, pilot-containing Frames, dead Frames and destroyed Frames.
+18. Place player-owned, hostile and factionless empty Frames beside adversaries and confirm they neither move nor attack or retaliate without a pilot.
 
 "Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. Fire-at-will remains disabled, so the Frame should not independently acquire a new target.
 

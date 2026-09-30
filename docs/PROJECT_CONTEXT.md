@@ -289,7 +289,7 @@ Normal mechs should require a pilot.
 Default expectation:
 
 ```text
-No pilot -> mech cannot operate normally
+No pilot -> mech cannot move or fight, regardless of faction
 Pilot present -> mech can be controlled
 ```
 
@@ -334,7 +334,7 @@ The first player-owned disabled-chassis vertical slice is implemented with Pawn 
 
 The current recovery operation is a Dev Mode-only technical proof: it repairs only until normal Pawn health evaluation clears downing, preserves the same Frame identity, leaves it empty/inactive and requires normal reboarding. It is not a final repair economy.
 
-Hostile ownership conversion now begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty, downed hostile Frame, complete a visible work delay and remain eligible throughout. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking duration, skill/stat scaling, costs and presentation remain provisional; identity preservation and the disabled post-hack state are durable.
+Ownership conversion now begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty, downed Frame that is either hostile or factionless, complete a visible work delay and remain eligible throughout. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking duration, skill/stat scaling, costs and presentation remain provisional; identity preservation, acquisition eligibility and the disabled post-hack state are durable.
 
 ---
 
