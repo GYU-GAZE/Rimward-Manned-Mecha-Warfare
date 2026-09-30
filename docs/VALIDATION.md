@@ -20,15 +20,15 @@ Executed 2026-09-30 on RimWorld 1.6.4871 (runtime rev591; `Version.txt` rev590),
 |---|---|
 | Clean Release build | PASS, 0 warnings, 0 errors |
 | Pure eligibility policy | PASS, 144 exhaustive boolean cases |
-| XML/Core def/package/source/recovery/hacking/hostile-AI checks | PASS, 70 checks |
+| XML/Core def/package/source/recovery/hacking/hostile-AI checks | PASS, 71 checks |
 | Live Core-only suite | PASS, 356 assertions, 8 fresh processes, 7 save/load transitions |
 | Live Core + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 356 assertions, 8 fresh processes, 7 save/load transitions |
 | Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
 
-Tested DLL SHA-256:
+Final clean Release/deployed DLL SHA-256 (the live runner rebuilds the same commit into its disposable runtime):
 
 ```text
-3FAAF4E2A2B5F228B0F19D4B54A881D3B9B18E30033AF35E7F6509B3A8025405
+9CDC8EE7136C46BFD3F7E2EDE15FD094FE54F7519FFCD23C1C504EF31B92C26A
 ```
 
 The eight final phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
