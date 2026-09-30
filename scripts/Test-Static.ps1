@@ -36,17 +36,21 @@ $refs = @{
     BodyDef = $frame.Defs.ThingDef[0].race.body
     FleshTypeDef = $frame.Defs.ThingDef[0].race.fleshType
     LifeStageDef = $frame.Defs.ThingDef[0].race.lifeStageAges.li.def
-    ThingDef = $frame.Defs.ThingDef[1].verbs.li.defaultProjectile
-    SoundDef = $frame.Defs.ThingDef[1].verbs.li.soundCast
+    ThingDef = $frame.Defs.ThingDef[1].verbs.li[0].defaultProjectile
+    SoundDef = $frame.Defs.ThingDef[1].verbs.li[0].soundCast
 }
 foreach ($entry in $refs.GetEnumerator()) { Assert-Static ($defs.ContainsKey($entry.Key + ':' + $entry.Value)) "Missing game def reference: $($entry.Key):$($entry.Value)" }
-Assert-Static ($frame.Defs.ThingDef[1].verbs.li.onlyManualCast -eq 'true') 'Weapon must be manual only'
-Assert-Static ($frame.Defs.ThingDef[1].verbs.li.hasStandardCommand -eq 'true') 'Debug rifle must expose vanilla Command_VerbTarget / Misc1'
+$weaponVerbs = @($frame.Defs.ThingDef[1].verbs.li)
+Assert-Static ($weaponVerbs[0].verbClass -eq 'ZenithFrame.Verb_HostileFrameShot' -and $weaponVerbs[0].onlyManualCast -eq 'false' -and $weaponVerbs[0].hasStandardCommand -eq 'false') 'Hostile Frame requires a primary AI-only weapon verb'
+Assert-Static ($weaponVerbs[1].verbClass -eq 'ZenithFrame.Verb_FrameShot' -and $weaponVerbs[1].onlyManualCast -eq 'true') 'Player Frame weapon verb must remain manually targeted'
+Assert-Static ($weaponVerbs[1].hasStandardCommand -eq 'true') 'Debug rifle must expose vanilla Command_VerbTarget / Misc1'
 Assert-Static ($frame.Defs.ThingDef[0].race.thinkTreeMain -eq 'ZF_FrameIdle') 'Frame must not inherit autonomous AI'
 Assert-Static ($frame.Defs.ThingDef[0].race.trainability -eq 'None') 'Frame must not expose animal training and must serialize a valid training tracker'
 $frameThinkTree = @($frame.Defs.ThinkTreeDef) | Where-Object defName -EQ 'ZF_FrameIdle'
 Assert-Static ($frameThinkTree.thinkRoot.GetAttribute('Class') -eq 'ThinkNode_Priority') 'Frame think tree must prioritize explicit queued jobs'
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[0].GetAttribute('Class') -eq 'ThinkNode_QueuedJob') 'Frame think tree must consume ordinary player-order jobs before idling'
+Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[1].GetAttribute('Class') -eq 'ZenithFrame.ThinkNode_Conditional_OperationalHostileFrame') 'Frame think tree requires a narrowly gated hostile combat branch'
+Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[1].subNodes.li.GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile piloted Frames must use vanilla enemy combat jobs'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_FrameIdleJob').driverClass -eq 'ZenithFrame.JobDriver_FrameIdle') 'Frame inert idle JobDef is missing or miswired'
 Assert-Static ($frame.Defs.ThingDef[0].race.fleshType -eq 'ZF_FrameMechanical') 'Frame must use its own mechanical flesh type, not Biotech mechanoid classification'
 $frameFlesh = $fleshTypes.Defs.FleshTypeDef | Where-Object defName -EQ 'ZF_FrameMechanical'
@@ -69,10 +73,15 @@ Assert-Static ($code -match 'class CompFrameHacking' -and $code -match 'class Jo
 Assert-Static ($code -match 'IsHackableDisabledChassis' -and $code -match 'Frame\.Faction == null \|\|' -and $code -match 'Frame\.Faction\.HostileTo\(Faction\.OfPlayer\)') 'Hacking must allow factionless or hostile disabled Frames without allowing neutral ownership'
 Assert-Static ($code -match 'class JobDriver_FrameIdle' -and $code -match 'ZF_FrameIdleJob' -and $code -notmatch 'JobMaker\.MakeJob\(RimWorld\.JobDefOf\.Wait') 'Empty Frames must use a Frame-specific idle job without vanilla Wait auto-attack'
 Assert-Static ($code -match 'Patch_Pawn_MeleeVerbs_TryMeleeAttack_Frame' -and $code -match '!frame\.Cockpit\.CanOperate') 'Empty Frames must reject melee at the verb execution boundary'
+Assert-Static ($code -match 'CanTakePlayerOrders' -and $code -match 'CanUseHostileCombatAI') 'Machine operation, player orders, and hostile combat AI must remain separate policies'
+Assert-Static ($code -match 'TryInstallPilot' -and $code -match 'SpawnHostilePilotedFrame' -and $code -match 'Spawn hostile piloted Frame') 'Explicit hostile Frame fixture and pilot installation path are missing'
+Assert-Static ($code -match 'executingPlayerAttack' -and $code -match 'CurJob\?\.playerForced == true' -and $code -match 'CurJob\.verbToUse is Verb_FrameShot') 'Player firing permission must be scoped to an explicit player-forced manual attack job'
+Assert-Static ($code -match 'CanUseHostileCombatAI \|\| executingPlayerAttack') 'Primary Frame combat verb must be gated to hostile AI or an explicit manual player job'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'
 Assert-Static (@($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_HackFrame').driverClass -eq 'ZenithFrame.JobDriver_HackFrame') 'Hack Frame JobDef is missing or miswired'
 Assert-Static ($code -match 'Patch_FloatMenuUtility_GetMeleeAttackAction_Frame' -and $code -match 'Patch_PawnAttackGizmoUtility_CanOrderPlayerPawn_Frame') 'Vanilla melee-control bridge is incomplete'
+Assert-Static ($code -match 'job\.verbToUse\s*=\s*verb' -and $code -match 'job\.playerForced\s*=\s*true') 'Manual ranged order must bind its selected verb and player-forced intent'
 Assert-Static ($frame.Defs.ThingDef[0].tools.li.id -eq 'ZF_FrameStrike') 'Debug Frame requires a real melee verb for normal pawn attack semantics'
 Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(Pawn\),\s*nameof\(Pawn\.IsPlayerControlled') 'Frame must not globally impersonate vanilla player-controlled pawn categories'
 $frameCompClasses = @($frame.Defs.ThingDef[0].comps.li | ForEach-Object { $_.GetAttribute('Class') })

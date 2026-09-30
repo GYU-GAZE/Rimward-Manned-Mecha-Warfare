@@ -39,6 +39,12 @@ namespace ZenithFrame
         protected override Job TryGiveJob(Pawn pawn) => JobMaker.MakeJob(ZenithJobDefOf.ZF_FrameIdleJob);
     }
 
+    public sealed class ThinkNode_Conditional_OperationalHostileFrame : ThinkNode_Conditional
+    {
+        protected override bool Satisfied(Pawn pawn) =>
+            pawn is FramePawn frame && frame.Cockpit.CanUseHostileCombatAI;
+    }
+
     // Vanilla JobDriver_Wait scans for adjacent hostiles and may launch an
     // opportunistic melee attack. An empty Frame needs a genuinely inert job:
     // no target scan, no verb use and no movement.

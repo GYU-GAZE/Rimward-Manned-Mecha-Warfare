@@ -20,7 +20,14 @@ namespace ZenithFrame
         public bool CanOperate => PilotRules.CanOperate(HasPilot,
             Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed && !Frame.InMentalState,
             Pilot != null && !Pilot.Dead && !Pilot.Downed && !Pilot.InMentalState,
-            Pilot != null && Frame.Faction == Faction.OfPlayer && Pilot.Faction == Frame.Faction);
+            Pilot != null && Frame.Faction != null && Pilot.Faction == Frame.Faction);
+        // IsColonistPlayerControlled becomes false while the pilot is held in
+        // the cockpit because that Pawn is no longer spawned. Colonist status
+        // and faction remain stable across containment and save/load.
+        public bool CanTakePlayerOrders => CanOperate && Frame.Faction == Faction.OfPlayer &&
+            Pilot?.IsColonist == true && !Pilot.IsPrisoner && !Pilot.IsSlave;
+        public bool CanUseHostileCombatAI => CanOperate && Frame.Faction != null &&
+            Frame.Faction.HostileTo(Faction.OfPlayer);
         public ThingOwner GetDirectlyHeldThings() => pilots;
         public void GetChildHolders(List<IThingHolder> children) => ThingOwnerUtility.AppendThingHoldersFromThings(children, pilots);
 
@@ -37,6 +44,27 @@ namespace ZenithFrame
         public bool TryBoard(Pawn pawn)
         {
             if (!CanBoard(pawn)) return false;
+            return TryStorePilot(pawn);
+        }
+
+        internal bool CanInstallPilot(Pawn pawn, bool requireAdjacent = true)
+        {
+            return pawn != null && pawn != Frame && !(pawn is FramePawn) && PilotRules.CanBoard(HasPilot,
+                Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed,
+                pawn.Spawned && pawn.RaceProps.Humanlike && !pawn.Dead && !pawn.Downed && !pawn.InMentalState && pawn.carryTracker.CarriedThing == null,
+                Frame.Faction != null && pawn.Faction == Frame.Faction,
+                pawn.Map == Frame.Map, pawn.holdingOwner != null && !(pawn.holdingOwner.Owner is Map),
+                !requireAdjacent || pawn.Position.AdjacentTo8WayOrInside(Frame.Position));
+        }
+
+        internal bool TryInstallPilot(Pawn pawn)
+        {
+            if (!CanInstallPilot(pawn)) return false;
+            return TryStorePilot(pawn);
+        }
+
+        private bool TryStorePilot(Pawn pawn)
+        {
             Map map = pawn.Map;
             IntVec3 position = pawn.Position;
             Rot4 rotation = pawn.Rotation;
@@ -70,7 +98,9 @@ namespace ZenithFrame
             Frame.pather?.StopDead();
             Frame.jobs?.StopAll();
             Frame.stances?.CancelBusyStanceHard();
-            Frame.equipment?.PrimaryEq?.PrimaryVerb.Reset();
+            if (Frame.equipment?.PrimaryEq != null)
+                foreach (Verb verb in Frame.equipment.PrimaryEq.AllVerbs)
+                    verb.Reset();
         }
 
         public void EmergencyEject()

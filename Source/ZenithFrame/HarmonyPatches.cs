@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -38,7 +39,7 @@ namespace ZenithFrame
         private static void Postfix(Pawn __instance, ref bool __result)
         {
             if (__instance is FramePawn frame)
-                __result = frame.Cockpit?.CanOperate == true;
+                __result = frame.Cockpit?.CanTakePlayerOrders == true;
         }
     }
 
@@ -98,7 +99,7 @@ namespace ZenithFrame
             {
                 failStr = "IsNotDraftedLower".Translate(pawn.LabelShort, pawn);
             }
-            else if (!frame.Cockpit.CanOperate)
+            else if (!frame.Cockpit.CanTakePlayerOrders)
             {
                 failStr = "CannotOrderNonControlledLower".Translate();
             }
@@ -148,7 +149,7 @@ namespace ZenithFrame
     {
         private static void Postfix(Pawn pawn, ref bool __result)
         {
-            if (pawn is FramePawn frame && frame.Cockpit?.CanOperate == true)
+            if (pawn is FramePawn frame && frame.Cockpit?.CanTakePlayerOrders == true)
                 __result = true;
         }
     }
@@ -172,11 +173,12 @@ namespace ZenithFrame
             if (primary == null)
                 return false;
 
-            Verb verb = primary.TryGetComp<CompEquippable>()?.PrimaryVerb;
+            Verb verb = primary.TryGetComp<CompEquippable>()?.AllVerbs
+                .FirstOrDefault(candidate => candidate is Verb_FrameShot);
             if (verb == null || verb.verbProps.IsMeleeAttack)
                 return false;
 
-            if (!frame.Cockpit.CanOperate)
+            if (!frame.Cockpit.CanTakePlayerOrders)
             {
                 failStr = "CannotOrderNonControlledLower".Translate();
             }
@@ -217,6 +219,8 @@ namespace ZenithFrame
                 __result = () =>
                 {
                     Job job = JobMaker.MakeJob(JobDefOf.AttackStatic, target);
+                    job.verbToUse = verb;
+                    job.playerForced = true;
                     pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
                 };
                 return false;

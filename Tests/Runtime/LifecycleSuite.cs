@@ -30,6 +30,13 @@ namespace ZenithFrame.Tests
         private IntVec3 inertFrameStart;
         private float inertTargetInjurySeverity;
         private string inertCase;
+        private string hostileFrameId;
+        private string hostilePilotId;
+        private FramePawn hostileFrame;
+        private Pawn hostilePilot;
+        private IntVec3 hostileFrameStart;
+        private ThingWithComps hostileRifle;
+        private bool hostileProbePassed;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -42,6 +49,10 @@ namespace ZenithFrame.Tests
             Scribe_References.Look(ref frame, "testFrame");
             Scribe_References.Look(ref pilot, "testPilot");
             Scribe_References.Look(ref other, "testOther");
+            Scribe_Values.Look(ref hostileFrameId, "testHostileFrameId");
+            Scribe_Values.Look(ref hostilePilotId, "testHostilePilotId");
+            Scribe_References.Look(ref hostileFrame, "testHostileFrame");
+            Scribe_References.Look(ref hostilePilot, "testHostilePilot");
         }
         private void Check(bool condition, string name)
         {
@@ -75,14 +86,16 @@ namespace ZenithFrame.Tests
             try
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
-                if (step != 0 && Find.TickManager.TicksGame > deadline) throw new TimeoutException("Phase " + phase + " step " + step);
+                if (step != 0 && Find.TickManager.TicksGame > deadline)
+                    throw new TimeoutException("Phase " + phase + " step " + step + DiagnosticState());
                 if (phase == 0) BeforeSave();
                 else if (phase == 1) AfterLoad();
                 else if (phase == 2) RecoveryLoad();
                 else if (phase == 3) DisabledFrameLoad();
                 else if (phase == 4) HackingLoad();
                 else if (phase == 5) HackedFrameLoad();
-                else FactionlessHackingLoad();
+                else if (phase == 6) FactionlessHackingLoad();
+                else HostilePilotLoad();
             }
             catch (Exception e)
             {
@@ -178,7 +191,7 @@ namespace ZenithFrame.Tests
                 var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc2), "vanilla melee attack gizmo is available for a drafted Frame");
-                Command_VerbTarget rangedCommand = frameCommands.OfType<Command_VerbTarget>().SingleOrDefault(command => command.verb == frame.equipment.PrimaryEq.PrimaryVerb);
+                Command_VerbTarget rangedCommand = frameCommands.OfType<Command_VerbTarget>().SingleOrDefault(command => command.verb == ManualVerb(frame));
                 Check(rangedCommand != null, "drafted Frame exposes the equipped rifle through vanilla Command_VerbTarget");
                 Check(rangedCommand.hotKey == KeyBindingDefOf.Misc1, "vanilla ranged weapon command uses Misc1 / B");
                 Check(rangedCommand.verb is Verb_FrameShot && rangedCommand.verb.Available(), "normal ranged command uses the Frame weapon verb and is available while piloted and drafted");
@@ -218,8 +231,9 @@ namespace ZenithFrame.Tests
             else if (step == 1 && frame.Position == destination)
             {
                 Check(true, "real pathing reaches ordered destination");
-                target = GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfAncientsHostile),
-                    frame.Position + new IntVec3(8, 0, 0), frame.Map);
+                IntVec3 firstRangedTargetCell = frame.Position + new IntVec3(8, 0, 0);
+                ClearTestArea(CellRect.FromLimits(frame.Position, firstRangedTargetCell).ExpandedBy(2), frame.Map);
+                target = SpawnFrame(firstRangedTargetCell, Faction.OfAncientsHostile);
                 OnGui(() =>
                 {
                     var attackSelection = new List<Pawn> { frame };
@@ -246,12 +260,18 @@ namespace ZenithFrame.Tests
             else if (step == 3 && Find.TickManager.TicksGame >= deadline - 100)
             {
                 Check(frame.CurJob != null && frame.CurJob.def == JobDefOf.AttackStatic, "ordinary player-issued attack remains active after the first burst");
-                Check(!frame.drafter.FireAtWill, "fire at will disabled");
+                Check(frame.drafter.FireAtWill && frame.CurJob.playerForced && frame.CurJob.verbToUse is Verb_FrameShot &&
+                    !frame.Cockpit.CanUseHostileCombatAI,
+                    "manual sustained attack enables firing only for its explicit player-forced target");
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
 
-                other.SetFaction(Faction.OfPlayer);
+                if (other != null && !other.Destroyed) other.Destroy();
+                IntVec3 otherCell = frame.Position + IntVec3.West * 2;
+                ClearTestArea(CellRect.CenteredOn(otherCell, 1), frame.Map);
+                other = GenerateHuman(Faction.OfPlayer);
+                GenSpawn.Spawn(other, otherCell, frame.Map);
                 IntVec3 mateCell = other.Position + IntVec3.East;
                 squadMateFrame = SpawnFrame(mateCell);
                 Check(squadMateFrame.Cockpit.TryBoard(other), "second Frame accepts second pilot for group-control test");
@@ -278,8 +298,10 @@ namespace ZenithFrame.Tests
             else if (step == 4 && frame.Position != squadStartA && squadMateFrame.Position != squadStartB)
             {
                 Check(true, "both Frames physically move under one group order");
-                IntVec3 targetCell = frame.Position + new IntVec3(8, 0, 0);
-                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), targetCell, frame.Map);
+                IntVec3 targetCell = frame.Position + new IntVec3(8, 0, 8);
+                ClearTestArea(CellRect.FromLimits(frame.Position, targetCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), targetCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
                 OnGui(() =>
                 {
                     var groupSelection = new List<Pawn> { frame, squadMateFrame };
@@ -287,13 +309,13 @@ namespace ZenithFrame.Tests
                     var groupAttack = FloatMenuMakerMap.GetAutoTakeOption(groupAttackOptions);
                     Check(groupAttack != null && groupAttack.Priority == MenuOptionPriority.AttackEnemy, "ordinary multiselect hostile attack is directly auto-takeable");
                     groupAttack.Chosen(colonistOrdering: true, null);
-                    Next(41, 1200);
+                    Next(41, 2400);
                 });
             }
             else if (step == 41 && frame.CurJobDef == JobDefOf.AttackStatic && squadMateFrame.CurJobDef == JobDefOf.AttackStatic)
             {
                 Check(true, "one group attack command reaches both Frames");
-                Next(5, 1200);
+                Next(5, 2400);
             }
             else if (step == 5 && TargetDamaged())
             {
@@ -310,7 +332,7 @@ namespace ZenithFrame.Tests
                 Check(frame.Cockpit.TryDisembark(), "disembark succeeds");
                 Unique(pilot, "disembarked");
                 Check(pilot.Spawned && !frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "disembark empties cockpit, stops Frame and removes order eligibility");
-                Check(!frame.equipment.PrimaryEq.PrimaryVerb.Available(), "unpiloted Frame cannot fire through the normal ranged command");
+                Check(!ManualVerb(frame).Available(), "unpiloted Frame cannot fire through the normal ranged command");
                 for (int i = 0; i < 20; i++)
                 {
                     Check(frame.Cockpit.TryBoard(pilot), "repeat board " + i);
@@ -369,6 +391,26 @@ namespace ZenithFrame.Tests
             if (target is Pawn pawnTarget)
                 return pawnTarget.Dead || pawnTarget.Downed || pawnTarget.health.hediffSet.hediffs.OfType<Hediff_Injury>().Any();
             return false;
+        }
+        private string DiagnosticState()
+        {
+            string frameState = frame == null ? " frame=null" :
+                " frameJob=" + (frame.CurJobDef?.defName ?? "null") +
+                " jobVerb=" + (frame.CurJob?.verbToUse?.GetType().Name ?? "null") +
+                " playerForced=" + (frame.CurJob?.playerForced.ToString() ?? "null") +
+                " framePos=" + frame.Position + " drafted=" + frame.Drafted +
+                " fireAtWill=" + (frame.drafter?.FireAtWill.ToString() ?? "null") +
+                " canOperate=" + frame.Cockpit.CanOperate + " canOrder=" + frame.Cockpit.CanTakePlayerOrders +
+                " stance=" + (frame.stances?.curStance?.GetType().Name ?? "null") +
+                " verbs=" + (frame.equipment?.PrimaryEq == null ? "none" : string.Join(",", frame.equipment.PrimaryEq.AllVerbs.Select(verb =>
+                    verb.GetType().Name + ":available=" + verb.Available() + ":manual=" + verb.verbProps.onlyManualCast)));
+            string targetState = target == null ? " target=null" :
+                " target=" + target.LabelShort + " targetSpawned=" + target.Spawned + " targetPos=" + target.Position +
+                " targetDestroyed=" + target.Destroyed + (target is Pawn targetPawn
+                    ? " targetDead=" + targetPawn.Dead + " targetDowned=" + targetPawn.Downed +
+                      " targetInjuries=" + targetPawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().Count()
+                    : "");
+            return frameState + targetState;
         }
         private void RecoveryLoad()
         {
@@ -460,7 +502,10 @@ namespace ZenithFrame.Tests
             else if (step == 2 && frame.Position == destination)
             {
                 Check(true, "recovered Frame physically moves");
-                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + new IntVec3(8, 0, 0), frame.Map);
+                IntVec3 recoveredRangedCell = frame.Position + new IntVec3(8, 0, 0);
+                ClearTestArea(CellRect.FromLimits(frame.Position, recoveredRangedCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), recoveredRangedCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
                 OnGui(() =>
                 {
                     var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.Position.ToVector3Shifted(), out var _);
@@ -478,7 +523,8 @@ namespace ZenithFrame.Tests
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
-                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + new IntVec3(5, 0, 0), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), frame.Position + new IntVec3(5, 0, 0), frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
                 OnGui(() =>
                 {
                     Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out var fail);
@@ -626,9 +672,12 @@ namespace ZenithFrame.Tests
             {
                 Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && frame.SetDrafted(true), "same pilot boards and drafts the hacked recovered Frame");
                 Command_VerbTarget ranged = frame.GetGizmos().OfType<Command_VerbTarget>()
-                    .SingleOrDefault(command => command.verb == frame.equipment.PrimaryEq.PrimaryVerb);
+                    .SingleOrDefault(command => command.verb == ManualVerb(frame));
                 Check(ranged != null && ranged.hotKey == KeyBindingDefOf.Misc1 && ranged.verb.Available(), "hacked recovered Frame restores the normal B ranged command");
-                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 8, frame.Map);
+                IntVec3 hackedRangedCell = frame.Position + IntVec3.East * 8;
+                ClearTestArea(CellRect.FromLimits(frame.Position, hackedRangedCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), hackedRangedCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
                 OnGui(() =>
                 {
                     var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.DrawPos, out var _);
@@ -644,7 +693,8 @@ namespace ZenithFrame.Tests
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
-                target = GenSpawn.Spawn(GenerateHuman(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 5, frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 5, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
                 OnGui(() =>
                 {
                     Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out var fail);
@@ -741,13 +791,257 @@ namespace ZenithFrame.Tests
                 Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked factionless Frame remains inactive in the recovery lifecycle");
                 UniqueFrame(frame, "factionless hacking complete");
                 Unique(pilot, "factionless hacking pilot complete");
-                Finish();
+                frame.Destroy();
+                ClearCombatNoise();
+
+                FramePawn mismatchFrame = SpawnFrame(pilot.Position + IntVec3.North * 3, Faction.OfAncientsHostile);
+                Pawn mismatchPilot = GenerateHuman(Faction.OfPlayer);
+                GenSpawn.Spawn(mismatchPilot, CellFinder.RandomClosewalkCellNear(mismatchFrame.Position, mismatchFrame.Map, 1), mismatchFrame.Map);
+                Check(!mismatchFrame.Cockpit.CanInstallPilot(mismatchPilot) && !mismatchFrame.Cockpit.TryInstallPilot(mismatchPilot),
+                    "hostile Frame rejects a mismatched player-faction pilot without consuming it");
+                Check(mismatchPilot.Spawned && mismatchPilot.holdingOwner?.Owner is Map && !mismatchFrame.Cockpit.HasPilot,
+                    "rejected mismatched pilot remains safely map-owned");
+                mismatchPilot.Destroy();
+                mismatchFrame.Destroy();
+
+                hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(pilot.Position + IntVec3.East * 12, Find.CurrentMap);
+                hostilePilot = hostileFrame.Cockpit.Pilot;
+                hostileFrameId = hostileFrame.GetUniqueLoadID();
+                hostilePilotId = hostilePilot.GetUniqueLoadID();
+                Check(hostileFrame.Faction != null && hostileFrame.Faction.HostileTo(Faction.OfPlayer) && hostilePilot.Faction == hostileFrame.Faction,
+                    "debug action creates one hostile Frame with a same-faction human pilot");
+                Check(!hostilePilot.Spawned && hostilePilot.holdingOwner == hostileFrame.Cockpit.GetDirectlyHeldThings(),
+                    "hostile pilot is stored directly in the Frame cockpit ThingOwner");
+                Check(hostileFrame.Cockpit.CanOperate && hostileFrame.Cockpit.CanUseHostileCombatAI && !hostileFrame.Cockpit.CanTakePlayerOrders,
+                    "hostile Frame can operate through combat AI without accepting player orders");
+                Check(!hostileFrame.CanTakeOrder && !hostileFrame.SetDrafted(true),
+                    "hostile Frame rejects ordinary player order and draft entry points");
+                Check(!hostileFrame.Hacking.IsHackableDisabledChassis && !hostileFrame.Hacking.CanHack(pilot, false),
+                    "operational occupied hostile Frame is not hackable");
+                UniqueFrame(hostileFrame, "hostile piloted before save");
+                Unique(hostilePilot, "hostile pilot before save");
+                SaveNext(7);
             }
             else if (step == 2 && pilot.CurJobDef != ZenithJobDefOf.ZF_HackFrame)
             {
                 throw new InvalidOperationException("factionless hacking job ended before conversion; job=" +
                     (pilot.CurJobDef?.defName ?? "null") + " mental=" + pilot.InMentalState +
                     " downed=" + pilot.Downed + " canHack=" + frame.Hacking.CanHack(pilot, false));
+            }
+        }
+
+        private void HostilePilotLoad()
+        {
+            if (step == 0)
+            {
+                Check(hostileFrame != null && hostilePilot != null && hostileFrame.GetUniqueLoadID() == hostileFrameId &&
+                    hostilePilot.GetUniqueLoadID() == hostilePilotId, "fresh-process load preserves hostile Frame and pilot identities");
+                Check(ReferenceEquals(hostileFrame.Cockpit.Pilot, hostilePilot) && !hostilePilot.Spawned &&
+                    hostilePilot.holdingOwner == hostileFrame.Cockpit.GetDirectlyHeldThings(),
+                    "fresh-process load preserves exact hostile cockpit ownership");
+                Check(hostileFrame.Cockpit.CanOperate && hostileFrame.Cockpit.CanUseHostileCombatAI &&
+                    !hostileFrame.Cockpit.CanTakePlayerOrders && !hostileFrame.CanTakeOrder,
+                    "loaded hostile Frame operates through AI and still rejects player orders");
+                Check(hostileFrame.drafter.FireAtWill, "loaded hostile Frame enables vanilla autonomous target acquisition");
+                Check(!hostileFrame.Hacking.CanHack(pilot, false), "loaded operational hostile Frame remains ineligible for hacking");
+                UniqueFrame(hostileFrame, "hostile piloted after load");
+                Unique(hostilePilot, "hostile pilot after load");
+
+                ClearCombatNoise();
+                if (other != null && other.Faction == Faction.OfPlayer) other.SetFaction(null);
+                IntVec3 safePilotCell = hostileFrame.Position.x + 75 < hostileFrame.Map.Size.x
+                    ? hostileFrame.Position + IntVec3.East * 70
+                    : hostileFrame.Position + IntVec3.West * 70;
+                ClearTestArea(CellRect.CenteredOn(safePilotCell, 2), hostileFrame.Map);
+                RelocatePawn(pilot, safePilotCell, hostileFrame.Map);
+                pilot.drafter.Drafted = true;
+                IntVec3 rangedTargetCell = hostileFrame.Position + IntVec3.West * 36;
+                ClearTestArea(CellRect.FromLimits(hostileFrame.Position, rangedTargetCell).ExpandedBy(3), hostileFrame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer), rangedTargetCell, hostileFrame.Map);
+                Pawn playerTarget = (Pawn)target;
+                playerTarget.jobs.StopAll();
+                playerTarget.drafter.Drafted = true;
+                Check(playerTarget.Spawned && playerTarget.RaceProps.Humanlike && playerTarget.HostileTo(hostileFrame) &&
+                    hostileFrame.HostileTo(playerTarget), "hostile AI fixture provides a spawned mutually hostile humanlike target");
+                Check(hostileFrame.equipment.PrimaryEq.AllVerbs.Any(verb => verb is Verb_HostileFrameShot && verb.Available()),
+                    "hostile Frame weapon verb is available to vanilla combat AI");
+                hostileFrameStart = hostileFrame.Position;
+                Next(1, 2400);
+            }
+            else if (step == 1 && hostileFrame.Position != hostileFrameStart)
+            {
+                Check(true, "hostile piloted Frame uses ordinary pathing to close weapon range; observed job=" +
+                    (hostileFrame.CurJobDef?.defName ?? "null"));
+                Next(2, 2400);
+            }
+            else if (step == 1 && !hostileProbePassed && Find.TickManager.TicksGame >= deadline - 2300)
+            {
+                Pawn playerTarget = target as Pawn;
+                Thing selected = new HostileCombatProbe().FindTarget(hostileFrame);
+                Check(selected != null,
+                    "vanilla target search succeeds after map-cache registration; targetSpawned=" + (playerTarget?.Spawned ?? false) +
+                    " targetDowned=" + (playerTarget?.Downed ?? false) + " targetDead=" + (playerTarget?.Dead ?? false) +
+                    " distance=" + (playerTarget == null ? -1f : hostileFrame.Position.DistanceTo(playerTarget.Position)) +
+                    " targetJob=" + (playerTarget?.CurJobDef?.defName ?? "null") +
+                    " autoTargetable=" + (playerTarget != null && AttackTargetFinder.IsAutoTargetable(playerTarget)) +
+                    " potentialThreat=" + (playerTarget != null && GenHostility.IsPotentialThreat(playerTarget)) +
+                    " activeThreat=" + (playerTarget != null && GenHostility.IsActiveThreatTo(playerTarget, hostileFrame.Faction)) +
+                    " canReach=" + (playerTarget != null && hostileFrame.CanReach(playerTarget, PathEndMode.Touch, Danger.Deadly)) +
+                    " lineOfSight=" + (playerTarget != null && GenSight.LineOfSight(hostileFrame.Position, playerTarget.Position, hostileFrame.Map)) +
+                    " attackVerb=" + (hostileFrame.TryGetAttackVerb(playerTarget, false, false)?.GetType().Name ?? "null") +
+                    " current=" + (hostileFrame.CurJobDef?.defName ?? "null"));
+                hostileProbePassed = true;
+            }
+            else if (step == 2 && TargetDamaged())
+            {
+                Check(true, "hostile piloted Frame acquires and damages the player pawn through vanilla ranged combat AI");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                Check(hostileFrame.equipment.TryDropEquipment(hostileFrame.equipment.Primary, out hostileRifle,
+                    hostileFrame.Position, forbid: false), "hostile Frame can temporarily drop its rifle for the melee fixture");
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer),
+                    CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 4), hostileFrame.Map);
+                Pawn meleeTarget = (Pawn)target;
+                meleeTarget.jobs.StopAll();
+                meleeTarget.drafter.Drafted = true;
+                Next(4, 1800);
+            }
+            else if (step == 4 && hostileFrame.CurJobDef == JobDefOf.AttackMelee)
+            {
+                Check(true, "hostile piloted Frame chooses vanilla AttackMelee when unarmed");
+                Next(5, 1800);
+            }
+            else if (step == 5 && TargetDamaged())
+            {
+                Check(true, "hostile piloted Frame causes legitimate melee damage");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                if (hostileRifle.Spawned) hostileRifle.DeSpawn();
+                hostileFrame.equipment.AddEquipment(hostileRifle);
+
+                DownByMissingLegs(hostileFrame);
+                Next(6, 300);
+            }
+            else if (step == 6 && hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot)
+            {
+                Check(hostileFrame.GetUniqueLoadID() == hostileFrameId && hostilePilot.GetUniqueLoadID() == hostilePilotId,
+                    "downing preserves the exact hostile Frame and pilot identities");
+                Check(hostilePilot.Spawned && hostilePilot.holdingOwner?.Owner is Map &&
+                    hostilePilot.Position.AdjacentTo8WayOrInside(hostileFrame.Position),
+                    "downing ejects the exact hostile pilot safely beside the chassis");
+                Check(!hostileFrame.Cockpit.CanOperate && hostileFrame.Recovery.IsRecoverablyDisabled &&
+                    hostileFrame.Hacking.CanHack(pilot, false),
+                    "ejected hostile chassis becomes inert recoverable and hackable; canOperate=" + hostileFrame.Cockpit.CanOperate +
+                    " recoverable=" + hostileFrame.Recovery.IsRecoverablyDisabled + " canHack=" + hostileFrame.Hacking.CanHack(pilot, false) +
+                    " playerPilotDead=" + pilot.Dead + " playerPilotDowned=" + pilot.Downed);
+                Unique(hostilePilot, "hostile pilot after ejection");
+                hostilePilot.jobs.StopAll();
+                hostilePilot.stances.stunner.StunFor(5000, hostileFrame);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer),
+                    CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 1), hostileFrame.Map);
+                Pawn adjacentTarget = (Pawn)target;
+                adjacentTarget.jobs.StopAll();
+                adjacentTarget.stances.stunner.StunFor(5000, hostileFrame);
+                inertFrameStart = hostileFrame.Position;
+                inertTargetInjurySeverity = InjurySeverity(adjacentTarget);
+                inertUntil = Find.TickManager.TicksGame + 360;
+                Next(7, 900);
+            }
+            else if (step == 7 && Find.TickManager.TicksGame >= inertUntil)
+            {
+                Pawn adjacentTarget = (Pawn)target;
+                Check(hostileFrame.Position == inertFrameStart && !hostileFrame.pather.Moving,
+                    "ejected hostile Frame remains stationary for 360 ticks beside a player pawn");
+                Check(Math.Abs(InjurySeverity(adjacentTarget) - inertTargetInjurySeverity) < 0.001f,
+                    "ejected hostile Frame causes no retaliatory melee damage");
+                Check(hostileFrame.CurJobDef == null || hostileFrame.CurJobDef == ZenithJobDefOf.ZF_FrameIdleJob,
+                    "ejected hostile Frame runs only its inert idle job");
+                adjacentTarget.Destroy();
+                IntVec3 hackerCell = CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 2);
+                RelocatePawn(pilot, hackerCell, hostileFrame.Map);
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, hostileFrame.DrawPos, out var _);
+                    var hack = options.FirstOrDefault(option => option.Label == "Hack Frame" && !option.Disabled);
+                    Check(hack != null, "ejected hostile chassis exposes the real Hack Frame action");
+                    hack.Chosen(colonistOrdering: true, null);
+                    hackStartedTick = Find.TickManager.TicksGame;
+                    Next(8, 1800);
+                });
+            }
+            else if (step == 8 && hostileFrame.Faction == Faction.OfPlayer)
+            {
+                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks,
+                    "captured hostile chassis completes the normal timed hacking job");
+                Check(hostileFrame.GetUniqueLoadID() == hostileFrameId && hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot,
+                    "hacking preserves hostile chassis identity and leaves it disabled empty");
+                Check(hostileFrame.Recovery.TryRecover(), "captured hostile chassis enters the normal recovery API");
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, hostileFrame.DrawPos, out var _);
+                    var board = options.FirstOrDefault(option => option.Label.Contains("Board Frame") && !option.Disabled);
+                    Check(board != null, "recovered captured chassis exposes normal player boarding");
+                    board.Chosen(colonistOrdering: true, null);
+                    Next(9, 1800);
+                });
+            }
+            else if (step == 9 && hostileFrame.Cockpit.HasPilot)
+            {
+                Check(ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot) && hostileFrame.SetDrafted(true),
+                    "original player pilot boards and drafts the captured hostile chassis");
+                Check(hostileFrame.GetUniqueLoadID() == hostileFrameId && hostileFrame.Cockpit.CanTakePlayerOrders &&
+                    !hostileFrame.Cockpit.CanUseHostileCombatAI && hostileFrame.CanTakeOrder,
+                    "same chassis transitions from hostile AI to ordinary player control");
+                Command_VerbTarget ranged = hostileFrame.GetGizmos().OfType<Command_VerbTarget>()
+                    .SingleOrDefault(command => command.verb == ManualVerb(hostileFrame));
+                Check(ranged != null && ranged.hotKey == KeyBindingDefOf.Misc1 && ranged.verb.Available(),
+                    "captured reused Frame restores the normal B ranged command");
+                IntVec3 playerRangedTargetCell = hostileFrame.Position + IntVec3.East * 8;
+                ClearTestArea(CellRect.FromLimits(hostileFrame.Position, playerRangedTargetCell).ExpandedBy(2), hostileFrame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), playerRangedTargetCell, hostileFrame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                OnGui(() =>
+                {
+                    var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { hostileFrame }, target.DrawPos, out var _);
+                    var attack = FloatMenuMakerMap.GetAutoTakeOption(options);
+                    Check(attack != null && attack.autoTakeablePriority == 40f,
+                        "captured reused Frame accepts ordinary player right-click ranged attack; options=" +
+                        string.Join(" | ", options.Select(option => option.Label + " disabled=" + option.Disabled +
+                            " auto=" + option.autoTakeablePriority)));
+                    attack.Chosen(colonistOrdering: true, null);
+                    Next(10, 1200);
+                });
+            }
+            else if (step == 10 && TargetDamaged())
+            {
+                Check(true, "captured reused Frame causes real ranged damage under player control");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), hostileFrame.Position + IntVec3.East * 5, hostileFrame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                OnGui(() =>
+                {
+                    Action melee = FloatMenuUtility.GetMeleeAttackAction(hostileFrame, target, out var fail);
+                    Check(melee != null, "captured reused Frame accepts forced melee; failure=" + fail);
+                    melee();
+                    Next(11, 1200);
+                });
+            }
+            else if (step == 11 && hostileFrame.CurJobDef == JobDefOf.AttackMelee)
+            {
+                Check(true, "captured reused Frame uses the ordinary AttackMelee job");
+                Next(12, 1200);
+            }
+            else if (step == 12 && TargetDamaged())
+            {
+                Check(true, "captured reused Frame causes real melee damage under player control");
+                UniqueFrame(hostileFrame, "hostile Frame lifecycle complete");
+                Unique(pilot, "player pilot in captured Frame lifecycle complete");
+                Unique(hostilePilot, "ejected hostile pilot lifecycle complete");
+                Finish();
             }
         }
 
@@ -785,12 +1079,48 @@ namespace ZenithFrame.Tests
         }
 
         private static float InjurySeverity(Pawn pawn) => pawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().Sum(injury => injury.Severity);
+        private static Verb ManualVerb(FramePawn targetFrame) =>
+            targetFrame.equipment.PrimaryEq.AllVerbs.Single(verb => verb is Verb_FrameShot);
+
+        private static void ClearTestArea(CellRect area, Map map)
+        {
+            foreach (IntVec3 cell in area.ClipInsideMap(map))
+            {
+                foreach (Thing thing in cell.GetThingList(map).ToList())
+                    if (!(thing is Pawn) && !(thing is IThingHolder) &&
+                        (thing.def.category == ThingCategory.Plant || thing.def.category == ThingCategory.Building || thing.def.category == ThingCategory.Item))
+                        thing.Destroy();
+                map.terrainGrid.SetTerrain(cell, TerrainDefOf.Soil);
+                map.roofGrid.SetRoof(cell, null);
+                map.fogGrid.Unfog(cell);
+            }
+        }
+
+        private static void RelocatePawn(Pawn pawn, IntVec3 cell, Map map)
+        {
+            if (pawn.Spawned) pawn.DeSpawn();
+            GenSpawn.Spawn(pawn, cell, map);
+        }
+
+        private sealed class HostileCombatProbe : JobGiver_AIFightEnemies
+        {
+            public HostileCombatProbe()
+            {
+                targetAcquireRadius = 65f;
+                targetKeepRadius = 72f;
+                chaseTarget = true;
+                humanlikesOnly = true;
+            }
+
+            public Thing FindTarget(Pawn pawn) => FindAttackTarget(pawn);
+        }
 
         private void ClearCombatNoise()
         {
             foreach (Thing thing in Find.CurrentMap.listerThings.AllThings.ToList())
             {
-                bool disposablePawn = thing is Pawn pawn && pawn != pilot && pawn != other && pawn != frame;
+                bool disposablePawn = thing is Pawn pawn && pawn != pilot && pawn != other && pawn != frame &&
+                    pawn != hostileFrame && pawn != hostilePilot;
                 if (disposablePawn || thing is Projectile || thing is Fire || thing is Explosion)
                     thing.Destroy();
             }
@@ -826,6 +1156,15 @@ namespace ZenithFrame.Tests
             // Random relationships are unrelated to this ownership suite and can
             // otherwise leave unresolved references after the fixture is destroyed.
             pawn.relations.ClearAllRelations();
+            return pawn;
+        }
+        private static Pawn GenerateCombatTarget(Faction faction)
+        {
+            Pawn pawn = GenerateHuman(faction);
+            pawn.equipment?.DestroyAllEquipment(DestroyMode.Vanish);
+            pawn.apparel?.DestroyAll(DestroyMode.Vanish);
+            foreach (Hediff_Injury injury in pawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().ToList())
+                pawn.health.RemoveHediff(injury);
             return pawn;
         }
         private static bool HasHackOption(Pawn actor, FramePawn targetFrame) =>
