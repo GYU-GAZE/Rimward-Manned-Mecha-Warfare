@@ -1,6 +1,6 @@
 PASS fresh-process save/load restores pilot identity and relationship
-PASS after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame37900
-PASS after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame37900
+PASS after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame23209
+PASS after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame23209
 PASS draft and control survive load
 PASS Frame receives orders without impersonating a colonist or Biotech mech
 PASS draft command uses normal colonist draft hotkey
@@ -19,7 +19,7 @@ PASS ordinary drafted-pawn right-click movement option available
 PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
 PASS hostile ranged target is spawned and visible
-PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame42141
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame34378, Filth_RubbleRock21117
 PASS ordinary melee attack action is available as a valid alternative
 PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target

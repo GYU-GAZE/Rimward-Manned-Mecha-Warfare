@@ -1,0 +1,19 @@
+PASS empty-machine fresh-process load preserves intrinsic ability state without enabling cast
+PASS repeated fresh-process load creates no duplicate ability or cooldown instance
+PASS new pilot boards the same Frame while its machine cooldown remains
+PASS pilot swap preserves chassis ability identity without copying it to the new pilot
+PASS temporary chassis effect expires through normal Hediff duration
+PASS machine cooldown expires normally and permits the valid new pilot to cast again
+PASS second normal cast reuses the same ability instance and starts a new cooldown
+PASS downing ejects the pilot and blocks casting without moving the active effect off the chassis
+PASS recovery preserves intrinsic ability ownership identity and cooldown
+PASS hostile operational Frame can use the faction-agnostic machine ability without player control
+PASS hostile ThinkTree naturally casts Frame Overdrive through vanilla ability AI; follow-up job=Goto
+PASS hostile AI cast keeps ability effect and cooldown exclusively on the machine
+PASS hostile Frame continues ordinary combat after its autonomous ability cast
+PASS hostile downing ejects pilot while the same disabled chassis retains Overdrive
+PASS fresh player colonist is eligible to acquire the disabled ability-owning chassis
+PASS hacking converts the same ability-owning hostile chassis
+PASS recovery preserves exactly one intrinsic ability on the captured chassis
+PASS player pilot boards captured chassis without receiving its machine ability
+PASS phase complete; saved for fresh-process reload

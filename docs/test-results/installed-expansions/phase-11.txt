@@ -1,12 +1,12 @@
 PASS hostile escaped Frame and nested pilot survive a fresh-process world-pawn load
 PASS hostile escaped Frame before deliberate GC: exactly one Frame owner; found=world-pawns
-PASS hostile escaped pilot before deliberate GC: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame340600
-PASS hostile escaped pilot before deliberate GC: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame340600
+PASS hostile escaped pilot before deliberate GC: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame74143
+PASS hostile escaped pilot before deliberate GC: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame74143
 PASS vanilla hostile world-pawn GC intentionally discards both escaped Frame and nested pilot without dangling cockpit state; frameDiscarded=True pilotDiscarded=True pilotDestroyed=True cockpit=False pilotOwner=null
 PASS player world-frame fixture finds a valid map edge cell
 PASS player world-frame fixture boards through the ordinary cockpit path
 PASS player Frame ExitMap keeps the complete cockpit world pawn explicitly; world=True cockpit=True kept=True frameDestroyed=False pilotOwner=CompPilotableMech
 PASS player Frame immediately after ExitMap: exactly one Frame owner; found=world-pawns
-PASS player pilot immediately after Frame ExitMap: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame406809
-PASS player pilot immediately after Frame ExitMap: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame406809
+PASS player pilot immediately after Frame ExitMap: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame82386
+PASS player pilot immediately after Frame ExitMap: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame82386
 PASS phase complete; saved for fresh-process reload

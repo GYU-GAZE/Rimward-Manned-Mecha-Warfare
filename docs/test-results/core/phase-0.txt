@@ -10,8 +10,8 @@ PASS failed boarding preserves map ownership
 PASS pilot right-click menu offers Board Frame; actual options: Board Frame
 PASS Board Frame menu option issues the real boarding job
 PASS real boarding job reaches Frame and transfers pilot
-PASS boarded: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame37900
-PASS boarded: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame37900
+PASS boarded: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame23209
+PASS boarded: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame23209
 PASS pilot owned by cockpit
 PASS embarked player pilot colonist-bar portrait resolves selection to its containing spawned Frame
 PASS map discovers contained pilot without spawning it

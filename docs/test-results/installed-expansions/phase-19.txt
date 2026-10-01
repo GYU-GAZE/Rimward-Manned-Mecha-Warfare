@@ -1,0 +1,4 @@
+PASS captured Frame fresh-process load preserves chassis identity ownership and new pilot
+PASS hacking recovery boarding and save/load preserve one machine-owned ability instance
+PASS neither original hostile pilot nor replacement player pilot acquires machine ability state
+PASS ALL LIFECYCLE PHASES COMPLETE

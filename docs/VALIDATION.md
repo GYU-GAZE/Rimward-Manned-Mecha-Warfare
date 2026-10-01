@@ -1,5 +1,61 @@
 # MVP validation status
 
+## Validated machine-owned Frame ability lifecycle
+
+Branch: `feat/frame-abilities`
+
+Implementation HEAD: `979db9abc1747e10e772bc2ef5e533aa3d9e7734`
+
+Feature commits: `b222b6a`, `28c283d`, `b48e9b3`, `66d9212`, `b56ea50`, `b73333b`, `25d55c4`, `979db9a`
+
+Executed 2026-10-01 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony Workshop 2.4.2.0 metadata / 2.4.1.0 runtime assembly and .NET SDK 10.0.102.
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/lifecycle checks | PASS, 109 checks |
+| Live Core + Harmony | PASS, 543 assertions, 20 fresh processes, 19 save/load transitions |
+| Live Core + Harmony + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 543 assertions, 20 fresh processes, 19 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors in either retained final run |
+
+Final clean Release DLL SHA-256:
+
+```text
+359ED870708C4CF3A7EE839E19BCB7E889B52A20473F9C87C16FE2882DE0C0A8
+```
+
+The 20 phase reports from each final run are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+`ZF_DebugFrameOverdrive` is owned and cast by the Frame Pawn through the normal Core `Ability`, `Pawn_AbilityTracker`, `Command_Ability`, casting job, cooldown and hediff systems. The contained pilot only enables `Cockpit.CanOperate`; neither the ability, its 300-tick effect nor its 900-tick cooldown is copied to either tested pilot.
+
+Fresh-process coverage preserves one exact ability instance, remaining cooldown and chassis effect through load, disembark, a second pilot, downing and recovery. The same ability follows a hostile chassis through ejection, hacking, recovery, player boarding and another load. Vanilla hostile combat AI naturally casts the self-buff, begins the machine cooldown and continues ordinary combat without a custom ability AI layer. The development values and presentation remain provisional.
+
+### Frame ability manual QA checklist
+
+1. Spawn one debug Frame and select it while empty; confirm Overdrive cannot be used
+2. Board a player colonist
+3. Draft the Frame with R
+4. Confirm the ordinary Frame Overdrive ability command appears once
+5. Record the Frame's normal MoveSpeed
+6. Activate Frame Overdrive through its ability command
+7. Confirm the chassis MoveSpeed increases
+8. Confirm the ability enters cooldown
+9. Attempt immediate reuse and confirm vanilla cooldown blocks it
+10. Save while the effect and cooldown are active
+11. Reload and confirm the same Frame and pilot retain the remaining machine state
+12. Disembark before cooldown ends
+13. Confirm the pilot owns no Overdrive ability or hediff
+14. Board a second pilot into the same chassis
+15. Confirm the same machine cooldown remains and the second pilot receives no copy
+16. Wait for cooldown expiry and cast again
+17. Down the Frame and confirm pilot ejection plus cast rejection
+18. Recover the same chassis and confirm its one intrinsic ability and cooldown remain
+19. Hack and recover a hostile Frame; confirm the captured chassis retains Overdrive
+20. Spawn a hostile piloted Frame and confirm it naturally uses Overdrive during combat
+
+Pilot-owned abilities and psycasts were not started. They remain the next canonical milestone.
+
 ## Validated pilot combat skill bridge
 
 Branch: `feat/pilot-skill-bridging`

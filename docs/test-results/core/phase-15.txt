@@ -2,8 +2,8 @@ PASS fresh-process load preserves exact Frame and known-skill cockpit pilot iden
 PASS fresh-process load preserves pilot combat levels and XP on the pilot
 PASS fresh-process load restores identical live Shooting and Melee bridge values
 PASS loaded Frame still has no SkillTracker and derives operation from the contained pilot
-PASS known-skill pilot after bridge load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame100089
-PASS known-skill pilot after bridge load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame100089
+PASS known-skill pilot after bridge load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame181834
+PASS known-skill pilot after bridge load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame181834
 PASS loaded Frame receives a real manual ranged attack for pilot XP; failure=
 PASS real post-load manual projectile combat still damages its target
 PASS manual Frame fire teaches only the actual pilot and never the chassis
@@ -17,19 +17,21 @@ PASS hostile Melee 18 uses the exact vanilla SkillNeed contribution; expected=0.
 PASS hostile Melee 18 exposes the live pilot contribution through normal stat explanation
 PASS hostile skill bridge is faction-agnostic without exposing player orders
 PASS hostile ranged AI grants Shooting XP to its exact contained hostile pilot
+PASS hostile skill fixture retains its generated ranged weapon before melee transition
 PASS hostile skill fixture drops ranged weapon for real melee XP
-PASS hostile melee AI grants Melee XP to its exact contained hostile pilot
-PASS downing ejects hostile pilot and removes its live stat contribution immediately
+PASS hostile melee AI attempts real melee and grants Melee XP to its exact contained hostile pilot
+PASS downing ejects the hostile skill fixture pilot beside the chassis
+PASS downing removes the hostile pilot skill contribution immediately
 PASS empty ejected hostile Frame remains inert after skill bridge removal
 PASS player Frame downing ejects the known-skill pilot and clears the bridge
 PASS recovering the chassis alone succeeds without restoring old pilot skill state
 PASS recovered empty chassis has no operator skill contribution or combat control
 PASS different pilot boards the recovered same chassis
-PASS recovered Frame new Shooting 3 uses the exact vanilla SkillNeed contribution; expected=0.935 actual=0.935
+PASS recovered Frame new Shooting 3 uses the exact vanilla SkillNeed contribution; expected=0.9068 actual=0.9068
 PASS recovered Frame new Shooting 3 exposes the live pilot contribution through normal stat explanation
-PASS recovered Frame new Melee 4 uses the exact vanilla SkillNeed contribution; expected=0.62 actual=0.62
+PASS recovered Frame new Melee 4 uses the exact vanilla SkillNeed contribution; expected=0.5228 actual=0.5228
 PASS recovered Frame new Melee 4 exposes the live pilot contribution through normal stat explanation
 PASS recovery and reboarding preserve chassis identity while only the new pilot owns skills
-PASS new pilot in recovered skill-test Frame: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame100089
-PASS new pilot in recovered skill-test Frame: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame100089
-PASS ALL LIFECYCLE PHASES COMPLETE
+PASS new pilot in recovered skill-test Frame: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame181834
+PASS new pilot in recovered skill-test Frame: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame181834
+PASS phase complete; saved for fresh-process reload

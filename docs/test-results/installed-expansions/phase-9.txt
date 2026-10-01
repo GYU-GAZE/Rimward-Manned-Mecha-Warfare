@@ -2,8 +2,8 @@ PASS active raid fresh-process load preserves all three pawn identities
 PASS active raid load preserves exact assault Lord membership without exposing the contained pilot
 PASS active raid load restores the operational piloted Frame
 PASS active mixed raid after load: exactly one Frame owner; found=map:0
-PASS active mixed raid pilot after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame307482
-PASS active mixed raid pilot after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame307482
+PASS active mixed raid pilot after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame69992
+PASS active mixed raid pilot after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame69992
 PASS Lord-owned hostile Frame naturally moves and damages a colony target under AssaultColony without a forced job or target-AI invocation
 PASS downing removes the empty disabled Frame from hostile Lord control
 PASS downing ejects the exact pilot and transfers it coherently into the same raid Lord
@@ -12,8 +12,8 @@ PASS hacking converts the exact raid Frame and leaves no stale hostile Lord cont
 PASS hacked raid chassis preserves identity through normal recovery
 PASS player reuses the same recovered raid Frame through normal boarding and drafting
 PASS captured raid Frame reuse: exactly one Frame owner; found=map:0
-PASS player pilot inside captured raid Frame: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame307482
-PASS player pilot inside captured raid Frame: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame307482
+PASS player pilot inside captured raid Frame: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame69992
+PASS player pilot inside captured raid Frame: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame69992
 PASS captured raid Frame releases the player pilot for retreat fixture cleanup
 PASS second real mixed raid starts for retreat lifecycle
 PASS operational Frame receives vanilla exit-Lord control when retreat begins

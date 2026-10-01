@@ -636,7 +636,13 @@ Shooting and Melee now matter through the real Pawn stored in the cockpit. The l
 
 The chassis owns no skills and stores no copied progression. Swapping pilots changes effectiveness immediately, save/load preserves the pilot's original records, ejection removes the contribution, and recovery alone cannot restore it. Pilot capacities, traits, genes, ideology, apparel and hediffs are deliberately excluded. Dodge, aim time, cooldown, movement, abilities and any custom Piloting system remain deferred.
 
-The next canonical milestone is Frame abilities owned by the machine itself. Pilot abilities and psycasts follow later.
+## 14.4. Proven Machine-Owned Frame Ability
+
+`ZF_DebugFrameOverdrive` proves an intrinsic ability whose owner, caster, cooldown and temporary effect are the Frame Pawn. A valid pilot enables operation but never receives or copies the ability state. The normal Core ability tracker, `Command_Ability`, casting job, cooldown and temporary hediff remain responsible for the complete lifecycle.
+
+Fresh-process tests preserve the same ability instance and remaining effect/cooldown through loading, disembark, pilot replacement, downing, recovery, hostile capture and another load. A hostile operational Frame can self-cast the same ability through its existing vanilla combat ThinkTree and then continue fighting.
+
+The 300-tick effect, 900-tick cooldown and MoveSpeed modifier are deterministic development values rather than final balance. The next canonical milestone is pilot abilities and psycasts owned by the contained Pawn.
 
 ---
 

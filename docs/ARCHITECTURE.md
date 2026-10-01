@@ -51,6 +51,20 @@ Ranged experience is awarded at the real `Verb_Shoot.WarmupComplete` execution p
 
 This milestone bridges only Shooting into ranged accuracy and Melee into melee hit chance. It does not add a custom Piloting skill or bridge melee dodge, aim/warmup time, weapon cooldown, movement, abilities, traits, capacities, genes, ideology or other human modifiers.
 
+## Machine-owned Frame abilities
+
+Frame abilities are intrinsic chassis state. The debug `ZF_DebugFrame` declares `ZF_DebugFrameOverdrive` in its normal `PawnKindDef.abilities` list, so vanilla `PawnComponentsUtility` creates `Pawn_AbilityTracker` and `PawnGenerator` grants exactly one ability instance. The Frame Pawn is the ability owner, caster, cooldown owner and effect owner. The contained pilot receives no ability, hediff or copied timer.
+
+`Ability_FrameOverdrive` subclasses the Core `Ability` type and adds only one rule after `base.CanCast`: its pawn must be a `FramePawn` whose cockpit can operate. The rule is faction-independent. Empty, downed, dead or destroyed Frames cannot cast; a valid hostile pilot can operate the same machine ability without gaining player control.
+
+Vanilla `Pawn_AbilityTracker.GetGizmos` hides commands for this deliberately non-colonist, non-Biotech classification. `FramePawn.GetGizmos` bridges only this visibility gap for a valid player-operated Frame by yielding the ability's ordinary `Command_Ability`. Vanilla still supplies its icon, tooltip, drafted disabled state, cooldown display, grouping and `CastAbilityOnThing` job. No parallel ability tracker, command surrogate or cooldown serialization exists.
+
+Frame Overdrive is a development architecture proof. A vanilla `CompAbilityEffect_GiveHediff` self-applies `ZF_FrameOverdrive` for 300 ticks, and its hediff stage carries the provisional MoveSpeed offset. The vanilla ability owns the 900-tick cooldown. Both objects deep-save through the Frame, survive fresh-process load, remain on the chassis during disembark and pilot swaps, and follow the same Pawn through downing, hacking and recovery. Repeated generation, boarding and load cycles retain one ability instance.
+
+Hostile operational Frames expose the same AI-usable ability to vanilla `JobGiver_AIFightEnemy`. The tested ThinkTree path naturally self-casts Overdrive, starts the machine cooldown and returns to ordinary combat without a custom ability AI layer.
+
+These values and the debug presentation are provisional. Abilities owned by the contained pilot, including psycasts, remain a separate later milestone because the real caster Pawn is unspawned while embarked.
+
 ## Harmony control bridge
 
 Harmony is a runtime dependency, but the patch surface is intentionally narrow. Frames are **not** reclassified as colonists or Biotech mechs.
@@ -192,6 +206,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
+- One debug chassis ability only. Pilot abilities, psycasts, ability loadouts and final ability balance remain deferred.
 
 ## Patch and dependency audit
 
@@ -206,4 +221,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership and pilot combat skill bridge were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge and machine-owned Frame ability lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

@@ -20,6 +20,6 @@ PASS hostile Frame can operate through combat AI without accepting player orders
 PASS hostile Frame rejects ordinary player order and draft entry points
 PASS operational occupied hostile Frame is not hackable
 PASS hostile piloted before save: exactly one Frame owner; found=map:0
-PASS hostile pilot before save: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame241173
-PASS hostile pilot before save: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame241173
+PASS hostile pilot before save: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame61725
+PASS hostile pilot before save: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame61725
 PASS phase complete; saved for fresh-process reload
