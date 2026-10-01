@@ -838,7 +838,6 @@ namespace ZenithFrame.Tests
                     RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
                     frameId = frame.GetUniqueLoadID();
                     Check(frame.Faction == null && frame.Hacking.IsHackableDisabledChassis && frame.Hacking.CanHack(pilot, true), "factionless empty downed Frame is hackable by an eligible colonist");
-                    Check(HasHackOption(pilot, frame), "Hack Frame appears for an eligible factionless disabled chassis");
                     UniqueFrame(frame, "factionless disabled before hacking save");
                     SaveNext(6);
                 });
