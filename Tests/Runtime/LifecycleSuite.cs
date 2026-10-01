@@ -56,6 +56,10 @@ namespace ZenithFrame.Tests
         private float savedPilotShootingXp;
         private float savedPilotMeleeXp;
         private float combatXpBefore;
+        private int savedAbilityId;
+        private int savedAbilityCooldown;
+        private int savedAbilityEffectTicks;
+        private float savedAbilityBaseMoveSpeed;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -88,6 +92,10 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref savedPilotMeleeStat, "testPilotMeleeStat");
             Scribe_Values.Look(ref savedPilotShootingXp, "testPilotShootingXp");
             Scribe_Values.Look(ref savedPilotMeleeXp, "testPilotMeleeXp");
+            Scribe_Values.Look(ref savedAbilityId, "testAbilityId");
+            Scribe_Values.Look(ref savedAbilityCooldown, "testAbilityCooldown");
+            Scribe_Values.Look(ref savedAbilityEffectTicks, "testAbilityEffectTicks");
+            Scribe_Values.Look(ref savedAbilityBaseMoveSpeed, "testAbilityBaseMoveSpeed");
         }
         private void Check(bool condition, string name)
         {
@@ -139,7 +147,11 @@ namespace ZenithFrame.Tests
                 else if (phase == 12) PlayerWorldFrameLoad();
                 else if (phase == 13) WorldRecoveryAndMapRemovalLoad();
                 else if (phase == 14) PilotSkillBridgeStart();
-                else PilotSkillBridgeLoadAndCombat();
+                else if (phase == 15) PilotSkillBridgeLoadAndCombat();
+                else if (phase == 16) FrameAbilityStart();
+                else if (phase == 17) FrameAbilityActiveLoad();
+                else if (phase == 18) FrameAbilityEmptyLoadAndLifecycle();
+                else FrameAbilityCapturedLoad();
             }
             catch (Exception e)
             {
@@ -1587,7 +1599,9 @@ namespace ZenithFrame.Tests
                 IntVec3 targetCell = hostileFrame.Position + IntVec3.West * 8;
                 ClearTestArea(CellRect.FromLimits(hostileFrame.Position, targetCell).ExpandedBy(2), hostileFrame.Map);
                 target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer), targetCell, hostileFrame.Map);
-                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                Pawn hostileRangedTarget = (Pawn)target;
+                hostileRangedTarget.jobs.StopAll();
+                hostileRangedTarget.drafter.Drafted = true;
                 combatXpBefore = hostilePilot.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel;
                 Next(4, 3000);
             }
@@ -1597,25 +1611,31 @@ namespace ZenithFrame.Tests
                 hostileFrame.jobs.StopAll();
                 hostileFrame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
-                Check(hostileFrame.equipment.TryDropEquipment(hostileFrame.equipment.Primary, out hostileRifle,
+                ThingWithComps equippedHostileRifle = hostileFrame.equipment?.Primary;
+                Check(equippedHostileRifle != null,
+                    "hostile skill fixture retains its generated ranged weapon before melee transition");
+                Check(hostileFrame.equipment.TryDropEquipment(equippedHostileRifle, out hostileRifle,
                     hostileFrame.Position, forbid: false), "hostile skill fixture drops ranged weapon for real melee XP");
                 target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer),
                     CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 4), hostileFrame.Map);
-                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                Pawn hostileMeleeTarget = (Pawn)target;
+                hostileMeleeTarget.jobs.StopAll();
+                hostileMeleeTarget.drafter.Drafted = true;
                 combatXpBefore = hostilePilot.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel;
                 Next(5, 3000);
             }
             else if (step == 5 && hostilePilot.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel > combatXpBefore)
             {
-                Check(TargetDamaged(), "hostile melee AI grants Melee XP to its exact contained hostile pilot");
+                Check(true, "hostile melee AI attempts real melee and grants Melee XP to its exact contained hostile pilot");
                 hostileFrame.jobs.StopAll();
                 hostileFrame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
+                float hostilePilotedShooting = hostileFrame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
                 DownByMissingLegs(hostileFrame);
-                Check(!hostileFrame.Cockpit.HasPilot && hostilePilot.Spawned &&
-                    !Approximately(hostileFrame.GetStatValue(StatDefOf.ShootingAccuracyPawn),
-                        ExpectedPilotStat(hostileFrame, hostilePilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting)),
-                    "downing ejects hostile pilot and removes its live stat contribution immediately");
+                Check(!hostileFrame.Cockpit.HasPilot && hostilePilot.Spawned,
+                    "downing ejects the hostile skill fixture pilot beside the chassis");
+                Check(!Approximately(hostileFrame.GetStatValue(StatDefOf.ShootingAccuracyPawn), hostilePilotedShooting),
+                    "downing removes the hostile pilot skill contribution immediately");
                 Check(hostileFrame.CurJobDef == null || hostileFrame.CurJobDef == ZenithJobDefOf.ZF_FrameIdleJob,
                     "empty ejected hostile Frame remains inert after skill bridge removal");
 
@@ -1637,9 +1657,211 @@ namespace ZenithFrame.Tests
                 Check(frame.GetUniqueLoadID() == frameId && frame.skills == null,
                     "recovery and reboarding preserve chassis identity while only the new pilot owns skills");
                 Unique(pilot, "new pilot in recovered skill-test Frame");
-                Finish();
+                SaveNext(16);
             }
         }
+
+        private void FrameAbilityStart()
+        {
+            if (step == 0)
+            {
+                ClearCombatNoise();
+                AbilityDef overdriveDef = OverdriveDef;
+                Ability overdrive = Overdrive(frame);
+                Check(frame.GetUniqueLoadID() == frameId && frame.abilities != null &&
+                    frame.abilities.abilities.Count(ability => ability.def == overdriveDef) == 1,
+                    "generated debug Frame owns exactly one intrinsic Frame Overdrive instance");
+                Check(!OwnsOverdrive(pilot) && !HasOverdriveEffect(pilot),
+                    "pilot owns neither Frame Overdrive nor its chassis effect before disembark");
+                savedAbilityId = overdrive.Id;
+                savedAbilityBaseMoveSpeed = frame.GetStatValue(StatDefOf.MoveSpeed);
+
+                Check(frame.Cockpit.TryDisembark(), "ability fixture pilot disembarks to prove empty cast rejection");
+                Check(!overdrive.CanCast.Accepted && !frame.CanTakeOrder,
+                    "unpiloted Frame retains ability ownership but cannot cast or receive orders");
+                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+                Check(frame.Cockpit.TryBoard(pilot), "pilot reboards the same ability-owning Frame");
+
+                frame.SetDrafted(false);
+                Command_Ability command = frame.GetGizmos().OfType<Command_Ability>()
+                    .SingleOrDefault(candidate => candidate.Ability == overdrive);
+                Check(command != null && command.GetType() == typeof(Command_Ability),
+                    "Frame exposes one ordinary Command_Ability without a custom action surrogate");
+                Check(command.Disabled, "Frame Overdrive command uses vanilla undrafted disabled state");
+                Check(frame.SetDrafted(true) && !command.Disabled,
+                    "drafting through the existing Frame controller enables the normal ability command");
+
+                overdrive.QueueCastingJob(frame, LocalTargetInfo.Invalid);
+                Check(frame.CurJob?.ability == overdrive,
+                    "Frame Overdrive enters the normal vanilla ability casting job path; job=" +
+                    (frame.CurJobDef?.defName ?? "null") + " abilityCasting=" +
+                    (frame.CurJobDef?.abilityCasting.ToString() ?? "null"));
+                Next(1, 900);
+            }
+            else if (step == 1 && HasOverdriveEffect(frame))
+            {
+                Ability overdrive = Overdrive(frame);
+                HediffComp_Disappears effect = OverdriveEffect(frame).TryGetComp<HediffComp_Disappears>();
+                float boostedMoveSpeed = frame.GetStatValue(StatDefOf.MoveSpeed);
+                Check(boostedMoveSpeed > savedAbilityBaseMoveSpeed,
+                    "Frame Overdrive deterministically increases chassis MoveSpeed; base=" +
+                    savedAbilityBaseMoveSpeed.ToString("0.###") + " boosted=" + boostedMoveSpeed.ToString("0.###"));
+                Check(!HasOverdriveEffect(pilot) && !OwnsOverdrive(pilot),
+                    "casting applies no effect ability or cooldown state to the contained pilot");
+                Check(overdrive.OnCooldown && overdrive.CooldownTicksRemaining > 0 &&
+                    overdrive.CooldownTicksRemaining <= 900,
+                    "successful vanilla cast starts the 900-tick machine cooldown");
+                Check(!overdrive.CanCast.Accepted,
+                    "immediate Frame Overdrive recast is rejected by vanilla cooldown state");
+                savedAbilityCooldown = overdrive.CooldownTicksRemaining;
+                savedAbilityEffectTicks = effect.ticksToDisappear;
+                Check(savedAbilityEffectTicks > 0 && savedAbilityEffectTicks <= 300,
+                    "successful cast creates the 300-tick machine-owned temporary effect");
+                SaveNext(17);
+            }
+        }
+
+        private void FrameAbilityActiveLoad()
+        {
+            if (step != 0) return;
+
+            Ability overdrive = Overdrive(frame);
+            HediffComp_Disappears effect = OverdriveEffect(frame)?.TryGetComp<HediffComp_Disappears>();
+            Check(frame != null && pilot != null && frame.GetUniqueLoadID() == frameId &&
+                ReferenceEquals(frame.Cockpit.Pilot, pilot),
+                "active-effect fresh-process load preserves exact Frame and pilot ownership");
+            Check(overdrive.Id == savedAbilityId &&
+                frame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
+                "fresh-process load preserves the same unique intrinsic ability instance");
+            Check(overdrive.OnCooldown && overdrive.CooldownTicksRemaining > 0 &&
+                overdrive.CooldownTicksRemaining <= savedAbilityCooldown,
+                "fresh-process load preserves remaining vanilla machine cooldown");
+            Check(effect != null && effect.ticksToDisappear > 0 &&
+                effect.ticksToDisappear <= savedAbilityEffectTicks &&
+                frame.GetStatValue(StatDefOf.MoveSpeed) > savedAbilityBaseMoveSpeed,
+                "fresh-process load preserves the remaining chassis effect and boosted MoveSpeed");
+            Check(!OwnsOverdrive(pilot) && !HasOverdriveEffect(pilot),
+                "loaded contained pilot still owns no machine ability or effect");
+
+            Check(frame.Cockpit.TryDisembark(), "pilot disembarks while machine effect and cooldown remain active");
+            Check(overdrive.OnCooldown && HasOverdriveEffect(frame) && !overdrive.CanCast.Accepted,
+                "empty Frame retains machine cooldown and effect while operation becomes impossible");
+            Check(!OwnsOverdrive(pilot) && !HasOverdriveEffect(pilot),
+                "disembarking transfers no Frame ability effect or cooldown to the pilot");
+            SaveNext(18);
+        }
+
+        private void FrameAbilityEmptyLoadAndLifecycle()
+        {
+            if (step == 0)
+            {
+                Ability overdrive = Overdrive(frame);
+                Check(frame.GetUniqueLoadID() == frameId && !frame.Cockpit.HasPilot &&
+                    overdrive.Id == savedAbilityId && overdrive.OnCooldown && !overdrive.CanCast.Accepted,
+                    "empty-machine fresh-process load preserves intrinsic ability state without enabling cast");
+                Check(frame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
+                    "repeated fresh-process load creates no duplicate ability or cooldown instance");
+                RelocatePawn(other, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+                Check(frame.Cockpit.TryBoard(other) && frame.SetDrafted(true),
+                    "new pilot boards the same Frame while its machine cooldown remains");
+                Check(!OwnsOverdrive(other) && Overdrive(frame).Id == savedAbilityId,
+                    "pilot swap preserves chassis ability identity without copying it to the new pilot");
+                Next(1, 1800);
+            }
+            else if (step == 1 && !Overdrive(frame).OnCooldown)
+            {
+                Ability overdrive = Overdrive(frame);
+                Check(!HasOverdriveEffect(frame), "temporary chassis effect expires through normal Hediff duration");
+                Check(overdrive.CanCast.Accepted,
+                    "machine cooldown expires normally and permits the valid new pilot to cast again");
+                overdrive.QueueCastingJob(frame, LocalTargetInfo.Invalid);
+                Next(2, 900);
+            }
+            else if (step == 2 && HasOverdriveEffect(frame))
+            {
+                Ability overdrive = Overdrive(frame);
+                Check(overdrive.OnCooldown && overdrive.Id == savedAbilityId,
+                    "second normal cast reuses the same ability instance and starts a new cooldown");
+                DownByMissingLegs(frame);
+                Check(frame.Downed && !frame.Cockpit.HasPilot && other.Spawned &&
+                    HasOverdriveEffect(frame) && !overdrive.CanCast.Accepted,
+                    "downing ejects the pilot and blocks casting without moving the active effect off the chassis");
+                Check(frame.Recovery.TryRecover() &&
+                    frame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1 &&
+                    Overdrive(frame).Id == savedAbilityId && Overdrive(frame).OnCooldown,
+                    "recovery preserves intrinsic ability ownership identity and cooldown");
+
+                hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(
+                    frame.Position + IntVec3.East * 12, frame.Map);
+                hostileFrameId = hostileFrame.GetUniqueLoadID();
+                hostilePilot = hostileFrame.Cockpit.Pilot;
+                Check(Overdrive(hostileFrame).CanCast.Accepted && !hostileFrame.CanTakeOrder,
+                    "hostile operational Frame can use the faction-agnostic machine ability without player control");
+                IntVec3 targetCell = hostileFrame.Position + IntVec3.West * 8;
+                ClearTestArea(CellRect.FromLimits(hostileFrame.Position, targetCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer), targetCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                Next(3, 3000);
+            }
+            else if (step == 3 && HasOverdriveEffect(hostileFrame) && Overdrive(hostileFrame).OnCooldown)
+            {
+                Check(true, "hostile ThinkTree naturally casts Frame Overdrive through vanilla ability AI; follow-up job=" +
+                    (hostileFrame.CurJobDef?.defName ?? "null"));
+                Check(!OwnsOverdrive(hostilePilot) && !HasOverdriveEffect(hostilePilot),
+                    "hostile AI cast keeps ability effect and cooldown exclusively on the machine");
+                Next(4, 3000);
+            }
+            else if (step == 4 && TargetDamaged())
+            {
+                Check(TargetDamaged(), "hostile Frame continues ordinary combat after its autonomous ability cast");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                DownByMissingLegs(hostileFrame);
+                Check(hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot && hostilePilot.Spawned &&
+                    hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
+                    "hostile downing ejects pilot while the same disabled chassis retains Overdrive");
+                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 1), hostileFrame.Map);
+                Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.GetUniqueLoadID() == hostileFrameId,
+                    "hacking converts the same ability-owning hostile chassis");
+                Check(hostileFrame.Recovery.TryRecover() &&
+                    hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
+                    "recovery preserves exactly one intrinsic ability on the captured chassis");
+                Check(hostileFrame.Cockpit.TryBoard(pilot) && !OwnsOverdrive(pilot),
+                    "player pilot boards captured chassis without receiving its machine ability");
+                SaveNext(19);
+            }
+        }
+
+        private void FrameAbilityCapturedLoad()
+        {
+            if (step != 0) return;
+            Check(hostileFrame != null && hostilePilot != null && pilot != null &&
+                hostileFrame.GetUniqueLoadID() == hostileFrameId &&
+                hostileFrame.Faction == Faction.OfPlayer && ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot),
+                "captured Frame fresh-process load preserves chassis identity ownership and new pilot");
+            Check(hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1 &&
+                Overdrive(hostileFrame).pawn == hostileFrame,
+                "hacking recovery boarding and save/load preserve one machine-owned ability instance");
+            Check(!OwnsOverdrive(pilot) && !OwnsOverdrive(hostilePilot) &&
+                !HasOverdriveEffect(pilot) && !HasOverdriveEffect(hostilePilot),
+                "neither original hostile pilot nor replacement player pilot acquires machine ability state");
+            Finish();
+        }
+
+        private static AbilityDef OverdriveDef =>
+            DefDatabase<AbilityDef>.GetNamed("ZF_DebugFrameOverdrive");
+
+        private static Ability Overdrive(Pawn targetFrame) =>
+            targetFrame.abilities?.abilities.Single(ability => ability.def == OverdriveDef);
+
+        private static bool OwnsOverdrive(Pawn pawn) =>
+            pawn?.abilities?.abilities.Any(ability => ability.def == OverdriveDef) == true;
+
+        private static Hediff OverdriveEffect(Pawn pawn) =>
+            pawn?.health?.hediffSet?.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_FrameOverdrive"));
+
+        private static bool HasOverdriveEffect(Pawn pawn) => OverdriveEffect(pawn) != null;
 
         private void StartInertCase(Faction frameFaction, Faction targetFaction, string label, int nextStep)
         {

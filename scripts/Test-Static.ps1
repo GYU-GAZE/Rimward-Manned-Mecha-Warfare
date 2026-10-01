@@ -104,6 +104,19 @@ Assert-Static ($skillCode -match 'pilot\.skills\.Learn' -and $skillCode -notmatc
 Assert-Static ($skillCode -notmatch 'Pawn_SkillTracker|new\s+SkillTracker|Scribe_' -and $code -notmatch 'Scribe_.*Skill') 'Frame must not create or serialize mirrored pilot skill state'
 Assert-Static ($skillCode -notmatch 'pilot\.(Map|Position)' -and $skillCode -notmatch 'DamageInfo|MeleeDamage') 'Skill bridge must not fake contained-pilot map state or modify physical melee damage'
 Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(Pawn\),\s*nameof\(Pawn\.GetStatValue') 'Pilot skills must not patch the global Pawn stat lookup path'
+$abilityCode = Get-Content "$repo/Source/ZenithFrame/FrameAbilities.cs" -Raw
+[xml]$abilityDefs = Get-Content "$repo/Mod/Defs/FrameAbilities.xml" -Raw
+$overdrive = @($abilityDefs.Defs.AbilityDef | Where-Object defName -EQ 'ZF_DebugFrameOverdrive')
+$overdriveHediff = @($abilityDefs.Defs.HediffDef | Where-Object defName -EQ 'ZF_FrameOverdrive')
+Assert-Static (@($frame.Defs.PawnKindDef.abilities.li | Where-Object { $_ -eq 'ZF_DebugFrameOverdrive' }).Count -eq 1) 'Debug Frame PawnKind must own exactly one intrinsic Overdrive ability'
+Assert-Static ($overdrive.Count -eq 1 -and $overdrive.abilityClass -eq 'ZenithFrame.Ability_FrameOverdrive' -and $overdrive.cooldownTicksRange -eq '900') 'Frame Overdrive must use the Frame-gated vanilla Ability with a 900-tick cooldown'
+Assert-Static ($overdrive.verbProperties.verbClass -eq 'Verb_CastAbility' -and $overdrive.targetRequired -eq 'false' -and $overdrive.verbProperties.targetParams.canTargetSelf -eq 'true') 'Frame Overdrive must remain a vanilla self-cast ability'
+Assert-Static ($overdrive.comps.li.GetAttribute('Class') -eq 'CompProperties_AbilityGiveHediff' -and $overdrive.comps.li.hediffDef -eq 'ZF_FrameOverdrive' -and $overdrive.comps.li.onlyApplyToSelf -eq 'true') 'Frame Overdrive must apply its effect only to its Frame caster through the vanilla comp'
+Assert-Static ($overdriveHediff.Count -eq 1 -and $overdriveHediff.comps.li.disappearsAfterTicks -eq '300' -and $overdriveHediff.stages.li.statOffsets.MoveSpeed -eq '6') 'Frame Overdrive requires the deterministic 300-tick chassis MoveSpeed effect'
+Assert-Static ($abilityCode -match 'frame\.Cockpit\?\.CanOperate' -and $abilityCode -match 'base\.CanCast') 'Frame ability casting must add only the faction-agnostic cockpit operation gate to vanilla CanCast'
+Assert-Static ($code -match 'gizmo is Command_Ability' -and $code -match 'ability\.GetGizmos\(\)' -and $code -notmatch 'Use Overdrive') 'Player Frame ability UI must expose normal Command_Ability gizmos without a custom action surrogate'
+Assert-Static ($abilityCode -notmatch 'Scribe_|cooldownEndTick|FrameAbilityManager|FrameAbilityTracker|FrameCooldownManager') 'Frame abilities must use vanilla tracker cooldown and serialization state'
+Assert-Static ($code -notmatch 'Cockpit\.Pilot\.abilities|Pilot\.abilities|pilot\.abilities\.GainAbility') 'Frame abilities must never be copied or granted to the cockpit pilot'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'
 Assert-Static (@($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_HackFrame').driverClass -eq 'ZenithFrame.JobDriver_HackFrame') 'Hack Frame JobDef is missing or miswired'
