@@ -6,6 +6,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace ZenithFrame.Tests
 {
@@ -37,6 +38,12 @@ namespace ZenithFrame.Tests
         private IntVec3 hostileFrameStart;
         private ThingWithComps hostileRifle;
         private bool hostileProbePassed;
+        private string raidFrameId;
+        private string raidPilotId;
+        private string raidInfantryId;
+        private FramePawn raidFrame;
+        private Pawn raidPilot;
+        private Pawn raidInfantry;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -53,6 +60,12 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref hostilePilotId, "testHostilePilotId");
             Scribe_References.Look(ref hostileFrame, "testHostileFrame");
             Scribe_References.Look(ref hostilePilot, "testHostilePilot");
+            Scribe_Values.Look(ref raidFrameId, "testRaidFrameId");
+            Scribe_Values.Look(ref raidPilotId, "testRaidPilotId");
+            Scribe_Values.Look(ref raidInfantryId, "testRaidInfantryId");
+            Scribe_References.Look(ref raidFrame, "testRaidFrame");
+            Scribe_References.Look(ref raidPilot, "testRaidPilot");
+            Scribe_References.Look(ref raidInfantry, "testRaidInfantry");
         }
         private void Check(bool condition, string name)
         {
@@ -73,7 +86,15 @@ namespace ZenithFrame.Tests
                 }
             }
             all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(Current.Game.GetComponent<PilotRecovery>()));
-            all.AddRange(Find.WorldPawns.AllPawnsAliveOrDead);
+            var worldPawns = Find.WorldPawns.AllPawnsAliveOrDead.ToList();
+            all.AddRange(worldPawns);
+            foreach (Pawn worldPawn in worldPawns)
+            {
+                if (worldPawn is IThingHolder holder)
+                    all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(holder));
+                foreach (IThingHolder compHolder in worldPawn.AllComps.OfType<IThingHolder>())
+                    all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(compHolder));
+            }
             // Multiple traversal paths may legitimately visit the same object; different
             // objects with the same load ID must never exist.
             var matches = all.Where(t => t.GetUniqueLoadID() == p.GetUniqueLoadID()).Distinct().ToList();
@@ -95,7 +116,10 @@ namespace ZenithFrame.Tests
                 else if (phase == 4) HackingLoad();
                 else if (phase == 5) HackedFrameLoad();
                 else if (phase == 6) FactionlessHackingLoad();
-                else HostilePilotLoad();
+                else if (phase == 7) HostilePilotLoad();
+                else if (phase == 8) EnemyRaidStart();
+                else if (phase == 9) EnemyRaidActiveLoad();
+                else EnemyRaidRetreatLoad();
             }
             catch (Exception e)
             {
@@ -750,6 +774,7 @@ namespace ZenithFrame.Tests
 
                     frame = SpawnFactionlessFrame(pilot.Position + IntVec3.East * 5);
                     DownByMissingLegs(frame);
+                    RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
                     frameId = frame.GetUniqueLoadID();
                     Check(frame.Faction == null && frame.Hacking.IsHackableDisabledChassis && frame.Hacking.CanHack(pilot, true), "factionless empty downed Frame is hackable by an eligible colonist");
                     Check(HasHackOption(pilot, frame), "Hack Frame appears for an eligible factionless disabled chassis");
@@ -872,7 +897,12 @@ namespace ZenithFrame.Tests
             {
                 Check(true, "hostile piloted Frame uses ordinary pathing to close weapon range; observed job=" +
                     (hostileFrame.CurJobDef?.defName ?? "null"));
-                Next(2, 2400);
+                Pawn playerTarget = (Pawn)target;
+                IntVec3 firingCell = CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 10);
+                ClearTestArea(CellRect.FromLimits(hostileFrame.Position, firingCell).ExpandedBy(2), hostileFrame.Map);
+                RelocatePawn(playerTarget, firingCell, hostileFrame.Map);
+                playerTarget.stances.stunner.StunFor(5000, hostileFrame);
+                Next(2, 4800);
             }
             else if (step == 1 && !hostileProbePassed && Find.TickManager.TicksGame >= deadline - 2300)
             {
@@ -1033,7 +1063,7 @@ namespace ZenithFrame.Tests
             else if (step == 11 && hostileFrame.CurJobDef == JobDefOf.AttackMelee)
             {
                 Check(true, "captured reused Frame uses the ordinary AttackMelee job");
-                Next(12, 1200);
+                Next(12, 3000);
             }
             else if (step == 12 && TargetDamaged())
             {
@@ -1041,8 +1071,182 @@ namespace ZenithFrame.Tests
                 UniqueFrame(hostileFrame, "hostile Frame lifecycle complete");
                 Unique(pilot, "player pilot in captured Frame lifecycle complete");
                 Unique(hostilePilot, "ejected hostile pilot lifecycle complete");
-                Finish();
+                SaveNext(8);
             }
+        }
+
+        private void EnemyRaidStart()
+        {
+            if (step != 0) return;
+
+            Check(hostileFrame.Cockpit.TryDisembark() && ReferenceEquals(pilot, hostileFrame.Cockpit.Pilot) == false,
+                "captured Frame releases the player pilot before the raid fixture");
+            hostileFrame.Destroy();
+            if (hostilePilot.Spawned) hostilePilot.Destroy();
+            ClearCombatNoise();
+
+            IncidentParms parms = StorytellerUtility.DefaultParmsNow(IncidentCategoryDefOf.ThreatBig, Find.CurrentMap);
+            parms.forced = true;
+            parms.silent = true;
+            parms.sendLetter = false;
+            Check(ZenithIncidentDefOf.ZF_DevelopmentEnemyFrameRaid.Worker.TryExecute(parms),
+                "development IncidentWorker_RaidEnemy starts a real mixed raid");
+
+            raidFrame = Find.CurrentMap.mapPawns.AllPawnsSpawned.OfType<FramePawn>()
+                .Single(candidate => candidate.Faction != null && candidate.Faction.HostileTo(Faction.OfPlayer) && candidate.GetLord() != null);
+            Lord raidLord = raidFrame.GetLord();
+            raidPilot = raidFrame.Cockpit.Pilot;
+            raidInfantry = raidLord.ownedPawns.Single(candidate => !(candidate is FramePawn));
+            raidFrameId = raidFrame.GetUniqueLoadID();
+            raidPilotId = raidPilot.GetUniqueLoadID();
+            raidInfantryId = raidInfantry.GetUniqueLoadID();
+
+            Check(raidLord.LordJob is LordJob_AssaultColony && raidLord.ownedPawns.Count == 2 &&
+                raidLord.ownedPawns.Contains(raidFrame) && raidLord.ownedPawns.Contains(raidInfantry) &&
+                !raidLord.ownedPawns.Contains(raidPilot),
+                "raid uses one vanilla assault Lord containing infantry and the embarked Frame only");
+            Check(raidFrame.Cockpit.CanUseHostileCombatAI && ReferenceEquals(raidFrame.Cockpit.Pilot, raidPilot) &&
+                !raidPilot.Spawned && raidPilot.holdingOwner == raidFrame.Cockpit.GetDirectlyHeldThings(),
+                "raid arrives with one real same-faction pilot exclusively owned by the cockpit");
+            UniqueFrame(raidFrame, "active mixed raid before save");
+            Unique(raidPilot, "active mixed raid pilot before save");
+            SaveNext(9);
+        }
+
+        private void EnemyRaidActiveLoad()
+        {
+            if (step == 0)
+            {
+                Lord raidLord = raidFrame?.GetLord();
+                Check(raidFrame != null && raidPilot != null && raidInfantry != null &&
+                    raidFrame.GetUniqueLoadID() == raidFrameId && raidPilot.GetUniqueLoadID() == raidPilotId &&
+                    raidInfantry.GetUniqueLoadID() == raidInfantryId,
+                    "active raid fresh-process load preserves all three pawn identities");
+                Check(raidLord != null && raidLord.LordJob is LordJob_AssaultColony &&
+                    raidInfantry.GetLord() == raidLord && raidLord.ownedPawns.Contains(raidFrame) &&
+                    !raidLord.ownedPawns.Contains(raidPilot),
+                    "active raid load preserves exact assault Lord membership without exposing the contained pilot");
+                Check(ReferenceEquals(raidFrame.Cockpit.Pilot, raidPilot) && raidFrame.Cockpit.CanUseHostileCombatAI,
+                    "active raid load restores the operational piloted Frame");
+                UniqueFrame(raidFrame, "active mixed raid after load");
+                Unique(raidPilot, "active mixed raid pilot after load");
+
+                IntVec3 targetCell = CellFinder.RandomClosewalkCellNear(raidFrame.Position, raidFrame.Map, 14);
+                ClearTestArea(CellRect.FromLimits(raidFrame.Position, targetCell).ExpandedBy(2), raidFrame.Map);
+                RelocatePawn(pilot, targetCell, raidFrame.Map);
+                pilot.drafter.Drafted = true;
+                raidInfantry.stances.stunner.StunFor(5000, raidFrame);
+                Next(1, 2400);
+            }
+            else if (step == 1 && InjurySeverity(pilot) > 0f)
+            {
+                Check(true, "Lord-owned hostile Frame performs real combat during the active raid");
+                raidFrame.jobs.StopAll();
+                raidFrame.stances.CancelBusyStanceHard();
+                pilot.stances.stunner.StunFor(5000, raidFrame);
+                Lord raidLord = raidFrame.GetLord();
+                DownByMissingLegs(raidFrame);
+                Check(raidFrame.Downed && !raidFrame.Cockpit.HasPilot && raidFrame.GetLord() == null,
+                    "downing removes the empty disabled Frame from hostile Lord control");
+                Check(ReferenceEquals(raidPilot.GetLord(), raidLord) && raidLord.ownedPawns.Contains(raidPilot) &&
+                    raidPilot.Spawned && raidPilot.Position.AdjacentTo8WayOrInside(raidFrame.Position),
+                    "downing ejects the exact pilot and transfers it coherently into the same raid Lord");
+                Check(!raidFrame.Cockpit.CanOperate && !raidFrame.pather.Moving,
+                    "empty disabled raid Frame is inert and cannot retreat itself");
+                raidPilot.stances.stunner.StunFor(5000, raidFrame);
+                Check(raidFrame.Hacking.TryHack(pilot) && raidFrame.Faction == Faction.OfPlayer && raidFrame.GetLord() == null,
+                    "hacking converts the exact raid Frame and leaves no stale hostile Lord control");
+                Check(raidFrame.GetUniqueLoadID() == raidFrameId && raidFrame.Recovery.TryRecover(),
+                    "hacked raid chassis preserves identity through normal recovery");
+                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(raidFrame.Position, raidFrame.Map, 1), raidFrame.Map);
+                Check(raidFrame.Cockpit.TryBoard(pilot) && ReferenceEquals(raidFrame.Cockpit.Pilot, pilot) && raidFrame.SetDrafted(true),
+                    "player reuses the same recovered raid Frame through normal boarding and drafting");
+                UniqueFrame(raidFrame, "captured raid Frame reuse");
+                Unique(pilot, "player pilot inside captured raid Frame");
+                Check(raidFrame.Cockpit.TryDisembark(), "captured raid Frame releases the player pilot for retreat fixture cleanup");
+                raidFrame.Destroy();
+                if (raidPilot.Spawned) raidPilot.Destroy();
+                if (raidInfantry.Spawned) raidInfantry.Destroy();
+                ClearCombatNoise();
+
+                IncidentParms parms = StorytellerUtility.DefaultParmsNow(IncidentCategoryDefOf.ThreatBig, Find.CurrentMap);
+                parms.forced = true;
+                parms.silent = true;
+                parms.sendLetter = false;
+                Check(ZenithIncidentDefOf.ZF_DevelopmentEnemyFrameRaid.Worker.TryExecute(parms),
+                    "second real mixed raid starts for retreat lifecycle");
+                raidFrame = Find.CurrentMap.mapPawns.AllPawnsSpawned.OfType<FramePawn>()
+                    .Single(candidate => candidate.Faction != null && candidate.Faction.HostileTo(Faction.OfPlayer) && candidate.GetLord() != null);
+                raidPilot = raidFrame.Cockpit.Pilot;
+                raidInfantry = raidFrame.GetLord().ownedPawns.Single(candidate => !(candidate is FramePawn));
+                raidFrameId = raidFrame.GetUniqueLoadID();
+                raidPilotId = raidPilot.GetUniqueLoadID();
+                raidInfantryId = raidInfantry.GetUniqueLoadID();
+                IntVec3 mapCenter = new IntVec3(raidFrame.Map.Size.x / 2, 0, raidFrame.Map.Size.z / 2);
+                IntVec3 frameRetreatStart = CellFinder.RandomClosewalkCellNear(mapCenter, raidFrame.Map, 8);
+                IntVec3 infantryRetreatStart = CellFinder.RandomClosewalkCellNear(frameRetreatStart, raidFrame.Map, 4);
+                RelocatePawn(raidFrame, frameRetreatStart, Find.CurrentMap);
+                RelocatePawn(raidInfantry, infantryRetreatStart, Find.CurrentMap);
+                raidFrame.jobs.StopAll();
+                Lord retreatLord = LordMaker.MakeNewLord(raidFrame.Faction,
+                    new LordJob_ExitMapBest(LocomotionUrgency.Sprint, canDig: true, canDefendSelf: true),
+                    Find.CurrentMap, new Pawn[] { raidFrame, raidInfantry });
+                raidFrame.Cockpit.RememberOperationalLord(retreatLord);
+                Check(raidFrame.Cockpit.OperationalLord == retreatLord && retreatLord.LordJob is LordJob_ExitMapBest,
+                    "operational Frame receives vanilla exit-Lord control when retreat begins");
+                Next(2, 1200);
+            }
+            else if (step == 2 && raidFrame.mindState.duty?.def == DutyDefOf.ExitMapBest && raidFrame.pather.Moving)
+            {
+                Check(raidFrame.Cockpit.OperationalLord?.LordJob is LordJob_ExitMapBest,
+                    "vanilla retreat Lord drives the operational Frame through its exit-map job");
+                SaveNext(10);
+            }
+        }
+
+        private void EnemyRaidRetreatLoad()
+        {
+            if (step == 0)
+            {
+                Check(raidFrame != null && raidPilot != null && raidFrame.GetUniqueLoadID() == raidFrameId &&
+                    raidPilot.GetUniqueLoadID() == raidPilotId && ReferenceEquals(raidFrame.Cockpit.Pilot, raidPilot),
+                    "retreat fresh-process load preserves exact Frame and contained pilot ownership");
+                UniqueFrame(raidFrame, "retreating Frame after load");
+                Unique(raidPilot, "retreating contained pilot after load");
+                if (!raidFrame.Spawned)
+                {
+                    FinishRetreatAssertions();
+                    return;
+                }
+                Next(1, 6000);
+            }
+            else if (step == 1 && !raidFrame.Spawned)
+            {
+                FinishRetreatAssertions();
+            }
+            else if (step == 1 && raidFrame.Cockpit.OperationalLord?.LordJob is LordJob_ExitMapBest && raidFrame.Cockpit.CanUseHostileCombatAI)
+            {
+                Check(true, "retreat load restores the vanilla exit Lord and operational hostile Frame");
+                Next(2, 6000);
+            }
+            else if (step == 2 && !raidFrame.Spawned)
+            {
+                FinishRetreatAssertions();
+            }
+        }
+
+        private void FinishRetreatAssertions()
+        {
+            Check(Find.WorldPawns.AllPawnsAliveOrDead.Contains(raidFrame),
+                "operational raid Frame exits the map through vanilla world-pawn handling");
+            Check(ReferenceEquals(raidFrame.Cockpit.Pilot, raidPilot) && !raidPilot.Spawned &&
+                raidPilot.holdingOwner == raidFrame.Cockpit.GetDirectlyHeldThings(),
+                "exited Frame retains exclusive ownership of the exact living pilot");
+            Check(raidFrame.GetUniqueLoadID() == raidFrameId && raidPilot.GetUniqueLoadID() == raidPilotId,
+                "retreat exit preserves Frame and pilot identities without duplication");
+            UniqueFrame(raidFrame, "retreated Frame world ownership");
+            Unique(raidPilot, "retreated pilot cockpit ownership");
+            Finish();
         }
 
         private void StartInertCase(Faction frameFaction, Faction targetFaction, string label, int nextStep)

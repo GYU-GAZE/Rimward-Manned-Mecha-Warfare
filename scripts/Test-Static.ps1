@@ -75,6 +75,13 @@ Assert-Static ($code -match 'class JobDriver_FrameIdle' -and $code -match 'ZF_Fr
 Assert-Static ($code -match 'Patch_Pawn_MeleeVerbs_TryMeleeAttack_Frame' -and $code -match '!frame\.Cockpit\.CanOperate') 'Empty Frames must reject melee at the verb execution boundary'
 Assert-Static ($code -match 'CanTakePlayerOrders' -and $code -match 'CanUseHostileCombatAI') 'Machine operation, player orders, and hostile combat AI must remain separate policies'
 Assert-Static ($code -match 'TryInstallPilot' -and $code -match 'SpawnHostilePilotedFrame' -and $code -match 'Spawn hostile piloted Frame') 'Explicit hostile Frame fixture and pilot installation path are missing'
+Assert-Static ($code -match 'IncidentWorker_DevelopmentEnemyFrameRaid\s*:\s*IncidentWorker_RaidEnemy' -and
+    $code -match 'PawnsArrivalModeDefOf\.EdgeWalkIn' -and $code -match 'RaidStrategyDefOf\.ImmediateAttack' -and
+    $code -match 'MakeLords\(parms, raiders\)') 'Development mixed Frame raid must use vanilla incident, arrival, strategy, and Lord machinery'
+Assert-Static ($code -match 'TryInstallGeneratedPilot' -and $code -match 'new List<Pawn> \{ infantry, frame \}') 'Generated raid pilot must be contained before arrival and excluded from direct Lord membership'
+Assert-Static ($code -match 'TransferRaidControlToEjectedPilot' -and $code -match 'lord\.RemovePawn\(Frame\)' -and $code -match 'lord\.AddPawn\(pilot\)') 'Raid ejection must remove the empty chassis and transfer the exact pilot to its Lord'
+Assert-Static ($code -match 'hostileLord\.RemovePawn\(Frame\)' -and $code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)') 'Hacking must remove stale hostile Lord control before faction conversion'
+Assert-Static ($code -match 'TryFollowLordExitDuty' -and $code -match 'new JobGiver_ExitMapBest\(\)\.TryIssueJobPackage') 'Operational hostile Frame retreat must execute the vanilla exit-map JobGiver'
 Assert-Static ($code -match 'executingPlayerAttack' -and $code -match 'CurJob\?\.playerForced == true' -and $code -match 'CurJob\.verbToUse is Verb_FrameShot') 'Player firing permission must be scoped to an explicit player-forced manual attack job'
 Assert-Static ($code -match 'CanUseHostileCombatAI \|\| executingPlayerAttack') 'Primary Frame combat verb must be gated to hostile AI or an explicit manual player job'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'

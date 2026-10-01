@@ -29,7 +29,7 @@ PASS recovered captured chassis exposes normal player boarding
 PASS original player pilot boards and drafts the captured hostile chassis
 PASS same chassis transitions from hostile AI to ordinary player control
 PASS captured reused Frame restores the normal B ranged command
-PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Mila disabled=False auto=40 | Melee attack Mila disabled=False auto=30 | Go here disabled=False auto=10
+PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Suttles disabled=False auto=40 | Melee attack Suttles disabled=False auto=30 | Go here disabled=False auto=10
 PASS captured reused Frame causes real ranged damage under player control
 PASS captured reused Frame accepts forced melee; failure=
 PASS captured reused Frame uses the ordinary AttackMelee job
@@ -39,4 +39,4 @@ PASS player pilot in captured Frame lifecycle complete: exactly one pawn object 
 PASS player pilot in captured Frame lifecycle complete: live and exclusively owned
 PASS ejected hostile pilot lifecycle complete: exactly one pawn object with pilot ID
 PASS ejected hostile pilot lifecycle complete: live and exclusively owned
-PASS ALL LIFECYCLE PHASES COMPLETE
+PASS phase complete; saved for fresh-process reload
