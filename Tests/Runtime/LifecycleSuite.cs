@@ -1585,7 +1585,7 @@ namespace ZenithFrame.Tests
                 melee();
                 Next(3, 2400);
             }
-            else if (step == 3 && other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel > combatXpBefore)
+            else if (step == 3 && other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel > combatXpBefore && TargetDamaged())
             {
                 Check(TargetDamaged(), "real forced melee damages the target while teaching the exact pilot");
                 Check(frame.skills == null, "Frame melee teaches no duplicate chassis SkillRecord");
