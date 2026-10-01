@@ -2,7 +2,7 @@
 
 Experimental RimWorld 1.6 vertical MVP for pilotable humanoid **Frames / mecha**.
 
-The current target is deliberately small: one debug Frame, real player and hostile human pilots, explicit cockpit ownership, ordinary Pawn-style player input, vanilla hostile combat AI, save/load, safe pilot ejection, disabled-chassis hacking, and a Dev-only recovery proof. Placeholder vanilla lancer art is still used. There is no raid integration, final repair economy, research, progression, chassis library or final loadout UI yet.
+The current target is deliberately small: one debug Frame, real player and hostile human pilots, explicit cockpit ownership, ordinary Pawn-style player input, vanilla hostile combat AI, save/load, safe pilot ejection, disabled-chassis hacking, a Dev-only recovery proof and one deterministic development-only mixed enemy raid. Placeholder vanilla lancer art is still used. There is no general faction-wide Frame spawning, final repair economy, research, progression, chassis library or final loadout UI yet.
 
 ## Important terminology
 
@@ -50,7 +50,7 @@ Live tests use a disposable runtime/profile under ignored `artifacts` paths. The
 
 The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
 
-`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds identity-preserving acquisition of hostile or factionless disabled Frames. `feat/hostile-frame-pilots` proves one deliberately spawned hostile human pilot inside the same cockpit owner, vanilla ranged/melee AI, save/load, downing/ejection, hacking, recovery and reuse by the player. Empty Frames remain inert regardless of faction. Exact evidence is recorded in `docs/VALIDATION.md`.
+`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds identity-preserving acquisition of hostile or factionless disabled Frames. `feat/hostile-frame-pilots` proves one deliberately spawned hostile human pilot inside the same cockpit owner. `feat/enemy-frame-raid-lifecycle` adds one Dev-only mixed raid through vanilla incident, arrival, assault Lord and retreat machinery, including active-raid and retreat save/load, ejection handoff, hacking, recovery, reuse and safe map exit. Empty Frames remain inert regardless of faction. Exact evidence is recorded in `docs/VALIDATION.md`.
 
 ## Manual MVP validation after the automated suite is green
 
@@ -76,6 +76,9 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 18. Place player-owned, hostile and factionless empty Frames beside adversaries and confirm they neither move nor attack or retaliate without a pilot.
 19. Debug actions -> ZENITH FRAME -> **Spawn hostile piloted Frame**. Confirm it moves and attacks through normal hostile AI while refusing player orders.
 20. Save and reload with the hostile pilot embarked. Down the Frame, verify that exact pilot ejects and the empty chassis immediately becomes inert, then run **Hack Frame** -> Dev recovery -> player boarding on the same chassis.
+21. Debug actions -> ZENITH FRAME -> **Start mixed enemy Frame raid**. Confirm one infantry raider and one piloted Frame arrive under the same assault Lord.
+22. Save and reload during the raid. Down the Frame and confirm the exact pilot ejects into the raid while the empty chassis stops. Hack, recover and board that same chassis.
+23. Trigger or inspect retreat behavior and confirm an operational piloted Frame can leave the map while retaining its cockpit pilot; an empty disabled chassis must never retreat itself.
 
 "Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. A player Frame has no autonomous target-acquisition think branch; the internal firing gate is active only while its explicit player-forced attack job runs. Hostile target acquisition exists only while a valid hostile pilot operates the Frame.
 

@@ -1,5 +1,54 @@
 # MVP validation status
 
+## Validated development enemy Frame raid lifecycle
+
+Branch:
+
+```text
+feat/enemy-frame-raid-lifecycle
+```
+
+Validation environment:
+
+- RimWorld `1.6.4871 rev591`
+- .NET SDK `8.0.414`
+- Harmony Workshop item `2009463077`
+- Core-only runtime
+- Core plus all installed official expansions: Royalty, Ideology, Biotech, Anomaly and Odyssey
+
+Automated gates:
+
+| Gate | Result |
+|---|---|
+| Clean Release build against RimWorld `1.6.4871 rev590` reference assemblies | PASS |
+| XML/Core def/package/source/recovery/hacking/hostile-AI/raid-Lord checks | PASS, 79 checks |
+| Exhaustive pure boarding and operation policy combinations | PASS, 144 cases |
+| Core-only live lifecycle, eleven fresh processes and ten save transitions | PASS, 397 assertions |
+| All-installed-expansions live lifecycle, eleven fresh processes and ten save transitions | PASS, 398 assertions |
+
+The eleven phase reports for each configuration are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+Final clean Release DLL SHA-256:
+
+```text
+9684E8F88D4A86FBBCE2DDD89D9906131C7BB925580B95A2DE04BB8A940A001F
+```
+
+The live suite proves:
+
+- the zero-chance Dev incident is a real `IncidentWorker_RaidEnemy` path using vanilla `EdgeWalkIn`, `ImmediateAttack` and `RaidStrategyWorker.MakeLords`
+- one ordinary infantry raider and one occupied hostile Frame share a vanilla `LordJob_AssaultColony`; the contained pilot is absent from direct Lord membership
+- a fresh-process active-raid load restores the exact Frame, pilot, infantry, cockpit ownership and assault Lord membership
+- the Lord-owned occupied Frame performs real hostile combat
+- downing ejects the exact pilot, removes the empty chassis from Lord control and adds the pilot coherently to the same raid Lord
+- the empty disabled Frame stays inert and cannot retreat itself
+- hacking removes stale hostile Lord control, converts the same Frame and feeds that chassis through recovery, boarding and normal player reuse
+- a second real mixed raid enters `LordJob_ExitMapBest`, moves the operational Frame through the vanilla exit-map job and saves mid-retreat
+- a fresh-process retreat load safely exits the Frame through world-pawn handling while retaining exclusive ownership of the exact living pilot
+- all earlier boarding, group orders, combat, save/load, ejection, off-map recovery, disabled recovery, hostile/factionless hacking, hostile AI and inertness assertions remain green
+
+This path deliberately does not alter storyteller raid selection, pawn-group makers or general faction composition. The next milestone is map/world/cleanup edge cases around contained pilots and Frames.
+
 ## Validated single hostile-pilot Frame lifecycle
 
 Branch:

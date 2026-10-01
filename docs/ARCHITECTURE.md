@@ -105,6 +105,14 @@ The Frame think tree contains one conditional hostile branch before inert idle. 
 
 Downing ejects the exact hostile pilot through the ordinary cockpit lifecycle. The same chassis then becomes empty, inert, recoverably disabled and eligible for the existing Hack Frame job. Hacking, recovery and player boarding preserve that Frame's identity and transition it back into the ordinary player control path.
 
+## Development enemy Frame raid lifecycle
+
+`ZF_DevelopmentEnemyFrameRaid` is a zero-chance development incident backed by `IncidentWorker_RaidEnemy`. Its debug action generates exactly one ordinary human raider and one `FramePawn` containing a separately generated same-faction human pilot. The pilot enters the cockpit while both pawns are unspawned. Only the infantry and occupied Frame are passed to vanilla `EdgeWalkIn`, `ImmediateAttack` and `RaidStrategyWorker.MakeLords`, so the pilot is never duplicated as a spawned or Lord-owned pawn.
+
+The cockpit remembers the operational Lord as a saved reference because RimWorld can remove an incapacitated Frame from `pawn.lord` before `ThingComp.Notify_Downed` runs. Ejection consumes that reference: the empty chassis is removed from raid control and the exact spawned pilot is added to the same Lord. Hacking explicitly removes any current hostile Lord membership before `SetFaction` converts the existing chassis.
+
+Retreat remains driven by `LordJob_ExitMapBest` and `JobGiver_ExitMapBest`. RimWorld does not reliably assign an exit `PawnDuty` to this custom Pawn classification, so `FramePawn` supplies that narrow duty bridge only while its saved operational Lord is an exit Lord. The normal exit job passes the Frame into world-pawn handling without ejecting or duplicating the contained pilot. `FramePawn.ExitMap` clears the no-longer-needed Lord reference after the transfer. Empty or disabled Frames cannot enter this path because every bridge is gated by `CanUseHostileCombatAI`.
+
 ## Ejection and destruction safety
 
 `Notify_Downed` ejects through the cockpit comp.
@@ -155,7 +163,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
 - No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
-- No raid generation, faction-wide hostile Frame spawning, Lord integration, retreat/exit behavior or enemy loadout generation.
+- No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
 
 ## Patch and dependency audit
 
@@ -170,4 +178,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor, disabled-chassis recovery, hacking and single hostile-pilot lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle and development mixed-raid lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
