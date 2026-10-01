@@ -19,7 +19,7 @@ PASS recovered and reboarded Frame drafts through Pawn-first controls
 PASS recovered Frame receives ordinary movement action
 PASS recovered Frame receives ordinary Goto job
 PASS recovered Frame physically moves
-PASS recovered Frame ordinary hostile action selects ranged attack; actual options: Fire at Crouxo disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Crouxo disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
+PASS recovered Frame ordinary hostile action selects ranged attack; actual options: Fire at Panshen disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack Panshen disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS recovered Frame ranged attack causes real damage
 PASS recovered Frame retains ordinary forced melee action; failure=
 PASS recovered Frame forced melee uses AttackMelee and closes distance

@@ -41,6 +41,16 @@ The old temporary custom `Move` and `Fire rifle` gizmos were removed.
 
 The Frame's drafter is explicitly restored on spawn/load because a custom non-humanlike, non-mechanoid Pawn is outside the categories for which vanilla retains a draft controller automatically.
 
+## Pilot combat skill bridge
+
+The cockpit pilot remains the only owner of combat skills and experience. A Frame has no `SkillTracker`, copies no `SkillRecord`, and serializes no duplicate skill state. Replacing the pilot therefore changes combat performance immediately while preserving the same chassis and weapon.
+
+`StatPart_PilotSkill` is attached to `ShootingAccuracyPawn` and `MeleeHitChance`. For an operational Frame it replaces the StatDef's ordinary `noSkillOffset` with the exact `SkillNeed.ValueFor(pilot)` contribution for Shooting or Melee, then leaves vanilla's existing stat post-process curve intact. This preserves chassis and equipment modifiers while excluding the pilot's capacities, traits, genes, ideology, apparel, equipment and hediffs. Empty or inoperable Frames receive no pilot contribution. Normal stat explanations identify the live pilot skill and level.
+
+Ranged experience is awarded at the real `Verb_Shoot.WarmupComplete` execution point through the shared Frame shooting verb, using vanilla's hostile/non-hostile rate and `AdjustedFullCycleTime`. Melee experience is awarded by a narrow `Verb_MeleeAttack.TryCastShot` prefix at the equivalent real attack-execution boundary. Both routes call `pilot.skills.Learn`, leaving passion and learning behavior to vanilla. Player manual fire, Fire At Will, forced melee and hostile AI all teach the exact contained pilot. The chassis never learns and the pilot is never taught twice.
+
+This milestone bridges only Shooting into ranged accuracy and Melee into melee hit chance. It does not add a custom Piloting skill or bridge melee dodge, aim/warmup time, weapon cooldown, movement, abilities, traits, capacities, genes, ideology or other human modifiers.
+
 ## Harmony control bridge
 
 Harmony is a runtime dependency, but the patch surface is intentionally narrow. Frames are **not** reclassified as colonists or Biotech mechs.
@@ -79,6 +89,10 @@ Current patch points:
    - detaches contained pilots before vanilla snapshots the recursively enumerated map-pawn list
    - routes player colonists to `PilotRecovery` and other pilots to direct world-pawn ownership
    - leaves the empty chassis to vanilla map-removal handling
+
+9. `Verb_MeleeAttack.TryCastShot`
+   - awards vanilla-formula melee experience to the exact operating pilot at real melee execution
+   - leaves damage, hit resolution and every non-Frame verb unchanged
 
 `Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
 
@@ -184,7 +198,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- eight narrowly scoped Harmony patch points described above
+- nine narrowly scoped Harmony patch points described above
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL
@@ -192,4 +206,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle and development mixed-raid lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership and pilot combat skill bridge were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

@@ -3,6 +3,6 @@ PASS development IncidentWorker_RaidEnemy starts a real mixed raid
 PASS raid uses one vanilla assault Lord containing infantry and the embarked Frame only
 PASS raid arrives with one real same-faction pilot exclusively owned by the cockpit
 PASS active mixed raid before save: exactly one Frame owner; found=map:0
-PASS active mixed raid pilot before save: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame70104
-PASS active mixed raid pilot before save: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame70104
+PASS active mixed raid pilot before save: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame307482
+PASS active mixed raid pilot before save: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame307482
 PASS phase complete; saved for fresh-process reload

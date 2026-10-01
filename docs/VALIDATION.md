@@ -1,5 +1,50 @@
 # MVP validation status
 
+## Validated pilot combat skill bridge
+
+Branch: `feat/pilot-skill-bridging`
+
+Implementation commits: `2da1981`, `1dc3b4b`, `f967c80`
+
+Executed 2026-10-01 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies and Harmony 2.4.2.0
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/lifecycle checks | PASS, 95 checks |
+| Live Core + Harmony | PASS, 512 assertions, 16 fresh processes, 15 save/load transitions |
+| Live Core + Harmony + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 512 assertions, 16 fresh processes, 15 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors in either final run |
+
+Final clean Release DLL SHA-256:
+
+```text
+5DF0DCAA1224B9F62F0808923B65C4375E955548299C185B764E25BBCC00B910
+```
+
+The 16 phase reports from each uninterrupted final run are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+The live suite proves that Shooting 0/10/20 and Melee 0/10/20 produce the exact vanilla `SkillNeed` contributions through the same Frame and equipment; low/high/low pilot swaps restore the original value without chassis state; and normal stat explanations identify the live pilot contribution. Fresh-process save/load preserves Frame identity, pilot identity, levels, XP and effective stats.
+
+Real player manual fire, Fire At Will, forced melee, hostile ranged AI and hostile melee AI award vanilla-formula experience to the exact contained pilot. The Frame has no `SkillTracker`, receives no duplicate experience and stores no copied skill state. Ejection removes the contribution immediately; recovery leaves the chassis empty; a different pilot defines both stats as soon as they board.
+
+### Pilot skill manual QA checklist
+
+1. Spawn one debug Frame and choose a low-Shooting colonist
+2. Inspect `ShootingAccuracyPawn`, board the pilot and fire real ranged attacks
+3. Confirm the pilot gains Shooting XP
+4. Disembark and board a high-Shooting pilot into the same Frame
+5. Confirm ranged accuracy rises without replacing the chassis or weapon
+6. Repeat the swap with visibly different Melee levels and inspect `MeleeHitChance`
+7. Perform a real forced melee attack and confirm the pilot gains Melee XP
+8. Save and reload with the high-skill pilot embarked; confirm both values and XP persist
+9. Down the Frame; confirm ejection removes the pilot contribution and leaves the chassis inert
+10. Recover the chassis and board another pilot; confirm the new pilot immediately defines both values
+11. Spawn the hostile piloted Frame or development mixed raid and confirm hostile combat uses and trains its exact contained pilot
+
+Frame abilities were not started. They are the next canonical milestone after automated and human QA of this branch.
+
 ## Validated Frame map and world lifecycle
 
 Branch: `feat/frame-map-world-lifecycle`

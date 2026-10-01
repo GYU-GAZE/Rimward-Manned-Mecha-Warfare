@@ -17,6 +17,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - preserve explicit ownership and save/load safety
 - a living pilot must have exactly one direct owner: map, spawned cockpit, world-Frame cockpit, direct world-pawn ownership or `PilotRecovery`
 - map removal must detach nested pilots before vanilla recursively snapshots map pawns; never solve this by globally faking `Pawn.Map` or `Pawn.Position`
+- pilot combat skills and experience remain owned by the cockpit pilot; Frames may consume the live skill contribution while operational but must never copy, own or serialize pilot skill progression
 
 ### Frames are NOT Biotech mechs
 

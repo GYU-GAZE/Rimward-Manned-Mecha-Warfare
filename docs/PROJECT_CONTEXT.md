@@ -628,7 +628,15 @@ The map-retention milestone establishes a strict ownership rule for every living
 
 Map removal detaches nested pilots before vanilla recursively enumerates map pawns. Free player colonists move to `PilotRecovery`; other pilots move to direct world-pawn ownership; the empty chassis continues through vanilla cleanup. A player pilot that exits the map inside a Frame keeps the outer world pawn alive. Destroying that off-map Frame moves the same pilot to recovery. Vanilla may still garbage-collect escaped hostile Frames, and that transaction intentionally discards the nested hostile pilot with the chassis.
 
-Automated tests cover the core of abandonment and temporary-map removal on a legitimate vanilla-generated secondary map. Full caravan boarding, gravship integration and transport-pod UI remain later gameplay work. Pilot skill bridging is the next milestone after this lifecycle baseline.
+Automated tests cover the core of abandonment and temporary-map removal on a legitimate vanilla-generated secondary map. Full caravan boarding, gravship integration and transport-pod UI remain later gameplay work.
+
+## 14.3. Proven Pilot Combat Skill Bridge
+
+Shooting and Melee now matter through the real Pawn stored in the cockpit. The live pilot's vanilla Shooting contribution feeds `ShootingAccuracyPawn`; the live Melee contribution feeds `MeleeHitChance`. Frame combat awards the corresponding vanilla-formula experience to that exact pilot for player and hostile operation.
+
+The chassis owns no skills and stores no copied progression. Swapping pilots changes effectiveness immediately, save/load preserves the pilot's original records, ejection removes the contribution, and recovery alone cannot restore it. Pilot capacities, traits, genes, ideology, apparel and hediffs are deliberately excluded. Dodge, aim time, cooldown, movement, abilities and any custom Piloting system remain deferred.
+
+The next canonical milestone is Frame abilities owned by the machine itself. Pilot abilities and psycasts follow later.
 
 ---
 
