@@ -1,12 +1,12 @@
 PASS retreat fresh-process load preserves exact Frame and contained pilot ownership
-PASS retreating Frame after load: exactly one Frame object with load ID
-PASS retreating contained pilot after load: exactly one pawn object with pilot ID
-PASS retreating contained pilot after load: live and exclusively owned
+PASS retreating Frame after load: exactly one Frame owner; found=map:0
+PASS retreating contained pilot after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame74081
+PASS retreating contained pilot after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame74081
 PASS retreat load restores the vanilla exit Lord and operational hostile Frame
 PASS operational raid Frame exits the map through vanilla world-pawn handling
 PASS exited Frame retains exclusive ownership of the exact living pilot
 PASS retreat exit preserves Frame and pilot identities without duplication
-PASS retreated Frame world ownership: exactly one Frame object with load ID
-PASS retreated pilot cockpit ownership: exactly one pawn object with pilot ID
-PASS retreated pilot cockpit ownership: live and exclusively owned
-PASS ALL LIFECYCLE PHASES COMPLETE
+PASS retreated Frame world ownership: exactly one Frame owner; found=world-pawns
+PASS retreated pilot cockpit ownership: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame74081
+PASS retreated pilot cockpit ownership: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame74081
+PASS phase complete; saved for fresh-process reload

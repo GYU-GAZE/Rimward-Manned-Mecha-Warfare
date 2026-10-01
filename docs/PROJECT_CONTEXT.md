@@ -622,6 +622,16 @@ then polish
 
 ---
 
+## 14.25. Proven Map and World Lifecycle
+
+The map-retention milestone establishes a strict ownership rule for every living pilot. At any moment the pilot is owned directly by exactly one of: a map, a spawned Frame cockpit, a world-owned Frame cockpit, `WorldPawns` or `PilotRecovery`.
+
+Map removal detaches nested pilots before vanilla recursively enumerates map pawns. Free player colonists move to `PilotRecovery`; other pilots move to direct world-pawn ownership; the empty chassis continues through vanilla cleanup. A player pilot that exits the map inside a Frame keeps the outer world pawn alive. Destroying that off-map Frame moves the same pilot to recovery. Vanilla may still garbage-collect escaped hostile Frames, and that transaction intentionally discards the nested hostile pilot with the chassis.
+
+Automated tests cover the core of abandonment and temporary-map removal on a legitimate vanilla-generated secondary map. Full caravan boarding, gravship integration and transport-pod UI remain later gameplay work. Pilot skill bridging is the next milestone after this lifecycle baseline.
+
+---
+
 ## 14.5. Combined-Arms Principle
 
 Mechs are intended to become common and dangerous military assets, but they must not be the only valid way to play.

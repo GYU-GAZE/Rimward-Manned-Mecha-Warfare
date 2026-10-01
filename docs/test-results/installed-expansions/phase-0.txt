@@ -1,6 +1,6 @@
 PASS Frame is not classified as a RimWorld/Biotech mechanoid
-PASS before boarding: exactly one pawn object with pilot ID
-PASS before boarding: live and exclusively owned
+PASS before boarding: exactly one direct owner; found=map:0
+PASS before boarding: live and valid under map:0
 PASS empty Frame refuses drafting
 PASS null and self boarding rejected
 PASS foreign faction pilot rejected
@@ -10,8 +10,8 @@ PASS failed boarding preserves map ownership
 PASS pilot right-click menu offers Board Frame; actual options: Board Frame
 PASS Board Frame menu option issues the real boarding job
 PASS real boarding job reaches Frame and transfers pilot
-PASS boarded: exactly one pawn object with pilot ID
-PASS boarded: live and exclusively owned
+PASS boarded: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame38289
+PASS boarded: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame38289
 PASS pilot owned by cockpit
 PASS embarked player pilot colonist-bar portrait resolves selection to its containing spawned Frame
 PASS map discovers contained pilot without spawning it

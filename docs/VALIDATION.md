@@ -1,5 +1,47 @@
 # MVP validation status
 
+## Validated Frame map and world lifecycle
+
+Branch: `feat/frame-map-world-lifecycle`
+
+Implementation commit: `2fbe60e`
+
+Runtime ownership-audit commit: `6a935da`
+
+Executed 2026-10-01 on RimWorld 1.6.4871 rev591 with Harmony 2.4.2.0
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/lifecycle checks | PASS, 87 checks |
+| Live Core + Harmony | PASS, 445 assertions, 14 fresh processes, 13 save/load transitions |
+| Live Core + Harmony + Royalty, Ideology, Biotech, Anomaly and Odyssey | PASS, 445 assertions, 14 fresh processes, 13 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256:
+
+```text
+30FC19156E1618BFDF6CBFE9A44E7F9DA258782F862B84A521845BFE4E5BFFBB
+```
+
+The 14 phase reports from each final uninterrupted run are retained in `docs/test-results/core` and `docs/test-results/installed-expansions`.
+
+The expanded suite proves:
+
+- the last living colonist remains valid while exclusively owned by a spawned Frame cockpit and across a fresh-process load
+- a hostile Frame retreat produces one world-owned Frame containing one exact pilot, with no second direct owner
+- deliberate vanilla garbage collection of that hostile world Frame discards the nested hostile pilot without a dangling cockpit or world entry
+- a player Frame exiting with a free humanlike player pilot is force-kept as a world pawn and survives a fresh-process load with exact cockpit ownership
+- legitimate off-map destruction of that player Frame transfers the exact pilot atomically into `PilotRecovery`, which survives another fresh-process load
+- vanilla-generated secondary-map removal sends a player pilot to recovery and its empty chassis to world ownership
+- the same cleanup sends a hostile Frame and detached pilot into separate world-pawn ownership
+- downing/ejection immediately before map shutdown leaves the pilot and disabled chassis as separate valid world pawns
+- retained player, recovered or hacked chassis lose stale hostile Lord state during cleanup
+- every audited pilot appears exactly once among spawned maps, spawned cockpit owners, world-Frame cockpit owners, direct world pawns and `PilotRecovery`
+
+The automated abandonment fixture exercises the real cleanup core through a legitimate settlement map and `Game.DeinitAndRemoveMap`. It does not automate the user-facing abandonment confirmation dialog. General caravan gameplay, gravship integration and transport-pod UI remain outside this milestone.
+
 ## Validated development enemy Frame raid lifecycle
 
 Branch:

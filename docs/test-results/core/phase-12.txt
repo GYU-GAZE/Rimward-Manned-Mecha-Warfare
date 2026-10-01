@@ -1,0 +1,8 @@
+PASS fresh-process load preserves the force-kept player world Frame and exact nested pilot
+PASS player world Frame after load: exactly one Frame owner; found=world-pawns
+PASS player world cockpit pilot after load: exactly one direct owner; found=world-frame-cockpit:Thing_ZF_DebugFrame415420
+PASS player world cockpit pilot after load: live and valid under world-frame-cockpit:Thing_ZF_DebugFrame415420
+PASS legitimate off-map player Frame destruction atomically transfers the exact pilot to PilotRecovery
+PASS player pilot in recovery after world Frame destruction: exactly one direct owner; found=pilot-recovery
+PASS player pilot in recovery after world Frame destruction: live and valid under pilot-recovery
+PASS phase complete; saved for fresh-process reload

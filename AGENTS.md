@@ -15,6 +15,8 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - normal Frames require a pilot
 - no pilot means no Frame movement or combat, regardless of player, hostile or factionless ownership
 - preserve explicit ownership and save/load safety
+- a living pilot must have exactly one direct owner: map, spawned cockpit, world-Frame cockpit, direct world-pawn ownership or `PilotRecovery`
+- map removal must detach nested pilots before vanilla recursively snapshots map pawns; never solve this by globally faking `Pawn.Map` or `Pawn.Position`
 
 ### Frames are NOT Biotech mechs
 

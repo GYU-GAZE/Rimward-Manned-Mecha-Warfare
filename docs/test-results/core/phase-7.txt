@@ -3,9 +3,9 @@ PASS fresh-process load preserves exact hostile cockpit ownership
 PASS loaded hostile Frame operates through AI and still rejects player orders
 PASS loaded hostile Frame enables vanilla autonomous target acquisition
 PASS loaded operational hostile Frame remains ineligible for hacking
-PASS hostile piloted after load: exactly one Frame object with load ID
-PASS hostile pilot after load: exactly one pawn object with pilot ID
-PASS hostile pilot after load: live and exclusively owned
+PASS hostile piloted after load: exactly one Frame owner; found=map:0
+PASS hostile pilot after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame245504
+PASS hostile pilot after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame245504
 PASS hostile AI fixture provides a spawned mutually hostile humanlike target
 PASS hostile Frame weapon verb is available to vanilla combat AI
 PASS hostile piloted Frame uses ordinary pathing to close weapon range; observed job=Goto
@@ -16,8 +16,8 @@ PASS hostile piloted Frame causes legitimate melee damage
 PASS downing preserves the exact hostile Frame and pilot identities
 PASS downing ejects the exact hostile pilot safely beside the chassis
 PASS ejected hostile chassis becomes inert recoverable and hackable; canOperate=False recoverable=True canHack=True playerPilotDead=False playerPilotDowned=False
-PASS hostile pilot after ejection: exactly one pawn object with pilot ID
-PASS hostile pilot after ejection: live and exclusively owned
+PASS hostile pilot after ejection: exactly one direct owner; found=map:0
+PASS hostile pilot after ejection: live and valid under map:0
 PASS ejected hostile Frame remains stationary for 360 ticks beside a player pawn
 PASS ejected hostile Frame causes no retaliatory melee damage
 PASS ejected hostile Frame runs only its inert idle job
@@ -29,14 +29,14 @@ PASS recovered captured chassis exposes normal player boarding
 PASS original player pilot boards and drafts the captured hostile chassis
 PASS same chassis transitions from hostile AI to ordinary player control
 PASS captured reused Frame restores the normal B ranged command
-PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Troy disabled=False auto=40 | Melee attack Troy disabled=False auto=30 | Go here disabled=False auto=10
+PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Neoabe disabled=False auto=40 | Melee attack Neoabe disabled=False auto=30 | Go here disabled=False auto=10
 PASS captured reused Frame causes real ranged damage under player control
 PASS captured reused Frame accepts forced melee; failure=
 PASS captured reused Frame uses the ordinary AttackMelee job
 PASS captured reused Frame causes real melee damage under player control
-PASS hostile Frame lifecycle complete: exactly one Frame object with load ID
-PASS player pilot in captured Frame lifecycle complete: exactly one pawn object with pilot ID
-PASS player pilot in captured Frame lifecycle complete: live and exclusively owned
-PASS ejected hostile pilot lifecycle complete: exactly one pawn object with pilot ID
-PASS ejected hostile pilot lifecycle complete: live and exclusively owned
+PASS hostile Frame lifecycle complete: exactly one Frame owner; found=map:0
+PASS player pilot in captured Frame lifecycle complete: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame245504
+PASS player pilot in captured Frame lifecycle complete: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame245504
+PASS ejected hostile pilot lifecycle complete: exactly one direct owner; found=map:0
+PASS ejected hostile pilot lifecycle complete: live and valid under map:0
 PASS phase complete; saved for fresh-process reload

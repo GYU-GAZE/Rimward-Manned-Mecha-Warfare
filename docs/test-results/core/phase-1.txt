@@ -1,6 +1,6 @@
 PASS fresh-process save/load restores pilot identity and relationship
-PASS after load: exactly one pawn object with pilot ID
-PASS after load: live and exclusively owned
+PASS after load: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame41468
+PASS after load: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame41468
 PASS draft and control survive load
 PASS Frame receives orders without impersonating a colonist or Biotech mech
 PASS draft command uses normal colonist draft hotkey
@@ -19,7 +19,7 @@ PASS ordinary drafted-pawn right-click movement option available
 PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
 PASS hostile ranged target is spawned and visible
-PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame19824
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame75473
 PASS ordinary melee attack action is available as a valid alternative
 PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target
@@ -39,95 +39,95 @@ PASS one group attack command reaches both Frames
 PASS group-issued Frame attack produces real projectile damage
 PASS group-test pilot disembarks
 PASS disembark succeeds
-PASS disembarked: exactly one pawn object with pilot ID
-PASS disembarked: live and exclusively owned
+PASS disembarked: exactly one direct owner; found=map:0
+PASS disembarked: live and valid under map:0
 PASS disembark empties cockpit, stops Frame and removes order eligibility
 PASS unpiloted Frame cannot fire through the normal ranged command
 PASS repeat board 0
 PASS repeat disembark 0
-PASS repeat 0: exactly one pawn object with pilot ID
-PASS repeat 0: live and exclusively owned
+PASS repeat 0: exactly one direct owner; found=map:0
+PASS repeat 0: live and valid under map:0
 PASS repeat board 1
 PASS repeat disembark 1
-PASS repeat 1: exactly one pawn object with pilot ID
-PASS repeat 1: live and exclusively owned
+PASS repeat 1: exactly one direct owner; found=map:0
+PASS repeat 1: live and valid under map:0
 PASS repeat board 2
 PASS repeat disembark 2
-PASS repeat 2: exactly one pawn object with pilot ID
-PASS repeat 2: live and exclusively owned
+PASS repeat 2: exactly one direct owner; found=map:0
+PASS repeat 2: live and valid under map:0
 PASS repeat board 3
 PASS repeat disembark 3
-PASS repeat 3: exactly one pawn object with pilot ID
-PASS repeat 3: live and exclusively owned
+PASS repeat 3: exactly one direct owner; found=map:0
+PASS repeat 3: live and valid under map:0
 PASS repeat board 4
 PASS repeat disembark 4
-PASS repeat 4: exactly one pawn object with pilot ID
-PASS repeat 4: live and exclusively owned
+PASS repeat 4: exactly one direct owner; found=map:0
+PASS repeat 4: live and valid under map:0
 PASS repeat board 5
 PASS repeat disembark 5
-PASS repeat 5: exactly one pawn object with pilot ID
-PASS repeat 5: live and exclusively owned
+PASS repeat 5: exactly one direct owner; found=map:0
+PASS repeat 5: live and valid under map:0
 PASS repeat board 6
 PASS repeat disembark 6
-PASS repeat 6: exactly one pawn object with pilot ID
-PASS repeat 6: live and exclusively owned
+PASS repeat 6: exactly one direct owner; found=map:0
+PASS repeat 6: live and valid under map:0
 PASS repeat board 7
 PASS repeat disembark 7
-PASS repeat 7: exactly one pawn object with pilot ID
-PASS repeat 7: live and exclusively owned
+PASS repeat 7: exactly one direct owner; found=map:0
+PASS repeat 7: live and valid under map:0
 PASS repeat board 8
 PASS repeat disembark 8
-PASS repeat 8: exactly one pawn object with pilot ID
-PASS repeat 8: live and exclusively owned
+PASS repeat 8: exactly one direct owner; found=map:0
+PASS repeat 8: live and valid under map:0
 PASS repeat board 9
 PASS repeat disembark 9
-PASS repeat 9: exactly one pawn object with pilot ID
-PASS repeat 9: live and exclusively owned
+PASS repeat 9: exactly one direct owner; found=map:0
+PASS repeat 9: live and valid under map:0
 PASS repeat board 10
 PASS repeat disembark 10
-PASS repeat 10: exactly one pawn object with pilot ID
-PASS repeat 10: live and exclusively owned
+PASS repeat 10: exactly one direct owner; found=map:0
+PASS repeat 10: live and valid under map:0
 PASS repeat board 11
 PASS repeat disembark 11
-PASS repeat 11: exactly one pawn object with pilot ID
-PASS repeat 11: live and exclusively owned
+PASS repeat 11: exactly one direct owner; found=map:0
+PASS repeat 11: live and valid under map:0
 PASS repeat board 12
 PASS repeat disembark 12
-PASS repeat 12: exactly one pawn object with pilot ID
-PASS repeat 12: live and exclusively owned
+PASS repeat 12: exactly one direct owner; found=map:0
+PASS repeat 12: live and valid under map:0
 PASS repeat board 13
 PASS repeat disembark 13
-PASS repeat 13: exactly one pawn object with pilot ID
-PASS repeat 13: live and exclusively owned
+PASS repeat 13: exactly one direct owner; found=map:0
+PASS repeat 13: live and valid under map:0
 PASS repeat board 14
 PASS repeat disembark 14
-PASS repeat 14: exactly one pawn object with pilot ID
-PASS repeat 14: live and exclusively owned
+PASS repeat 14: exactly one direct owner; found=map:0
+PASS repeat 14: live and valid under map:0
 PASS repeat board 15
 PASS repeat disembark 15
-PASS repeat 15: exactly one pawn object with pilot ID
-PASS repeat 15: live and exclusively owned
+PASS repeat 15: exactly one direct owner; found=map:0
+PASS repeat 15: live and valid under map:0
 PASS repeat board 16
 PASS repeat disembark 16
-PASS repeat 16: exactly one pawn object with pilot ID
-PASS repeat 16: live and exclusively owned
+PASS repeat 16: exactly one direct owner; found=map:0
+PASS repeat 16: live and valid under map:0
 PASS repeat board 17
 PASS repeat disembark 17
-PASS repeat 17: exactly one pawn object with pilot ID
-PASS repeat 17: live and exclusively owned
+PASS repeat 17: exactly one direct owner; found=map:0
+PASS repeat 17: live and valid under map:0
 PASS repeat board 18
 PASS repeat disembark 18
-PASS repeat 18: exactly one pawn object with pilot ID
-PASS repeat 18: live and exclusively owned
+PASS repeat 18: exactly one direct owner; found=map:0
+PASS repeat 18: live and valid under map:0
 PASS repeat board 19
 PASS repeat disembark 19
-PASS repeat 19: exactly one pawn object with pilot ID
-PASS repeat 19: live and exclusively owned
+PASS repeat 19: exactly one direct owner; found=map:0
+PASS repeat 19: live and valid under map:0
 PASS board before downing
 PASS downing fixture has two mechanical legs
 PASS real capacity-loss downing ejects immediately
-PASS downed Frame: exactly one pawn object with pilot ID
-PASS downed Frame: live and exclusively owned
+PASS downed Frame: exactly one direct owner; found=map:0
+PASS downed Frame: live and valid under map:0
 PASS downed player Frame is semantically excluded from forced rescue
 PASS automatic RescueDowned work rejects a disabled Frame
 PASS downed player Frame exposes no Rescue Pawn option
@@ -136,15 +136,15 @@ PASS hostile disabled Frame is excluded from forced rescue/capture eligibility
 PASS hostile disabled Frame exposes neither Capture Pawn nor Rescue Pawn
 PASS board before death
 PASS death ejects before destruction
-PASS dead Frame: exactly one pawn object with pilot ID
-PASS dead Frame: live and exclusively owned
+PASS dead Frame: exactly one direct owner; found=map:0
+PASS dead Frame: live and valid under map:0
 PASS board before vanish
 PASS direct destruction ejects
-PASS vanished Frame: exactly one pawn object with pilot ID
-PASS vanished Frame: live and exclusively owned
+PASS vanished Frame: exactly one direct owner; found=map:0
+PASS vanished Frame: live and valid under map:0
 PASS board before off-map destruction
 PASS failed off-map disembark preserves owner
 PASS off-map destruction transfers to independent owner
-PASS rescue container: exactly one pawn object with pilot ID
-PASS rescue container: live and exclusively owned
+PASS rescue container: exactly one direct owner; found=pilot-recovery
+PASS rescue container: live and valid under pilot-recovery
 PASS phase complete; saved for fresh-process reload

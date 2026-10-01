@@ -75,6 +75,11 @@ Current patch points:
    - lets vanilla's own melee/squad attack gizmo logic recognize a valid piloted Frame
    - Frames still remain neither colonists nor Biotech mechs
 
+8. `MapDeiniter.Deinit`
+   - detaches contained pilots before vanilla snapshots the recursively enumerated map-pawn list
+   - routes player colonists to `PilotRecovery` and other pilots to direct world-pawn ownership
+   - leaves the empty chassis to vanilla map-removal handling
+
 `Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
 
 ## Weapon behavior
@@ -109,6 +114,18 @@ Downing ejects the exact hostile pilot through the ordinary cockpit lifecycle. T
 The cockpit remembers the operational Lord as a saved reference because RimWorld can remove an incapacitated Frame from `pawn.lord` before `ThingComp.Notify_Downed` runs. Ejection consumes that reference: the empty chassis is removed from raid control and the exact spawned pilot is added to the same Lord. Hacking explicitly removes any current hostile Lord membership before `SetFaction` converts the existing chassis.
 
 Retreat remains driven by `LordJob_ExitMapBest` and `JobGiver_ExitMapBest`. RimWorld does not reliably assign an exit `PawnDuty` to this custom Pawn classification, so `FramePawn` supplies that narrow duty bridge only while its saved operational Lord is an exit Lord. The normal exit job passes the Frame into world-pawn handling without ejecting or duplicating the contained pilot. `FramePawn.ExitMap` clears the no-longer-needed Lord reference after the transfer. Empty or disabled Frames cannot enter this path because every bridge is gated by `CanUseHostileCombatAI`.
+
+## Map and world ownership lifecycle
+
+A living pilot has exactly one direct owner at every supported lifecycle point: a spawned map, a spawned Frame cockpit, a world-owned Frame cockpit, direct `WorldPawns` ownership or `PilotRecovery`. The runtime ownership audit enumerates all five locations, including cockpit contents nested inside world pawns.
+
+Vanilla `MapDeiniter.PassPawnsToWorld` begins from `MapPawns.AllPawns`, whose recursive holder traversal includes a pilot inside a spawned Frame. The narrow `MapDeiniter.Deinit` prefix therefore prepares each spawned Frame before that snapshot. A free player colonist in a player Frame transfers atomically into `PilotRecovery`; a non-player pilot detaches into direct world-pawn ownership. Vanilla then passes the now-empty chassis through its normal map-removal path. This also clears saved raid-Lord state.
+
+Ordinary `FramePawn.ExitMap` keeps the cockpit intact. If it contains a free humanlike player pilot, the outer world Frame is added to vanilla's `ForcefullyKeptPawns`, so world garbage collection cannot discard the colonist indirectly. Later off-map destruction of that Frame transfers the same pilot into `PilotRecovery`.
+
+Hostile escaped Frames are not kept forever. If vanilla deliberately garbage-collects a hostile world Frame, the cockpit recognizes the active discard transaction and discards the nested hostile pilot with the chassis, leaving no second world-pawn entry or dangling owner.
+
+The tested map-abandonment/removal core uses a legitimate secondary settlement map created through vanilla world-object and map-generation APIs, then `Game.DeinitAndRemoveMap`. The player pilot survives in recovery while the empty chassis becomes world-owned. Hostile Frame and pilot become separate world pawns. A pilot ejected immediately before shutdown and its disabled chassis also become separate world pawns. The user-facing abandonment confirmation wrapper is not part of the automated fixture.
 
 ## Ejection and destruction safety
 
@@ -158,7 +175,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
 - One fixed debug weapon only.
 - No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
-- No caravan, gravship, transport-pod or temporary-map lifecycle support yet.
+- No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
 
@@ -167,7 +184,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- seven narrowly scoped Harmony patch points described above
+- eight narrowly scoped Harmony patch points described above
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL

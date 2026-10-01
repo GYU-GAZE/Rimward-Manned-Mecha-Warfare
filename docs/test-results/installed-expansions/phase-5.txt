@@ -1,7 +1,7 @@
 PASS post-hack fresh-process load restores the same Frame identity
 PASS post-hack load preserves player ownership and disabled state
 PASS post-hack loaded Frame remains empty undrafted and inactive
-PASS post-hack reload: exactly one Frame object with load ID
+PASS post-hack reload: exactly one Frame owner; found=map:0
 PASS hacked disabled Frame uses the existing recovery API
 PASS recovery preserves hacked Frame identity and empty cockpit
 PASS recovered hacked Frame re-enters the existing boarding flow
@@ -12,9 +12,9 @@ PASS hacked recovered Frame ranged attack causes real damage
 PASS hacked recovered Frame restores forced melee; failure=
 PASS hacked recovered Frame forced melee uses the ordinary AttackMelee job
 PASS hacked recovered Frame melee attack causes real damage
-PASS hacking lifecycle complete: exactly one Frame object with load ID
-PASS hacking lifecycle pilot complete: exactly one pawn object with pilot ID
-PASS hacking lifecycle pilot complete: live and exclusively owned
+PASS hacking lifecycle complete: exactly one Frame owner; found=map:0
+PASS hacking lifecycle pilot complete: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame50242
+PASS hacking lifecycle pilot complete: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame50242
 PASS pilot disembarks before empty-Frame inertness checks
 PASS player-owned empty Frame remains stationary for 360 ticks beside an adjacent adversary
 PASS player-owned empty Frame causes no melee damage during inert observation; start=0 end=0 FrameJob=ZF_FrameIdleJob targetJob=Goto
@@ -35,5 +35,5 @@ PASS neutral or friendly disabled Frame is not hackable
 PASS Hack Frame is absent for a neutral or friendly disabled chassis
 PASS factionless empty downed Frame is hackable by an eligible colonist
 PASS Hack Frame appears for an eligible factionless disabled chassis
-PASS factionless disabled before hacking save: exactly one Frame object with load ID
+PASS factionless disabled before hacking save: exactly one Frame owner; found=map:0
 PASS phase complete; saved for fresh-process reload

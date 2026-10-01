@@ -1,9 +1,9 @@
 PASS rescue owner survives fresh-process load
-PASS rescue reload: exactly one pawn object with pilot ID
-PASS rescue reload: live and exclusively owned
+PASS rescue reload: exactly one direct owner; found=pilot-recovery
+PASS rescue reload: live and valid under pilot-recovery
 PASS rescue delivers pilot and empties owner
-PASS recovered: exactly one pawn object with pilot ID
-PASS recovered: live and exclusively owned
+PASS recovered: exactly one direct owner; found=map:0
+PASS recovered: live and valid under map:0
 PASS faction preserved through complete lifecycle
 PASS recovery fixture boards pilot before disablement
 PASS recovery fixture drafts before disablement
@@ -13,6 +13,6 @@ PASS disabled chassis rejects drafting, orders and boarding
 PASS disabled chassis has concise recoverable inspect status
 PASS disabled chassis remains selectable
 PASS disabled chassis exposes development-only recovery command in Dev Mode
-PASS disabled before save: exactly one pawn object with pilot ID
-PASS disabled before save: live and exclusively owned
+PASS disabled before save: exactly one direct owner; found=map:0
+PASS disabled before save: live and valid under map:0
 PASS phase complete; saved for fresh-process reload
