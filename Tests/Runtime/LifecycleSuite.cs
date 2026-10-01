@@ -1050,6 +1050,10 @@ namespace ZenithFrame.Tests
                 Check(hostileFrame.CurJobDef == null || hostileFrame.CurJobDef == ZenithJobDefOf.ZF_FrameIdleJob,
                     "ejected hostile Frame runs only its inert idle job");
                 adjacentTarget.Destroy();
+                hostilePilot.DeSpawn();
+                Find.WorldPawns.PassToWorld(hostilePilot);
+                Check(Find.WorldPawns.Contains(hostilePilot) && !hostilePilot.Dead && !hostilePilot.Destroyed,
+                    "ejected hostile pilot leaves the later player-combat fixture through normal world ownership");
                 IntVec3 hackerCell = CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 2);
                 RelocatePawn(pilot, hackerCell, hostileFrame.Map);
                 OnGui(() =>
