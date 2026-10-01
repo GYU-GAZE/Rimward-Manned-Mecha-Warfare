@@ -60,7 +60,8 @@ namespace ZenithFrame
 
         private static Pawn GenerateHumanRaider(Faction faction)
         {
-            Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
+            Pawn pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, faction, mustBeCapableOfViolence: true));
             pawn.relations.ClearAllRelations();
             return pawn;
         }

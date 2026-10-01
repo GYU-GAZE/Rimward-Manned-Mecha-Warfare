@@ -38,6 +38,7 @@
   </ThingDef>
   <PawnKindDef>
     <defName>ZF_DebugFrame</defName><label>debug Frame</label><race>ZF_DebugFrame</race><combatPower>150</combatPower>
+    <abilities><li>ZF_DebugFrameOverdrive</li></abilities>
     <lifeStages><li><bodyGraphicData><texPath>Things/Pawn/Mechanoid/Lancer</texPath><graphicClass>Graphic_Multi</graphicClass><drawSize>2</drawSize></bodyGraphicData></li></lifeStages>
   </PawnKindDef>
   <ThinkTreeDef>

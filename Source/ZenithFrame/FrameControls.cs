@@ -98,11 +98,24 @@ namespace ZenithFrame
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (Gizmo gizmo in base.GetGizmos())
-                yield return gizmo;
+                // Pawn_AbilityTracker hides ordinary ability commands for our
+                // deliberately non-colonist/non-mech classification. Suppress
+                // its Dev-mode copy here; the normal command is bridged below.
+                if (!(gizmo is Command_Ability)) yield return gizmo;
 
             if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
             yield return new Command_Action { defaultLabel = "Disembark", defaultDesc = "Safely return the pilot to the map.", icon = TexCommand.Install,
                 action = () => { if (!Cockpit.TryDisembark()) Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false); } };
+
+            if (Cockpit.CanTakePlayerOrders && abilities != null)
+            {
+                foreach (Ability ability in abilities.AllAbilitiesForReading)
+                {
+                    if (!ability.GizmosVisible()) continue;
+                    foreach (Command command in ability.GetGizmos())
+                        yield return command;
+                }
+            }
 
             foreach (Gizmo attackGizmo in PawnAttackGizmoUtility.GetAttackGizmos(this))
                 yield return attackGizmo;
@@ -197,7 +210,8 @@ namespace ZenithFrame
 
             FramePawn hostileFrame = (FramePawn)PawnGenerator.GeneratePawn(
                 DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction);
-            Pawn hostilePilot = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
+            Pawn hostilePilot = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, faction, mustBeCapableOfViolence: true));
             hostilePilot.relations.ClearAllRelations();
             if (!hostileFrame.Cockpit.TryInstallGeneratedPilot(hostilePilot))
             {
