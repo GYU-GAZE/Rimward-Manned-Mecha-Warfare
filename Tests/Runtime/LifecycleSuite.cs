@@ -51,6 +51,11 @@ namespace ZenithFrame.Tests
         private string worldPilotId;
         private IntVec3 raidFrameNaturalStart;
         private bool raidFrameMovedNaturally;
+        private float savedPilotShootingStat;
+        private float savedPilotMeleeStat;
+        private float savedPilotShootingXp;
+        private float savedPilotMeleeXp;
+        private float combatXpBefore;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -79,6 +84,10 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref worldPilotId, "testWorldPilotId");
             Scribe_Values.Look(ref raidFrameNaturalStart, "testRaidFrameNaturalStart");
             Scribe_Values.Look(ref raidFrameMovedNaturally, "testRaidFrameMovedNaturally");
+            Scribe_Values.Look(ref savedPilotShootingStat, "testPilotShootingStat");
+            Scribe_Values.Look(ref savedPilotMeleeStat, "testPilotMeleeStat");
+            Scribe_Values.Look(ref savedPilotShootingXp, "testPilotShootingXp");
+            Scribe_Values.Look(ref savedPilotMeleeXp, "testPilotMeleeXp");
         }
         private void Check(bool condition, string name)
         {
@@ -128,7 +137,9 @@ namespace ZenithFrame.Tests
                 else if (phase == 10) EnemyRaidRetreatLoad();
                 else if (phase == 11) WorldPawnLoadAndPlayerExit();
                 else if (phase == 12) PlayerWorldFrameLoad();
-                else WorldRecoveryAndMapRemovalLoad();
+                else if (phase == 13) WorldRecoveryAndMapRemovalLoad();
+                else if (phase == 14) PilotSkillBridgeStart();
+                else PilotSkillBridgeLoadAndCombat();
             }
             catch (Exception e)
             {
@@ -1404,7 +1415,218 @@ namespace ZenithFrame.Tests
             Check(!abandonedFrame.Destroyed && !abandonedFrame.Discarded && Find.WorldPawns.Contains(abandonedFrame) &&
                 abandonedFrame.GetLord() == null,
                 "player-owned recovered or hacked chassis is retained and detached from hostile raid state during map cleanup");
-            Finish();
+            SaveNext(14);
+        }
+
+        private void PilotSkillBridgeStart()
+        {
+            if (step != 0) return;
+
+            Map map = Find.CurrentMap;
+            IntVec3 center = map.Center;
+            ClearTestArea(CellRect.CenteredOn(center, 16), map);
+            frame = SpawnFrame(center);
+            frameId = frame.GetUniqueLoadID();
+            ThingWithComps exactWeapon = frame.equipment.Primary;
+            pilot = GenerateHuman(Faction.OfPlayer);
+            other = GenerateHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(pilot, center + IntVec3.East, map);
+            GenSpawn.Spawn(other, center + IntVec3.West * 3, map);
+            pilotId = pilot.GetUniqueLoadID();
+
+            SetCombatSkills(pilot, 0, 0);
+            SetCombatSkills(other, 20, 20);
+            float emptyShooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            float emptyMelee = frame.GetStatValue(StatDefOf.MeleeHitChance);
+            Check(frame.skills == null, "Frame owns no mirrored SkillTracker or duplicate pilot SkillRecords");
+            Check(emptyShooting > 0f && emptyMelee > 0f,
+                "empty Frame combat stat queries remain safe and use ordinary chassis defaults");
+
+            Check(frame.Cockpit.TryBoard(pilot), "low-skill pilot boards the skill-test Frame");
+            float shooting0 = AssertPilotStat(frame, pilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "Shooting 0");
+            float melee0 = AssertPilotStat(frame, pilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "Melee 0");
+
+            SetCombatSkills(pilot, 10, 10);
+            float shooting10 = AssertPilotStat(frame, pilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "Shooting 10");
+            float melee10 = AssertPilotStat(frame, pilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "Melee 10");
+
+            SetCombatSkills(pilot, 20, 20);
+            float shooting20 = AssertPilotStat(frame, pilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "Shooting 20");
+            float melee20 = AssertPilotStat(frame, pilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "Melee 20");
+            Check(shooting0 < shooting10 && shooting10 < shooting20,
+                "vanilla Shooting skill contribution improves ranged accuracy monotonically at levels 0 10 and 20");
+            Check(melee0 < melee10 && melee10 < melee20,
+                "vanilla Melee skill contribution improves melee hit chance monotonically at levels 0 10 and 20");
+
+            SetCombatSkills(pilot, 0, 0);
+            Check(frame.Cockpit.TryDisembark(), "low pilot disembarks before the critical same-chassis swap");
+            RelocatePawn(other, center + IntVec3.West, map);
+            Check(frame.Cockpit.TryBoard(other), "high pilot boards the exact same Frame");
+            float swappedShooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            float swappedMelee = frame.GetStatValue(StatDefOf.MeleeHitChance);
+            Check(frame.GetUniqueLoadID() == frameId && ReferenceEquals(frame.equipment.Primary, exactWeapon) &&
+                Approximately(swappedShooting, shooting20) && Approximately(swappedMelee, melee20),
+                "same Frame and weapon immediately use the replacement high pilot without copied chassis state");
+
+            Check(frame.Cockpit.TryDisembark(), "high pilot disembarks for low-pilot restoration proof");
+            RelocatePawn(pilot, center + IntVec3.East, map);
+            Check(frame.Cockpit.TryBoard(pilot), "original low pilot reboards the exact same Frame");
+            Check(Approximately(frame.GetStatValue(StatDefOf.ShootingAccuracyPawn), shooting0) &&
+                Approximately(frame.GetStatValue(StatDefOf.MeleeHitChance), melee0),
+                "reboarding the original low pilot restores the original combat effectiveness");
+
+            Check(frame.Cockpit.TryDisembark(), "low pilot disembarks for stale-contribution check");
+            Check(Approximately(frame.GetStatValue(StatDefOf.ShootingAccuracyPawn), emptyShooting) &&
+                Approximately(frame.GetStatValue(StatDefOf.MeleeHitChance), emptyMelee),
+                "disembarking removes pilot contributions immediately with no cached value");
+
+            SetCombatSkills(other, 15, 13);
+            RelocatePawn(other, center + IntVec3.West, map);
+            Check(frame.Cockpit.TryBoard(other) && frame.SetDrafted(true),
+                "known-skill pilot boards and drafts before the fresh-process bridge save");
+            savedPilotShootingStat = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            savedPilotMeleeStat = frame.GetStatValue(StatDefOf.MeleeHitChance);
+            savedPilotShootingXp = other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel;
+            savedPilotMeleeXp = other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel;
+            Unique(other, "known-skill pilot before bridge save");
+            SaveNext(15);
+        }
+
+        private void PilotSkillBridgeLoadAndCombat()
+        {
+            if (step == 0)
+            {
+                Check(frame != null && other != null && frame.GetUniqueLoadID() == frameId &&
+                    ReferenceEquals(frame.Cockpit.Pilot, other),
+                    "fresh-process load preserves exact Frame and known-skill cockpit pilot identities");
+                Check(other.skills.GetSkill(SkillDefOf.Shooting).Level == 15 &&
+                    other.skills.GetSkill(SkillDefOf.Melee).Level == 13 &&
+                    Approximately(other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel, savedPilotShootingXp) &&
+                    Approximately(other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel, savedPilotMeleeXp),
+                    "fresh-process load preserves pilot combat levels and XP on the pilot");
+                Check(Approximately(frame.GetStatValue(StatDefOf.ShootingAccuracyPawn), savedPilotShootingStat) &&
+                    Approximately(frame.GetStatValue(StatDefOf.MeleeHitChance), savedPilotMeleeStat),
+                    "fresh-process load restores identical live Shooting and Melee bridge values");
+                Check(frame.skills == null && frame.Cockpit.CanTakePlayerOrders,
+                    "loaded Frame still has no SkillTracker and derives operation from the contained pilot");
+                Unique(other, "known-skill pilot after bridge load");
+
+                frame.SetDrafted(true);
+                frame.drafter.FireAtWill = false;
+                IntVec3 targetCell = frame.Position + IntVec3.East * 8;
+                ClearTestArea(CellRect.FromLimits(frame.Position, targetCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), targetCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
+                combatXpBefore = other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel;
+                Action ranged = FloatMenuUtility.GetRangedAttackAction(frame, target, out string fail);
+                Check(ranged != null, "loaded Frame receives a real manual ranged attack for pilot XP; failure=" + fail);
+                ranged();
+                Next(1, 1800);
+            }
+            else if (step == 1 && other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel > combatXpBefore && TargetDamaged())
+            {
+                Check(TargetDamaged(), "real post-load manual projectile combat still damages its target");
+                Check(frame.skills == null, "manual Frame fire teaches only the actual pilot and never the chassis");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+
+                IntVec3 targetCell = frame.Position + IntVec3.West * 8;
+                ClearTestArea(CellRect.FromLimits(frame.Position, targetCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), targetCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
+                combatXpBefore = other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel;
+                frame.drafter.FireAtWill = true;
+                Next(2, 2400);
+            }
+            else if (step == 2 && other.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel > combatXpBefore && TargetDamaged())
+            {
+                Check(frame.CurJobDef == JobDefOf.Wait_Combat && TargetDamaged(),
+                    "Fire At Will performs real combat and grants Shooting XP to the same contained pilot");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile),
+                    CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 4), frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
+                combatXpBefore = other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel;
+                Action melee = FloatMenuUtility.GetMeleeAttackAction(frame, target, out string fail);
+                Check(melee != null, "loaded Frame receives a real forced melee attack for pilot XP; failure=" + fail);
+                melee();
+                Next(3, 2400);
+            }
+            else if (step == 3 && other.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel > combatXpBefore)
+            {
+                Check(TargetDamaged(), "real forced melee damages the target while teaching the exact pilot");
+                Check(frame.skills == null, "Frame melee teaches no duplicate chassis SkillRecord");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+
+                hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(frame.Position + IntVec3.East * 12, frame.Map);
+                hostilePilot = hostileFrame.Cockpit.Pilot;
+                SetCombatSkills(hostilePilot, 17, 18);
+                AssertPilotStat(hostileFrame, hostilePilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "hostile Shooting 17");
+                AssertPilotStat(hostileFrame, hostilePilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "hostile Melee 18");
+                Check(hostileFrame.Cockpit.CanUseHostileCombatAI && !hostileFrame.CanTakeOrder,
+                    "hostile skill bridge is faction-agnostic without exposing player orders");
+
+                IntVec3 targetCell = hostileFrame.Position + IntVec3.West * 8;
+                ClearTestArea(CellRect.FromLimits(hostileFrame.Position, targetCell).ExpandedBy(2), hostileFrame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer), targetCell, hostileFrame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                combatXpBefore = hostilePilot.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel;
+                Next(4, 3000);
+            }
+            else if (step == 4 && hostilePilot.skills.GetSkill(SkillDefOf.Shooting).xpSinceLastLevel > combatXpBefore && TargetDamaged())
+            {
+                Check(TargetDamaged(), "hostile ranged AI grants Shooting XP to its exact contained hostile pilot");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                Check(hostileFrame.equipment.TryDropEquipment(hostileFrame.equipment.Primary, out hostileRifle,
+                    hostileFrame.Position, forbid: false), "hostile skill fixture drops ranged weapon for real melee XP");
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfPlayer),
+                    CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 4), hostileFrame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, hostileFrame);
+                combatXpBefore = hostilePilot.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel;
+                Next(5, 3000);
+            }
+            else if (step == 5 && hostilePilot.skills.GetSkill(SkillDefOf.Melee).xpSinceLastLevel > combatXpBefore)
+            {
+                Check(TargetDamaged(), "hostile melee AI grants Melee XP to its exact contained hostile pilot");
+                hostileFrame.jobs.StopAll();
+                hostileFrame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
+                DownByMissingLegs(hostileFrame);
+                Check(!hostileFrame.Cockpit.HasPilot && hostilePilot.Spawned &&
+                    !Approximately(hostileFrame.GetStatValue(StatDefOf.ShootingAccuracyPawn),
+                        ExpectedPilotStat(hostileFrame, hostilePilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting)),
+                    "downing ejects hostile pilot and removes its live stat contribution immediately");
+                Check(hostileFrame.CurJobDef == null || hostileFrame.CurJobDef == ZenithJobDefOf.ZF_FrameIdleJob,
+                    "empty ejected hostile Frame remains inert after skill bridge removal");
+
+                if (hostileRifle != null && !hostileRifle.Destroyed) hostileRifle.Destroy();
+                hostilePilot.Destroy();
+                hostileFrame.Destroy();
+
+                DownByMissingLegs(frame);
+                Check(frame.Downed && !frame.Cockpit.HasPilot && other.Spawned,
+                    "player Frame downing ejects the known-skill pilot and clears the bridge");
+                Check(frame.Recovery.TryRecover(), "recovering the chassis alone succeeds without restoring old pilot skill state");
+                Check(!frame.Cockpit.HasPilot && !frame.CanTakeOrder,
+                    "recovered empty chassis has no operator skill contribution or combat control");
+                SetCombatSkills(pilot, 3, 4);
+                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+                Check(frame.Cockpit.TryBoard(pilot), "different pilot boards the recovered same chassis");
+                AssertPilotStat(frame, pilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "recovered Frame new Shooting 3");
+                AssertPilotStat(frame, pilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "recovered Frame new Melee 4");
+                Check(frame.GetUniqueLoadID() == frameId && frame.skills == null,
+                    "recovery and reboarding preserve chassis identity while only the new pilot owns skills");
+                Unique(pilot, "new pilot in recovered skill-test Frame");
+                Finish();
+            }
         }
 
         private void StartInertCase(Faction frameFaction, Faction targetFaction, string label, int nextStep)
@@ -1439,6 +1661,54 @@ namespace ZenithFrame.Tests
             adjacentTarget.Destroy();
             target = null;
         }
+
+        private float AssertPilotStat(FramePawn targetFrame, Pawn expectedPilot, StatDef stat, SkillDef skill, string stage)
+        {
+            float actual = targetFrame.GetStatValue(stat);
+            float expected = ExpectedPilotStat(targetFrame, expectedPilot, stat, skill);
+            Check(Approximately(actual, expected), stage + " uses the exact vanilla SkillNeed contribution; expected=" +
+                expected.ToString("0.#####") + " actual=" + actual.ToString("0.#####"));
+            StatPart_PilotSkill part = stat.parts.OfType<StatPart_PilotSkill>().Single(candidate => candidate.skill == skill);
+            string explanation = part.ExplanationPart(StatRequest.For(targetFrame));
+            Check(explanation != null && explanation.Contains("Pilot") && explanation.Contains(expectedPilot.skills.GetSkill(skill).Level.ToString()),
+                stage + " exposes the live pilot contribution through normal stat explanation");
+            return actual;
+        }
+
+        private static float ExpectedPilotStat(FramePawn targetFrame, Pawn expectedPilot, StatDef stat, SkillDef skill)
+        {
+            StatRequest request = StatRequest.For(targetFrame);
+            float value = stat.Worker.GetValueUnfinalized(request);
+            SkillNeed need = stat.skillNeedOffsets.Single(candidate => candidate.skill == skill);
+            value += need.ValueFor(expectedPilot) - stat.noSkillOffset;
+            if (stat.parts != null)
+                foreach (StatPart part in stat.parts)
+                    if (part != null && !(part is StatPart_PilotSkill)) part.TransformValue(request, ref value);
+            if (stat.postProcessCurve != null) value = stat.postProcessCurve.Evaluate(value);
+            if (stat.postProcessStatFactors != null)
+                foreach (StatDef factor in stat.postProcessStatFactors)
+                    if (factor != null) value *= targetFrame.GetStatValue(factor);
+            if (Find.Scenario != null) value *= Find.Scenario.GetStatFactor(stat);
+            if (Mathf.Abs(value) > stat.roundToFiveOver) value = Mathf.Round(value / 5f) * 5f;
+            if (stat.roundValue) value = Mathf.RoundToInt(value);
+            return Mathf.Clamp(value, stat.minValue, stat.maxValue);
+        }
+
+        private static void SetCombatSkills(Pawn targetPilot, int shooting, int melee)
+        {
+            SetSkill(targetPilot.skills.GetSkill(SkillDefOf.Shooting), shooting);
+            SetSkill(targetPilot.skills.GetSkill(SkillDefOf.Melee), melee);
+        }
+
+        private static void SetSkill(SkillRecord record, int level)
+        {
+            record.Level = level;
+            record.xpSinceLastLevel = 0f;
+            record.xpSinceMidnight = 0f;
+            record.passion = Passion.None;
+        }
+
+        private static bool Approximately(float left, float right) => Math.Abs(left - right) < 0.0001f;
 
         private static float InjurySeverity(Pawn pawn) => pawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().Sum(injury => injury.Severity);
         private static Verb ManualVerb(FramePawn targetFrame) =>

@@ -93,6 +93,17 @@ Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(MapPawns\)' -and $code -no
 Assert-Static ($code -match 'IsBeingDiscarded\(Frame\)' -and $code -match 'DiscardEscapedHostilePilot' -and $code -match 'RemovePawn\(exactPilot\)') 'Hostile world GC must discard the nested pilot without leaving a second world-pawn owner'
 Assert-Static ($code -match 'ForcefullyKeptPawns\.Add\(this\)' -and $code -match 'Find\.WorldPawns\.Contains\(this\)') 'A player pilot contained in an exited world Frame must keep the outer Frame alive'
 Assert-Static ($code -match 'recovery\.Accept\(exactPilot\)' -and $code -match 'Find\.WorldPawns\.PassToWorld\(exactPilot\)') 'Map removal must route player and non-player pilots into explicit independent owners'
+$skillCode = Get-Content "$repo/Source/ZenithFrame/PilotCombatSkills.cs" -Raw
+[xml]$skillPatch = Get-Content "$repo/Mod/Patches/PilotCombatSkills.xml" -Raw
+$pilotStatParts = @($skillPatch.SelectNodes('//li[@Class="ZenithFrame.StatPart_PilotSkill"]'))
+Assert-Static ($pilotStatParts.Count -eq 4 -and $skillPatch.OuterXml -match 'ShootingAccuracyPawn' -and $skillPatch.OuterXml -match 'MeleeHitChance') 'Pilot combat StatParts must cover Core-only and DLC XML shapes for ShootingAccuracyPawn and MeleeHitChance'
+Assert-Static ($skillCode -match 'need\.ValueFor\(pilot\)' -and $skillCode -match 'parentStat\.noSkillOffset' -and $skillCode -match 'frame\.Cockpit\?\.CanOperate') 'Pilot stat bridge must replace only the vanilla no-skill term with the cockpit pilot SkillNeed contribution'
+Assert-Static ($skillCode -match 'SkillDefOf\.Shooting' -and $skillCode -match '170f : 20f' -and $skillCode -match 'AdjustedFullCycleTime') 'Frame ranged XP must reuse vanilla hostile/friendly cycle-time semantics on the pilot'
+Assert-Static ($skillCode -match 'SkillDefOf\.Melee' -and $skillCode -match '200f \* verb\.verbProps\.AdjustedFullCycleTime') 'Frame melee XP must reuse vanilla cycle-time semantics on the pilot'
+Assert-Static ($skillCode -match 'pilot\.skills\.Learn' -and $skillCode -notmatch 'frame\.skills\.Learn|Frame\.skills\.Learn') 'Frame combat experience must belong exclusively to the exact cockpit pilot'
+Assert-Static ($skillCode -notmatch 'Pawn_SkillTracker|new\s+SkillTracker|Scribe_' -and $code -notmatch 'Scribe_.*Skill') 'Frame must not create or serialize mirrored pilot skill state'
+Assert-Static ($skillCode -notmatch 'pilot\.(Map|Position)' -and $skillCode -notmatch 'DamageInfo|MeleeDamage') 'Skill bridge must not fake contained-pilot map state or modify physical melee damage'
+Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(Pawn\),\s*nameof\(Pawn\.GetStatValue') 'Pilot skills must not patch the global Pawn stat lookup path'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'
 Assert-Static (@($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_HackFrame').driverClass -eq 'ZenithFrame.JobDriver_HackFrame') 'Hack Frame JobDef is missing or miswired'
