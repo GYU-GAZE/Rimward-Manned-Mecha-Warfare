@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <IncidentDef>
+    <defName>ZF_DevelopmentEnemyFrameRaid</defName>
+    <label>development enemy Frame raid</label>
+    <category>ThreatBig</category>
+    <targetTags><li>Map_PlayerHome</li></targetTags>
+    <workerClass>ZenithFrame.IncidentWorker_DevelopmentEnemyFrameRaid</workerClass>
+    <baseChance>0</baseChance>
+    <pointsScaleable>false</pointsScaleable>
+    <letterLabel>Enemy Frame raid</letterLabel>
+    <letterText>A development raid containing infantry and a piloted Frame has arrived.</letterText>
+    <letterDef>ThreatBig</letterDef>
+  </IncidentDef>
+</Defs>

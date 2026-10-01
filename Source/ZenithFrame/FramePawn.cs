@@ -17,5 +17,10 @@ namespace ZenithFrame
             Cockpit?.EmergencyEject();
             base.Destroy(mode);
         }
+        public override void ExitMap(bool allowedToJoinOrCreateCaravan, Rot4 exitDir)
+        {
+            base.ExitMap(allowedToJoinOrCreateCaravan, exitDir);
+            Cockpit?.Notify_ExitedMap();
+        }
     }
 }

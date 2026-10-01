@@ -4,6 +4,8 @@ using LudeonTK;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
+using Verse.AI.Group;
 
 namespace ZenithFrame
 {
@@ -31,6 +33,12 @@ namespace ZenithFrame
 
         protected override void Tick()
         {
+            if (!Spawned)
+            {
+                base.Tick();
+                return;
+            }
+            TryFollowLordExitDuty();
             if (!Cockpit.CanOperate)
             {
                 if (Drafted || pather.Moving || (CurJob != null && CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob)) Cockpit.StopFrame();
@@ -43,6 +51,33 @@ namespace ZenithFrame
                 drafter.FireAtWill = Cockpit.CanUseHostileCombatAI || executingPlayerAttack;
             }
             base.Tick();
+        }
+
+        private void TryFollowLordExitDuty()
+        {
+            DutyDef duty = mindState?.duty?.def;
+            Lord operationalLord = Cockpit.OperationalLord;
+            bool exitLord = operationalLord?.LordJob is LordJob_ExitMapBest ||
+                operationalLord?.CurLordToil is LordToil_ExitMap ||
+                operationalLord?.CurLordToil is LordToil_ExitMapAndDefendSelf;
+            if (exitLord && duty != DutyDefOf.ExitMapBest && duty != DutyDefOf.ExitMapBestAndDefendSelf &&
+                duty != DutyDefOf.ExitMapRandom && duty != DutyDefOf.ExitMapNearDutyTarget)
+            {
+                mindState.duty = new PawnDuty(DutyDefOf.ExitMapBest)
+                {
+                    locomotion = LocomotionUrgency.Sprint,
+                    canDig = true
+                };
+                duty = mindState.duty.def;
+            }
+            bool shouldExit = Cockpit.CanUseHostileCombatAI && (exitLord ||
+                duty == DutyDefOf.ExitMapBest || duty == DutyDefOf.ExitMapBestAndDefendSelf ||
+                duty == DutyDefOf.ExitMapRandom || duty == DutyDefOf.ExitMapNearDutyTarget);
+            if (!shouldExit || (CurJob != null && pather.Moving)) return;
+
+            ThinkResult result = new JobGiver_ExitMapBest().TryIssueJobPackage(this, default(JobIssueParams));
+            if (result.IsValid)
+                jobs.StartJob(result.Job, JobCondition.InterruptForced);
         }
 
         public bool SetDrafted(bool value)

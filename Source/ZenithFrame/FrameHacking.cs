@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace ZenithFrame
 {
@@ -43,6 +44,9 @@ namespace ZenithFrame
                 return false;
 
             Frame.Cockpit.StopFrame();
+            Lord hostileLord = Frame.GetLord();
+            if (hostileLord != null)
+                hostileLord.RemovePawn(Frame);
             Frame.SetFaction(Faction.OfPlayer);
             Frame.Cockpit.StopFrame();
             return Frame.Faction == Faction.OfPlayer &&

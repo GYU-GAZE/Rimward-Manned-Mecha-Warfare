@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace ZenithFrame
 {
@@ -13,10 +14,12 @@ namespace ZenithFrame
     public sealed class CompPilotableMech : ThingComp, IThingHolder
     {
         private ThingOwner<Pawn> pilots;
+        private Lord operationalLord;
         public CompPilotableMech() { pilots = new ThingOwner<Pawn>(this, oneStackOnly: true, contentsLookMode: LookMode.Deep); }
         public Pawn Frame => (Pawn)parent;
         public Pawn Pilot => pilots.Count == 0 ? null : pilots[0];
         public bool HasPilot => pilots.Count != 0;
+        internal Lord OperationalLord => operationalLord ?? Frame.GetLord();
         public bool CanOperate => PilotRules.CanOperate(HasPilot,
             Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed && !Frame.InMentalState,
             Pilot != null && !Pilot.Dead && !Pilot.Downed && !Pilot.InMentalState,
@@ -63,6 +66,29 @@ namespace ZenithFrame
             return TryStorePilot(pawn);
         }
 
+        internal bool TryInstallGeneratedPilot(Pawn pawn)
+        {
+            if (pawn == null || pawn == Frame || pawn is FramePawn || HasPilot ||
+                Frame.Spawned || pawn.Spawned || Frame.Destroyed || pawn.Destroyed ||
+                pawn.holdingOwner != null || !pawn.RaceProps.Humanlike || pawn.Dead ||
+                Frame.Faction == null || pawn.Faction != Frame.Faction)
+                return false;
+
+            return pilots.TryAdd(pawn, false);
+        }
+
+        internal void RememberOperationalLord(Lord lord)
+        {
+            bool ownedAssaultFrame = Frame.GetLord() == lord;
+            bool compatibleExitControl = lord?.LordJob is LordJob_ExitMapBest && Frame.Spawned &&
+                Frame.Map == lord.Map && Frame.Faction == lord.faction;
+            if (lord == null || !HasPilot || (!ownedAssaultFrame && !compatibleExitControl))
+                throw new System.InvalidOperationException("ZENITH: cannot remember an incompatible operational Lord.");
+            operationalLord = lord;
+        }
+
+        internal void Notify_ExitedMap() { operationalLord = null; }
+
         private bool TryStorePilot(Pawn pawn)
         {
             Map map = pawn.Map;
@@ -106,8 +132,14 @@ namespace ZenithFrame
         public void EmergencyEject()
         {
             if (!HasPilot) return;
+            Lord raidLord = OperationalLord;
+            Pawn exactPilot = Pilot;
             StopFrame();
-            if (TryDisembark()) return;
+            if (TryDisembark())
+            {
+                TransferRaidControlToEjectedPilot(raidLord, exactPilot);
+                return;
+            }
             // Off-map destruction has no spawn destination. Transfer to an independent,
             // deep-scribed game owner BEFORE the Frame's destruction is allowed to proceed.
             var recovery = Current.Game?.GetComponent<PilotRecovery>();
@@ -115,8 +147,34 @@ namespace ZenithFrame
                 throw new System.InvalidOperationException("ZENITH: cannot detach pilot safely; aborting Frame destruction.");
         }
 
+        private void TransferRaidControlToEjectedPilot(Lord lord, Pawn pilot)
+        {
+            if (lord != null)
+            {
+                if (Frame.GetLord() == lord) lord.RemovePawn(Frame);
+                if (pilot?.Spawned == true && pilot.Map == lord.Map && pilot.Faction == Frame.Faction && lord.CanAddPawn(pilot))
+                    lord.AddPawn(pilot);
+            }
+            operationalLord = null;
+        }
+
+        public override void CompTick()
+        {
+            base.CompTick();
+            Lord currentLord = Frame.GetLord();
+            bool preservingExplicitExitControl = operationalLord?.LordJob is LordJob_ExitMapBest &&
+                currentLord != operationalLord;
+            if (HasPilot && currentLord != null && !preservingExplicitExitControl)
+                operationalLord = currentLord;
+        }
+
         public override void Notify_Downed() { EmergencyEject(); }
-        public override void PostExposeData() { base.PostExposeData(); Scribe_Deep.Look(ref pilots, "zenithPilot", this); }
+        public override void PostExposeData()
+        {
+            base.PostExposeData();
+            Scribe_Deep.Look(ref pilots, "zenithPilot", this);
+            Scribe_References.Look(ref operationalLord, "zenithOperationalLord");
+        }
         public override string CompInspectStringExtra() => HasPilot ? "Pilot: " + Pilot.LabelShortCap : "No pilot - Frame inactive";
     }
 }
