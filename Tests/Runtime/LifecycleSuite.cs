@@ -1452,8 +1452,8 @@ namespace ZenithFrame.Tests
             frame = SpawnFrame(center);
             frameId = frame.GetUniqueLoadID();
             ThingWithComps exactWeapon = frame.equipment.Primary;
-            pilot = GenerateHuman(Faction.OfPlayer);
-            other = GenerateHuman(Faction.OfPlayer);
+            pilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+            other = GenerateCombatCapableHuman(Faction.OfPlayer);
             GenSpawn.Spawn(pilot, center + IntVec3.East, map);
             GenSpawn.Spawn(other, center + IntVec3.West * 3, map);
             pilotId = pilot.GetUniqueLoadID();
@@ -1488,9 +1488,14 @@ namespace ZenithFrame.Tests
             Check(frame.Cockpit.TryBoard(other), "high pilot boards the exact same Frame");
             float swappedShooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
             float swappedMelee = frame.GetStatValue(StatDefOf.MeleeHitChance);
-            Check(frame.GetUniqueLoadID() == frameId && ReferenceEquals(frame.equipment.Primary, exactWeapon) &&
-                Approximately(swappedShooting, shooting20) && Approximately(swappedMelee, melee20),
-                "same Frame and weapon immediately use the replacement high pilot without copied chassis state");
+            Check(frame.GetUniqueLoadID() == frameId,
+                "pilot swap preserves the exact Frame identity");
+            Check(ReferenceEquals(frame.equipment.Primary, exactWeapon),
+                "pilot swap preserves the exact equipped weapon instance");
+            Check(Approximately(swappedShooting, shooting20) && Approximately(swappedMelee, melee20),
+                "same Frame and weapon immediately use the replacement high pilot without copied chassis state; shooting=" +
+                swappedShooting.ToString("0.#####") + "/" + shooting20.ToString("0.#####") + " melee=" +
+                swappedMelee.ToString("0.#####") + "/" + melee20.ToString("0.#####"));
 
             Check(frame.Cockpit.TryDisembark(), "high pilot disembarks for low-pilot restoration proof");
             RelocatePawn(pilot, center + IntVec3.East, map);
@@ -2035,6 +2040,13 @@ namespace ZenithFrame.Tests
             // DLC generation may attach disposable fixtures to off-map relatives.
             // Random relationships are unrelated to this ownership suite and can
             // otherwise leave unresolved references after the fixture is destroyed.
+            pawn.relations.ClearAllRelations();
+            return pawn;
+        }
+        private static Pawn GenerateCombatCapableHuman(Faction faction)
+        {
+            Pawn pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, faction, mustBeCapableOfViolence: true));
             pawn.relations.ClearAllRelations();
             return pawn;
         }
