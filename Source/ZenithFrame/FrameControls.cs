@@ -195,20 +195,18 @@ namespace ZenithFrame
             if (faction == null)
                 throw new System.InvalidOperationException("ZENITH: no hostile faction is available for the debug fixture.");
 
-            FramePawn hostileFrame = (FramePawn)GenSpawn.Spawn(
-                PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction), cell, map);
+            FramePawn hostileFrame = (FramePawn)PawnGenerator.GeneratePawn(
+                DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction);
             Pawn hostilePilot = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
             hostilePilot.relations.ClearAllRelations();
-            IntVec3 pilotCell = CellFinder.RandomClosewalkCellNear(cell, map, 1);
-            GenSpawn.Spawn(hostilePilot, pilotCell, map);
-            if (!hostileFrame.Cockpit.TryInstallPilot(hostilePilot))
+            if (!hostileFrame.Cockpit.TryInstallGeneratedPilot(hostilePilot))
             {
                 if (!hostilePilot.Destroyed) hostilePilot.Destroy();
                 if (!hostileFrame.Destroyed) hostileFrame.Destroy();
                 throw new System.InvalidOperationException("ZENITH: hostile debug pilot could not enter the Frame.");
             }
 
-            return hostileFrame;
+            return (FramePawn)GenSpawn.Spawn(hostileFrame, cell, map);
         }
     }
 }

@@ -1366,10 +1366,14 @@ namespace ZenithFrame.Tests
             Map home = Find.CurrentMap;
             MapParent abandonedParent;
             Map abandonedMap = CreateTemporaryMap(out abandonedParent);
-            FramePawn abandonedFrame = SpawnFrameOnMap(abandonedMap.Center, abandonedMap, Faction.OfPlayer);
+            FramePawn abandonedFrame = (FramePawn)PawnGenerator.GeneratePawn(
+                DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfPlayer);
             Pawn abandonedPilot = GenerateHuman(Faction.OfPlayer);
-            GenSpawn.Spawn(abandonedPilot, CellFinder.RandomClosewalkCellNear(abandonedFrame.Position, abandonedMap, 1), abandonedMap);
-            Check(abandonedFrame.Cockpit.TryBoard(abandonedPilot), "temporary-map player Frame contains its exact pilot before abandonment");
+            Check(abandonedFrame.Cockpit.TryInstallGeneratedPilot(abandonedPilot),
+                "temporary-map player fixture installs its exact generated pilot");
+            GenSpawn.Spawn(abandonedFrame, abandonedMap.Center, abandonedMap);
+            Check(ReferenceEquals(abandonedFrame.Cockpit.Pilot, abandonedPilot),
+                "temporary-map player Frame contains its exact pilot before abandonment");
             string abandonedPilotId = abandonedPilot.GetUniqueLoadID();
             Current.Game.CurrentMap = home;
             Current.Game.DeinitAndRemoveMap(abandonedMap, notifyPlayer: false);
@@ -1383,10 +1387,14 @@ namespace ZenithFrame.Tests
 
             MapParent hostileParent;
             Map hostileMap = CreateTemporaryMap(out hostileParent);
-            FramePawn cleanupHostile = SpawnFrameOnMap(hostileMap.Center, hostileMap, Faction.OfAncientsHostile);
+            FramePawn cleanupHostile = (FramePawn)PawnGenerator.GeneratePawn(
+                DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfAncientsHostile);
             Pawn cleanupHostilePilot = GenerateHuman(Faction.OfAncientsHostile);
-            GenSpawn.Spawn(cleanupHostilePilot, CellFinder.RandomClosewalkCellNear(cleanupHostile.Position, hostileMap, 1), hostileMap);
-            Check(cleanupHostile.Cockpit.TryInstallPilot(cleanupHostilePilot), "temporary hostile Frame contains its exact pilot before cleanup");
+            Check(cleanupHostile.Cockpit.TryInstallGeneratedPilot(cleanupHostilePilot),
+                "temporary hostile fixture installs its exact generated pilot");
+            GenSpawn.Spawn(cleanupHostile, hostileMap.Center, hostileMap);
+            Check(ReferenceEquals(cleanupHostile.Cockpit.Pilot, cleanupHostilePilot),
+                "temporary hostile Frame contains its exact pilot before cleanup");
             Current.Game.CurrentMap = home;
             Current.Game.DeinitAndRemoveMap(hostileMap, notifyPlayer: false);
             hostileParent.Destroy();
@@ -1399,10 +1407,14 @@ namespace ZenithFrame.Tests
 
             MapParent ejectParent;
             Map ejectMap = CreateTemporaryMap(out ejectParent);
-            FramePawn ejectFrame = SpawnFrameOnMap(ejectMap.Center, ejectMap, Faction.OfPlayer);
+            FramePawn ejectFrame = (FramePawn)PawnGenerator.GeneratePawn(
+                DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfPlayer);
             Pawn ejectPilot = GenerateHuman(Faction.OfPlayer);
-            GenSpawn.Spawn(ejectPilot, CellFinder.RandomClosewalkCellNear(ejectFrame.Position, ejectMap, 1), ejectMap);
-            Check(ejectFrame.Cockpit.TryBoard(ejectPilot), "pre-cleanup ejection fixture boards normally");
+            Check(ejectFrame.Cockpit.TryInstallGeneratedPilot(ejectPilot),
+                "pre-cleanup ejection fixture installs its exact generated pilot");
+            GenSpawn.Spawn(ejectFrame, ejectMap.Center, ejectMap);
+            Check(ReferenceEquals(ejectFrame.Cockpit.Pilot, ejectPilot),
+                "pre-cleanup ejection fixture starts with its exact pilot");
             DownByMissingLegs(ejectFrame);
             Check(ejectPilot.Spawned && !ejectFrame.Cockpit.HasPilot, "downing immediately before cleanup ejects into valid map ownership first");
             Current.Game.CurrentMap = home;
