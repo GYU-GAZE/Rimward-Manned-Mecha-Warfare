@@ -211,7 +211,8 @@ namespace ZenithFrame
             FramePawn hostileFrame = (FramePawn)PawnGenerator.GeneratePawn(
                 DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction);
             Pawn hostilePilot = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
-                PawnKindDefOf.Colonist, faction, mustBeCapableOfViolence: true));
+                PawnKindDefOf.Colonist, faction, canGeneratePawnRelations: false,
+                mustBeCapableOfViolence: true));
             hostilePilot.relations.ClearAllRelations();
             if (!hostileFrame.Cockpit.TryInstallGeneratedPilot(hostilePilot))
             {

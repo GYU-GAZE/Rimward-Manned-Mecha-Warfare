@@ -2039,7 +2039,8 @@ namespace ZenithFrame.Tests
         }
         private static Pawn GenerateHuman(Faction faction)
         {
-            Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, faction);
+            Pawn pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, faction, canGeneratePawnRelations: false));
             // DLC generation may attach disposable fixtures to off-map relatives.
             // Random relationships are unrelated to this ownership suite and can
             // otherwise leave unresolved references after the fixture is destroyed.
@@ -2049,7 +2050,8 @@ namespace ZenithFrame.Tests
         private static Pawn GenerateCombatCapableHuman(Faction faction)
         {
             Pawn pawn = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
-                PawnKindDefOf.Colonist, faction, mustBeCapableOfViolence: true));
+                PawnKindDefOf.Colonist, faction, canGeneratePawnRelations: false,
+                mustBeCapableOfViolence: true));
             pawn.relations.ClearAllRelations();
             return pawn;
         }
