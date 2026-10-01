@@ -132,6 +132,11 @@ namespace ZenithFrame
         public void EmergencyEject()
         {
             if (!HasPilot) return;
+            if (Find.WorldPawns?.IsBeingDiscarded(Frame) == true && Frame.Faction != Faction.OfPlayer)
+            {
+                DiscardEscapedHostilePilot();
+                return;
+            }
             Lord raidLord = OperationalLord;
             Pawn exactPilot = Pilot;
             StopFrame();
@@ -145,6 +150,37 @@ namespace ZenithFrame
             var recovery = Current.Game?.GetComponent<PilotRecovery>();
             if (recovery == null || !recovery.Accept(Pilot))
                 throw new System.InvalidOperationException("ZENITH: cannot detach pilot safely; aborting Frame destruction.");
+        }
+
+        internal void PrepareForMapRemoval()
+        {
+            if (!HasPilot) return;
+            Pawn exactPilot = Pilot;
+            StopFrame();
+            operationalLord = null;
+            if (Frame.Faction == Faction.OfPlayer && exactPilot.Faction == Faction.OfPlayer && exactPilot.RaceProps.Humanlike &&
+                !exactPilot.IsPrisoner && !exactPilot.IsSlave)
+            {
+                var recovery = Current.Game?.GetComponent<PilotRecovery>();
+                if (recovery == null || !recovery.Accept(exactPilot))
+                    throw new System.InvalidOperationException("ZENITH: map removal could not transfer the player pilot to recovery ownership.");
+                return;
+            }
+
+            if (!pilots.Remove(exactPilot))
+                throw new System.InvalidOperationException("ZENITH: map removal could not detach the non-player pilot.");
+            Find.WorldPawns.PassToWorld(exactPilot);
+        }
+
+        private void DiscardEscapedHostilePilot()
+        {
+            Pawn exactPilot = Pilot;
+            operationalLord = null;
+            if (!pilots.Remove(exactPilot))
+                throw new System.InvalidOperationException("ZENITH: hostile world cleanup could not detach its contained pilot.");
+            if (!exactPilot.Destroyed) exactPilot.Destroy();
+            if (Find.WorldPawns.Contains(exactPilot)) Find.WorldPawns.RemovePawn(exactPilot);
+            if (!exactPilot.Discarded) exactPilot.Discard(silentlyRemoveReferences: true);
         }
 
         private void TransferRaidControlToEjectedPilot(Lord lord, Pawn pilot)

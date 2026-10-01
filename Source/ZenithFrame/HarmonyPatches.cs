@@ -42,6 +42,21 @@ namespace ZenithFrame
         private static void Postfix(List<Thing> __result) => FrameColonistBarBridge.RedirectList(__result);
     }
 
+    // MapDeiniter recursively includes cockpit contents in MapPawns.AllPawns.
+    // Detach nested pilots into an explicit independent owner before vanilla
+    // snapshots that list, so the same Pawn is never passed to WorldPawns both
+    // as cockpit content and as a separate map pawn.
+    [HarmonyPatch(typeof(MapDeiniter), nameof(MapDeiniter.Deinit))]
+    internal static class Patch_MapDeiniter_Deinit_FramePilots
+    {
+        private static void Prefix(Map map)
+        {
+            foreach (FramePawn frame in map.mapPawns.AllPawnsSpawned.OfType<FramePawn>().ToList())
+                frame.Cockpit?.PrepareForMapRemoval();
+        }
+    }
+
+
     [StaticConstructorOnStartup]
     public static class FrameHarmonyBootstrap
     {

@@ -21,6 +21,10 @@ namespace ZenithFrame
         public override void ExitMap(bool allowedToJoinOrCreateCaravan, Rot4 exitDir)
         {
             base.ExitMap(allowedToJoinOrCreateCaravan, exitDir);
+            Pawn pilot = Cockpit?.Pilot;
+            if (Find.WorldPawns.Contains(this) && pilot?.Faction == RimWorld.Faction.OfPlayer &&
+                pilot.RaceProps.Humanlike && !pilot.IsPrisoner && !pilot.IsSlave)
+                Find.WorldPawns.ForcefullyKeptPawns.Add(this);
             Cockpit?.Notify_ExitedMap();
         }
         public override void DrawGUIOverlay()
