@@ -111,6 +111,17 @@ namespace ZenithFrame
         }
     }
 
+    // Vanilla melee XP is awarded inside Verb_MeleeAttack.TryCastShot to the
+    // caster's SkillTracker. A Frame deliberately has no such tracker. Award
+    // the same cycle-time amount to the exact operating pilot at the same real
+    // melee-execution boundary; misses still train, just as they do for Pawns.
+    [HarmonyPatch(typeof(Verb_MeleeAttack), "TryCastShot")]
+    internal static class Patch_Verb_MeleeAttack_TryCastShot_FramePilotXp
+    {
+        private static void Prefix(Verb_MeleeAttack __instance) =>
+            FramePilotCombatExperience.LearnMelee(__instance);
+    }
+
     // CanTakeOrder is intentionally broader than the set of actions a Frame
     // should receive. Keep the ordinary Pawn move/attack providers, but do not
     // accidentally turn a Frame into a worker that can equip, haul, tend, open,

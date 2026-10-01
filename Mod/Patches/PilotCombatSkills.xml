@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationSequence">
+    <operations>
+      <li Class="PatchOperationConditional">
+        <xpath>Defs/StatDef[defName="ShootingAccuracyPawn"]/parts</xpath>
+        <match Class="PatchOperationAdd">
+          <xpath>Defs/StatDef[defName="ShootingAccuracyPawn"]/parts</xpath>
+          <value><li Class="ZenithFrame.StatPart_PilotSkill"><skill>Shooting</skill></li></value>
+        </match>
+        <nomatch Class="PatchOperationAdd">
+          <xpath>Defs/StatDef[defName="ShootingAccuracyPawn"]</xpath>
+          <value><parts><li Class="ZenithFrame.StatPart_PilotSkill"><skill>Shooting</skill></li></parts></value>
+        </nomatch>
+      </li>
+      <li Class="PatchOperationConditional">
+        <xpath>Defs/StatDef[defName="MeleeHitChance"]/parts</xpath>
+        <match Class="PatchOperationAdd">
+          <xpath>Defs/StatDef[defName="MeleeHitChance"]/parts</xpath>
+          <value><li Class="ZenithFrame.StatPart_PilotSkill"><skill>Melee</skill></li></value>
+        </match>
+        <nomatch Class="PatchOperationAdd">
+          <xpath>Defs/StatDef[defName="MeleeHitChance"]</xpath>
+          <value><parts><li Class="ZenithFrame.StatPart_PilotSkill"><skill>Melee</skill></li></parts></value>
+        </nomatch>
+      </li>
+    </operations>
+  </Operation>
+</Patch>
