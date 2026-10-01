@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using RimWorld;
+using RimWorld.Planet;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -44,6 +45,10 @@ namespace ZenithFrame.Tests
         private FramePawn raidFrame;
         private Pawn raidPilot;
         private Pawn raidInfantry;
+        private FramePawn worldFrame;
+        private Pawn worldPilot;
+        private string worldFrameId;
+        private string worldPilotId;
         private IntVec3 raidFrameNaturalStart;
         private bool raidFrameMovedNaturally;
         private Action pendingGuiAction;
@@ -68,6 +73,10 @@ namespace ZenithFrame.Tests
             Scribe_References.Look(ref raidFrame, "testRaidFrame");
             Scribe_References.Look(ref raidPilot, "testRaidPilot");
             Scribe_References.Look(ref raidInfantry, "testRaidInfantry");
+            Scribe_References.Look(ref worldFrame, "testWorldFrame");
+            Scribe_References.Look(ref worldPilot, "testWorldPilot");
+            Scribe_Values.Look(ref worldFrameId, "testWorldFrameId");
+            Scribe_Values.Look(ref worldPilotId, "testWorldPilotId");
             Scribe_Values.Look(ref raidFrameNaturalStart, "testRaidFrameNaturalStart");
             Scribe_Values.Look(ref raidFrameMovedNaturally, "testRaidFrameMovedNaturally");
         }
@@ -78,32 +87,25 @@ namespace ZenithFrame.Tests
         }
         private void Unique(Pawn p, string stage)
         {
-            var all = new List<Thing>();
-            foreach (Map m in Find.Maps)
+            var owners = DirectOwnerPaths(p);
+            Check(owners.Count == 1, stage + ": exactly one direct owner; found=" + string.Join(" | ", owners));
+            Check(!p.Destroyed && !p.Dead, stage + ": live and valid under " + owners.Single());
+        }
+
+        private static List<string> DirectOwnerPaths(Pawn pawn)
+        {
+            var owners = new List<string>();
+            foreach (Map map in Find.Maps)
             {
-                all.AddRange(m.listerThings.AllThings);
-                foreach (Thing t in m.listerThings.AllThings)
-                {
-                    if (t is IThingHolder h) all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(h));
-                    if (t is ThingWithComps c)
-                        foreach (var holder in c.AllComps.OfType<IThingHolder>()) all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(holder));
-                }
+                if (pawn.Spawned && pawn.Map == map) owners.Add("map:" + map.uniqueID);
+                foreach (FramePawn candidate in map.mapPawns.AllPawnsSpawned.OfType<FramePawn>())
+                    if (ReferenceEquals(candidate.Cockpit.Pilot, pawn)) owners.Add("map-frame-cockpit:" + candidate.GetUniqueLoadID());
             }
-            all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(Current.Game.GetComponent<PilotRecovery>()));
-            var worldPawns = Find.WorldPawns.AllPawnsAliveOrDead.ToList();
-            all.AddRange(worldPawns);
-            foreach (Pawn worldPawn in worldPawns)
-            {
-                if (worldPawn is IThingHolder holder)
-                    all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(holder));
-                foreach (IThingHolder compHolder in worldPawn.AllComps.OfType<IThingHolder>())
-                    all.AddRange(ThingOwnerUtility.GetAllThingsRecursively(compHolder));
-            }
-            // Multiple traversal paths may legitimately visit the same object; different
-            // objects with the same load ID must never exist.
-            var matches = all.Where(t => t.GetUniqueLoadID() == p.GetUniqueLoadID()).Distinct().ToList();
-            Check(matches.Count == 1 && ReferenceEquals(matches[0], p), stage + ": exactly one pawn object with pilot ID");
-            Check(!p.Destroyed && !p.Dead && (!p.Spawned || p.holdingOwner?.Owner is Map), stage + ": live and exclusively owned");
+            foreach (FramePawn candidate in Find.WorldPawns.AllPawnsAliveOrDead.OfType<FramePawn>())
+                if (ReferenceEquals(candidate.Cockpit.Pilot, pawn)) owners.Add("world-frame-cockpit:" + candidate.GetUniqueLoadID());
+            if (Find.WorldPawns.Contains(pawn)) owners.Add("world-pawns");
+            if (Current.Game.GetComponent<PilotRecovery>().GetDirectlyHeldThings().Contains(pawn)) owners.Add("pilot-recovery");
+            return owners;
         }
         public override void GameComponentUpdate()
         {
@@ -123,7 +125,10 @@ namespace ZenithFrame.Tests
                 else if (phase == 7) HostilePilotLoad();
                 else if (phase == 8) EnemyRaidStart();
                 else if (phase == 9) EnemyRaidActiveLoad();
-                else EnemyRaidRetreatLoad();
+                else if (phase == 10) EnemyRaidRetreatLoad();
+                else if (phase == 11) WorldPawnLoadAndPlayerExit();
+                else if (phase == 12) PlayerWorldFrameLoad();
+                else WorldRecoveryAndMapRemovalLoad();
             }
             catch (Exception e)
             {
@@ -1285,6 +1290,120 @@ namespace ZenithFrame.Tests
                 "retreat exit preserves Frame and pilot identities without duplication");
             UniqueFrame(raidFrame, "retreated Frame world ownership");
             Unique(raidPilot, "retreated pilot cockpit ownership");
+            SaveNext(11);
+        }
+
+        private void WorldPawnLoadAndPlayerExit()
+        {
+            if (step != 0) return;
+            Check(raidFrame != null && raidPilot != null && Find.WorldPawns.Contains(raidFrame) &&
+                ReferenceEquals(raidFrame.Cockpit.Pilot, raidPilot),
+                "hostile escaped Frame and nested pilot survive a fresh-process world-pawn load");
+            UniqueFrame(raidFrame, "hostile escaped Frame before deliberate GC");
+            Unique(raidPilot, "hostile escaped pilot before deliberate GC");
+            Find.WorldPawns.RemoveAndDiscardPawnViaGC(raidFrame);
+            Check(raidFrame.Discarded && raidPilot.Discarded && !raidFrame.Cockpit.HasPilot,
+                "vanilla hostile world-pawn GC intentionally discards both escaped Frame and nested pilot without dangling cockpit state; frameDiscarded=" +
+                raidFrame.Discarded + " pilotDiscarded=" + raidPilot.Discarded + " pilotDestroyed=" + raidPilot.Destroyed +
+                " cockpit=" + raidFrame.Cockpit.HasPilot + " pilotOwner=" + (raidPilot.holdingOwner?.Owner?.GetType().Name ?? "null"));
+
+            Map map = Find.CurrentMap;
+            Check(CellFinder.TryFindRandomEdgeCellWith(c => c.Standable(map), map, 0f, out IntVec3 edge),
+                "player world-frame fixture finds a valid map edge cell");
+            worldFrame = SpawnFrame(edge);
+            worldPilot = GenerateHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(worldPilot, CellFinder.RandomClosewalkCellNear(edge, map, 1), map);
+            Check(worldFrame.Cockpit.TryBoard(worldPilot), "player world-frame fixture boards through the ordinary cockpit path");
+            worldFrameId = worldFrame.GetUniqueLoadID();
+            worldPilotId = worldPilot.GetUniqueLoadID();
+            worldFrame.ExitMap(allowedToJoinOrCreateCaravan: false, Rot4.Invalid);
+            Check(Find.WorldPawns.Contains(worldFrame) && ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) &&
+                Find.WorldPawns.ForcefullyKeptPawns.Contains(worldFrame),
+                "player Frame ExitMap keeps the complete cockpit world pawn explicitly; world=" + Find.WorldPawns.Contains(worldFrame) +
+                " cockpit=" + ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) + " kept=" + Find.WorldPawns.ForcefullyKeptPawns.Contains(worldFrame) +
+                " frameDestroyed=" + worldFrame.Destroyed + " pilotOwner=" + (worldPilot.holdingOwner?.Owner?.GetType().Name ?? "null"));
+            UniqueFrame(worldFrame, "player Frame immediately after ExitMap");
+            Unique(worldPilot, "player pilot immediately after Frame ExitMap");
+            SaveNext(12);
+        }
+
+        private void PlayerWorldFrameLoad()
+        {
+            if (step != 0) return;
+            Check(worldFrame != null && worldPilot != null && worldFrame.GetUniqueLoadID() == worldFrameId &&
+                worldPilot.GetUniqueLoadID() == worldPilotId && Find.WorldPawns.Contains(worldFrame) &&
+                ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) && Find.WorldPawns.ForcefullyKeptPawns.Contains(worldFrame),
+                "fresh-process load preserves the force-kept player world Frame and exact nested pilot");
+            UniqueFrame(worldFrame, "player world Frame after load");
+            Unique(worldPilot, "player world cockpit pilot after load");
+            Find.WorldPawns.RemovePawn(worldFrame);
+            worldFrame.Destroy();
+            Check(worldFrame.Destroyed && !worldFrame.Cockpit.HasPilot &&
+                worldPilot.holdingOwner == Current.Game.GetComponent<PilotRecovery>().GetDirectlyHeldThings(),
+                "legitimate off-map player Frame destruction atomically transfers the exact pilot to PilotRecovery");
+            Unique(worldPilot, "player pilot in recovery after world Frame destruction");
+            SaveNext(13);
+        }
+
+        private void WorldRecoveryAndMapRemovalLoad()
+        {
+            if (step != 0) return;
+            Check(worldPilot != null && worldPilot.GetUniqueLoadID() == worldPilotId && !worldPilot.Dead && !worldPilot.Destroyed,
+                "PilotRecovery ownership survives a fresh-process save/load after world Frame destruction");
+            Unique(worldPilot, "recovered player pilot after fresh load");
+
+            Map home = Find.CurrentMap;
+            MapParent abandonedParent;
+            Map abandonedMap = CreateTemporaryMap(out abandonedParent);
+            FramePawn abandonedFrame = SpawnFrameOnMap(abandonedMap.Center, abandonedMap, Faction.OfPlayer);
+            Pawn abandonedPilot = GenerateHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(abandonedPilot, CellFinder.RandomClosewalkCellNear(abandonedFrame.Position, abandonedMap, 1), abandonedMap);
+            Check(abandonedFrame.Cockpit.TryBoard(abandonedPilot), "temporary-map player Frame contains its exact pilot before abandonment");
+            string abandonedPilotId = abandonedPilot.GetUniqueLoadID();
+            Current.Game.CurrentMap = home;
+            Current.Game.DeinitAndRemoveMap(abandonedMap, notifyPlayer: false);
+            abandonedParent.Destroy();
+            Check(!Find.Maps.Contains(abandonedMap) && Find.WorldPawns.Contains(abandonedFrame) && !abandonedFrame.Cockpit.HasPilot,
+                "map abandonment/removal passes the empty player chassis to world ownership after safe pilot detachment");
+            Check(abandonedPilot.GetUniqueLoadID() == abandonedPilotId && !abandonedPilot.Destroyed && !abandonedPilot.Dead,
+                "map abandonment cannot orphan or delete the contained player pilot");
+            UniqueFrame(abandonedFrame, "player chassis after temporary-map removal");
+            Unique(abandonedPilot, "player pilot after temporary-map removal");
+
+            MapParent hostileParent;
+            Map hostileMap = CreateTemporaryMap(out hostileParent);
+            FramePawn cleanupHostile = SpawnFrameOnMap(hostileMap.Center, hostileMap, Faction.OfAncientsHostile);
+            Pawn cleanupHostilePilot = GenerateHuman(Faction.OfAncientsHostile);
+            GenSpawn.Spawn(cleanupHostilePilot, CellFinder.RandomClosewalkCellNear(cleanupHostile.Position, hostileMap, 1), hostileMap);
+            Check(cleanupHostile.Cockpit.TryInstallPilot(cleanupHostilePilot), "temporary hostile Frame contains its exact pilot before cleanup");
+            Current.Game.CurrentMap = home;
+            Current.Game.DeinitAndRemoveMap(hostileMap, notifyPlayer: false);
+            hostileParent.Destroy();
+            Check(Find.WorldPawns.Contains(cleanupHostile) && Find.WorldPawns.Contains(cleanupHostilePilot) && !cleanupHostile.Cockpit.HasPilot,
+                "temporary-map cleanup gives hostile Frame and detached pilot explicit independent world ownership");
+            UniqueFrame(cleanupHostile, "hostile Frame after temporary-map cleanup");
+            Unique(cleanupHostilePilot, "hostile pilot after temporary-map cleanup");
+            Find.WorldPawns.RemoveAndDiscardPawnViaGC(cleanupHostile);
+            Find.WorldPawns.RemoveAndDiscardPawnViaGC(cleanupHostilePilot);
+
+            MapParent ejectParent;
+            Map ejectMap = CreateTemporaryMap(out ejectParent);
+            FramePawn ejectFrame = SpawnFrameOnMap(ejectMap.Center, ejectMap, Faction.OfPlayer);
+            Pawn ejectPilot = GenerateHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(ejectPilot, CellFinder.RandomClosewalkCellNear(ejectFrame.Position, ejectMap, 1), ejectMap);
+            Check(ejectFrame.Cockpit.TryBoard(ejectPilot), "pre-cleanup ejection fixture boards normally");
+            DownByMissingLegs(ejectFrame);
+            Check(ejectPilot.Spawned && !ejectFrame.Cockpit.HasPilot, "downing immediately before cleanup ejects into valid map ownership first");
+            Current.Game.CurrentMap = home;
+            Current.Game.DeinitAndRemoveMap(ejectMap, notifyPlayer: false);
+            ejectParent.Destroy();
+            Check(Find.WorldPawns.Contains(ejectPilot) && Find.WorldPawns.Contains(ejectFrame) && !ejectFrame.Cockpit.HasPilot,
+                "ejection immediately before map shutdown leaves separate valid world owners and no ghost pilot");
+            Unique(ejectPilot, "ejected player pilot after map shutdown");
+            UniqueFrame(ejectFrame, "disabled empty chassis after map shutdown");
+            Check(!abandonedFrame.Destroyed && !abandonedFrame.Discarded && Find.WorldPawns.Contains(abandonedFrame) &&
+                abandonedFrame.GetLord() == null,
+                "player-owned recovered or hacked chassis is retained and detached from hostile raid state during map cleanup");
             Finish();
         }
 
@@ -1386,6 +1505,17 @@ namespace ZenithFrame.Tests
             return targetFrame.Downed && !targetFrame.Dead;
         }
         private FramePawn SpawnFrame(IntVec3 cell, Faction faction = null) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction ?? Faction.OfPlayer), cell, Find.CurrentMap);
+        private static FramePawn SpawnFrameOnMap(IntVec3 cell, Map map, Faction faction) =>
+            (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction), cell, map);
+        private static Map CreateTemporaryMap(out MapParent parent)
+        {
+            PlanetTile tile = TileFinder.RandomSettlementTileFor(Faction.OfPlayer, mustBeAutoChoosable: false, extraValidator: null);
+            parent = (MapParent)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
+            parent.Tile = tile;
+            parent.SetFaction(Faction.OfPlayer);
+            Find.WorldObjects.Add(parent);
+            return MapGenerator.GenerateMap(new IntVec3(50, 1, 50), parent, MapGeneratorDefOf.Base_Player);
+        }
         private FramePawn SpawnFactionlessFrame(IntVec3 cell)
         {
             FramePawn factionless = SpawnFrame(cell);
@@ -1415,12 +1545,11 @@ namespace ZenithFrame.Tests
                 .Any(option => option.Label == "Hack Frame" && !option.Disabled);
         private void UniqueFrame(FramePawn targetFrame, string stage)
         {
-            var matches = Find.Maps.SelectMany(map => map.listerThings.AllThings)
-                .Concat<Thing>(Find.WorldPawns.AllPawnsAliveOrDead)
-                .Where(thing => thing.GetUniqueLoadID() == targetFrame.GetUniqueLoadID())
-                .Distinct()
-                .ToList();
-            Check(matches.Count == 1 && ReferenceEquals(matches[0], targetFrame), stage + ": exactly one Frame object with load ID");
+            var owners = new List<string>();
+            foreach (Map map in Find.Maps)
+                if (targetFrame.Spawned && targetFrame.Map == map) owners.Add("map:" + map.uniqueID);
+            if (Find.WorldPawns.Contains(targetFrame)) owners.Add("world-pawns");
+            Check(owners.Count == 1, stage + ": exactly one Frame owner; found=" + string.Join(" | ", owners));
         }
         private void Next(int nextStep, int ticks = 2500) { step = nextStep; deadline = Find.TickManager.TicksGame + ticks; }
         private void SaveNext(int nextPhase)
