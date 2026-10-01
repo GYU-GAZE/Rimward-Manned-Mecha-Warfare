@@ -1821,7 +1821,10 @@ namespace ZenithFrame.Tests
                 Check(hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot && hostilePilot.Spawned &&
                     hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
                     "hostile downing ejects pilot while the same disabled chassis retains Overdrive");
-                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 1), hostileFrame.Map);
+                pilot = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer),
+                    CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 1), hostileFrame.Map);
+                Check(hostileFrame.Hacking.CanHack(pilot, false),
+                    "fresh player colonist is eligible to acquire the disabled ability-owning chassis");
                 Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.GetUniqueLoadID() == hostileFrameId,
                     "hacking converts the same ability-owning hostile chassis");
                 Check(hostileFrame.Recovery.TryRecover() &&
