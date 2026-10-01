@@ -82,18 +82,13 @@ Current patch points:
 The debug rifle uses normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown behavior. It has two narrowly gated verb entries because RimWorld's player and AI attack pipelines consult different weapon metadata:
 
 - `Verb_FrameShot` is the manually targeted standard command used by a drafted player Frame on `Misc1` / **B**
-- `Verb_HostileFrameShot` is the primary non-command verb used by vanilla hostile combat AI and is unavailable without a valid operational hostile cockpit
+- `Verb_HostileFrameShot` is the primary non-command verb used by vanilla hostile combat AI and by a drafted player Frame while its real `Pawn_DraftController.FireAtWill` state is enabled
 
-The player right-click bridge binds the selected manual verb and marks the resulting `AttackStatic` job as player-forced. The primary execution verb is allowed to service that exact job because RimWorld's attack driver consults the equipment primary verb while firing. It receives no player command and cannot initiate a player target on its own. No Frame-specific Fire gizmo exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
+The player right-click bridge binds the selected manual verb and marks the resulting `AttackStatic` job as player-forced. The primary execution verb services that exact job because RimWorld's attack driver consults the equipment primary verb while firing. Drafted player Frames also expose the vanilla Fire At Will state through `Misc6`, `TexCommand.FireAtWill` and `Pawn_DraftController`; the guarded `Wait_Combat` branch supplies normal nearby acquisition when the toggle is on. No Frame-specific Fire verb or chess-piece command exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
 
 A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
 
-For player Frames, the internal firing permission is enabled only while executing an explicit player-forced `AttackStatic` job bound to `Verb_FrameShot`, then returns to off. This is intentional:
-
-- continuing to fire at the target the player ordered = manual targeting
-- independently acquiring a new target = autonomous target acquisition
-
-Only the second behavior is forbidden by default. Player Frames have no autonomous combat branch in their think tree.
+Fire At Will off blocks natural ranged acquisition but leaves explicit right-click and **B** attacks intact. The toggle persists through save/load with draft intent. Every route remains gated by `CanTakePlayerOrders`, so a missing or invalid pilot immediately removes both automatic and explicit combat.
 
 ## Hostile piloted Frame operation
 
@@ -101,7 +96,9 @@ Only the second behavior is forbidden by default. Player Frames have no autonomo
 
 The development action **Spawn hostile piloted Frame** generates one hostile debug Frame and one real same-faction human pawn, then transfers that pawn into the existing cockpit `ThingOwner<Pawn>` through the same ownership-safe storage path used by normal boarding. The pilot is neither a fake stat record nor a duplicate world pawn. Faction mismatch, invalid pilot state or pilot loss prevents operation immediately.
 
-The Frame think tree contains one conditional hostile branch before inert idle. It runs only while `CanUseHostileCombatAI` is true and delegates target acquisition, movement, ranged combat and melee to vanilla `JobGiver_AIFightEnemies`, normal pathing, `AttackStatic`, `AttackMelee` and weapon verbs. This AI represents the stored hostile pilot operating the machine. Faction alone never enables combat.
+The Frame think tree contains one conditional hostile branch before inert idle. It runs only while `CanUseHostileCombatAI` is true. A Lord-owned Frame first consumes its vanilla `ThinkNode_Duty`, allowing `AssaultColony` to approach distant colony targets; the existing `JobGiver_AIFightEnemies` remains the tactical fallback for target acquisition, ranged combat and melee. This AI represents the stored hostile pilot operating the machine. Faction alone never enables combat.
+
+The colonist bar keeps rendering the contained player's portrait. Its selection lookup resolves that portrait through `holdingOwner` to the exact spawned player Frame, including vanilla shift-selection behavior. `FramePawn.DrawGUIOverlay` adds one `GenMapUI` label using `LabelShort`; ordinary Pawn UI does not label this non-humanlike, non-Biotech classification, so the override does not duplicate a vanilla label.
 
 Downing ejects the exact hostile pilot through the ordinary cockpit lifecycle. The same chassis then becomes empty, inert, recoverably disabled and eligible for the existing Hack Frame job. Hacking, recovery and player boarding preserve that Frame's identity and transition it back into the ordinary player control path.
 

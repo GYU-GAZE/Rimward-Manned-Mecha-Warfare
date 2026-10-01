@@ -12,11 +12,17 @@ namespace ZenithFrame
     public sealed partial class FramePawn
     {
         private bool draftedOnLoad;
+        private bool fireAtWillOnLoad = true;
         public override void ExposeData()
         {
-            if (Scribe.mode == LoadSaveMode.Saving) draftedOnLoad = Drafted;
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                draftedOnLoad = Drafted;
+                fireAtWillOnLoad = drafter?.FireAtWill ?? true;
+            }
             base.ExposeData();
             Scribe_Values.Look(ref draftedOnLoad, "zenithDrafted");
+            Scribe_Values.Look(ref fireAtWillOnLoad, "zenithFireAtWill", true);
         }
         public override void SpawnSetup(Map map, bool respawningAfterLoad)
         {
@@ -25,8 +31,15 @@ namespace ZenithFrame
             // Vanilla does not retain a drafter for our custom non-humanlike,
             // non-mechanoid Pawn classification. Persist control intent and
             // restore the ordinary Pawn_DraftController explicitly.
-            if (respawningAfterLoad && draftedOnLoad && Cockpit.CanTakePlayerOrders) drafter.Drafted = true;
-            drafter.FireAtWill = Cockpit.CanUseHostileCombatAI;
+            if (respawningAfterLoad)
+            {
+                if (draftedOnLoad && Cockpit.CanTakePlayerOrders) drafter.Drafted = true;
+                drafter.FireAtWill = Cockpit.CanUseHostileCombatAI || fireAtWillOnLoad;
+            }
+            else if (Cockpit.CanUseHostileCombatAI)
+            {
+                drafter.FireAtWill = true;
+            }
             if (!respawningAfterLoad && equipment.Primary == null)
                 equipment.AddEquipment((ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle")));
         }
@@ -43,12 +56,6 @@ namespace ZenithFrame
             {
                 if (Drafted || pather.Moving || (CurJob != null && CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob)) Cockpit.StopFrame();
                 if (Cockpit.HasPilot) Cockpit.EmergencyEject();
-            }
-            if (drafter != null)
-            {
-                bool executingPlayerAttack = Cockpit.CanTakePlayerOrders && CurJobDef == JobDefOf.AttackStatic &&
-                    CurJob?.playerForced == true && CurJob.verbToUse is Verb_FrameShot;
-                drafter.FireAtWill = Cockpit.CanUseHostileCombatAI || executingPlayerAttack;
             }
             base.Tick();
         }
@@ -85,7 +92,6 @@ namespace ZenithFrame
             if (drafter == null) return false;
             if (value && !Cockpit.CanTakePlayerOrders) return false;
             drafter.Drafted = value;
-            drafter.FireAtWill = false;
             return true;
         }
 
@@ -120,6 +126,20 @@ namespace ZenithFrame
             };
             if (!Cockpit.CanTakePlayerOrders) draft.Disable("Frame or pilot incapacitated.");
             yield return draft;
+
+            if (Drafted && equipment.Primary?.def.IsRangedWeapon == true)
+            {
+                yield return new Command_Toggle
+                {
+                    hotKey = KeyBindingDefOf.Misc6,
+                    isActive = () => drafter.FireAtWill,
+                    toggleAction = () => drafter.FireAtWill = !drafter.FireAtWill,
+                    icon = TexCommand.FireAtWill,
+                    defaultLabel = "CommandFireAtWillLabel".Translate(),
+                    defaultDesc = "CommandFireAtWillDesc".Translate(),
+                    tutorTag = "FireAtWillToggle"
+                };
+            }
         }
     }
 
@@ -135,9 +155,10 @@ namespace ZenithFrame
         public override bool Available()
         {
             if (!base.Available() || !(CasterPawn is FramePawn frame)) return false;
+            bool playerAutomaticFire = frame.Cockpit.CanTakePlayerOrders && frame.Drafted && frame.drafter.FireAtWill;
             bool executingPlayerAttack = frame.Cockpit.CanTakePlayerOrders && frame.CurJob?.playerForced == true &&
                 frame.CurJob.verbToUse is Verb_FrameShot;
-            return frame.Cockpit.CanUseHostileCombatAI || executingPlayerAttack;
+            return frame.Cockpit.CanUseHostileCombatAI || playerAutomaticFire || executingPlayerAttack;
         }
         protected override bool TryCastShot() => Available() && base.TryCastShot();
     }

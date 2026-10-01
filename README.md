@@ -80,6 +80,6 @@ Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
 22. Save and reload during the raid. Down the Frame and confirm the exact pilot ejects into the raid while the empty chassis stops. Hack, recover and board that same chassis.
 23. Trigger or inspect retreat behavior and confirm an operational piloted Frame can leave the map while retaining its cockpit pilot; an empty disabled chassis must never retreat itself.
 
-"Manual weapon" means the player chooses the target. It does not mean clicking fire again for every burst. A player Frame has no autonomous target-acquisition think branch; the internal firing gate is active only while its explicit player-forced attack job runs. Hostile target acquisition exists only while a valid hostile pilot operates the Frame.
+Drafted player Frames use RimWorld's normal Fire At Will toggle. Enabled Frames naturally acquire nearby hostiles; disabled Frames still accept explicit right-click and **B** attacks. Every movement and combat route requires a valid contained pilot.
 
 See [architecture](docs/ARCHITECTURE.md), [baseline](docs/BASELINE.md), [project context](docs/PROJECT_CONTEXT.md) and [validation status](docs/VALIDATION.md).

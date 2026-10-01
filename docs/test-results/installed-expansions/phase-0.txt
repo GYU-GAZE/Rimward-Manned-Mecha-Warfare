@@ -13,6 +13,7 @@ PASS real boarding job reaches Frame and transfers pilot
 PASS boarded: exactly one pawn object with pilot ID
 PASS boarded: live and exclusively owned
 PASS pilot owned by cockpit
+PASS embarked player pilot colonist-bar portrait resolves selection to its containing spawned Frame
 PASS map discovers contained pilot without spawning it
 PASS second pilot rejected without loss
 PASS boarded faction coherence

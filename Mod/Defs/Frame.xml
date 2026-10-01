@@ -45,8 +45,12 @@
     <thinkRoot Class="ThinkNode_Priority">
       <subNodes>
         <li Class="ThinkNode_QueuedJob" />
+        <li Class="ZenithFrame.ThinkNode_Conditional_OperationalPlayerFrame">
+          <subNodes><li Class="ZenithFrame.JobGiver_FramePlayerCombatWait" /></subNodes>
+        </li>
         <li Class="ZenithFrame.ThinkNode_Conditional_OperationalHostileFrame">
           <subNodes>
+            <li Class="ThinkNode_Duty" />
             <li Class="JobGiver_AIFightEnemies">
               <targetAcquireRadius>65</targetAcquireRadius>
               <targetKeepRadius>72</targetKeepRadius>

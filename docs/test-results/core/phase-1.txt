@@ -4,11 +4,13 @@ PASS after load: live and exclusively owned
 PASS draft and control survive load
 PASS Frame receives orders without impersonating a colonist or Biotech mech
 PASS draft command uses normal colonist draft hotkey
+PASS drafted player Frame exposes vanilla Fire At Will state through Misc6 and TexCommand.FireAtWill UI
 PASS vanilla melee attack gizmo is available for a drafted Frame
 PASS drafted Frame exposes the equipped rifle through vanilla Command_VerbTarget
 PASS vanilla ranged weapon command uses Misc1 / B
 PASS normal ranged command uses the Frame weapon verb and is available while piloted and drafted
 PASS temporary Move/Fire chess-piece gizmos are absent
+PASS every Frame uses its narrow LabelShort map-overlay override
 PASS Frame order bridge does not expose colonist equip/pickup/work actions
 PASS last-colonist fixture has only embarked pilot
 PASS last embarked colonist survives game-over countdown
@@ -17,12 +19,15 @@ PASS ordinary drafted-pawn right-click movement option available
 PASS ordinary movement option issues Goto
 PASS real pathing reaches ordered destination
 PASS hostile ranged target is spawned and visible
-PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame24865
+PASS hostile target is present under its draw position; target=(133, 0, 130) clicked=(133, 0, 130) things=ZF_DebugFrame19824
 PASS ordinary melee attack action is available as a valid alternative
 PASS ordinary hostile right-click defaults to ranged attack when both ranged and melee are valid; actual options: Fire at debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=40 | Melee attack debug Frame disabled=False priority=AttackEnemy auto=True autoPriority=30 | Go here disabled=False priority=GoHere auto=True autoPriority=10
 PASS real projectile damages target
 PASS ordinary player-issued attack remains active after the first burst
 PASS manual sustained attack enables firing only for its explicit player-forced target
+PASS Fire At Will off prevents natural ranged target acquisition
+PASS Fire At Will off preserves explicit right-click/B ranged orders
+PASS Fire At Will on naturally acquires and damages a hostile through vanilla Wait_Combat
 PASS second Frame accepts second pilot for group-control test
 PASS second piloted Frame drafts
 PASS group move has no Biotech command-range rejection

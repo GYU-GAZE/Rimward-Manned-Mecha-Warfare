@@ -378,3 +378,25 @@ Even after automated tests pass, human validation is still required for:
 Compatibility with other mods, caravans, map abandonment, gravships, long campaigns, research/progression and balance remain outside the MVP.
 
 Legacy `Test Mech.rar` was not available to the original Work runtime and was not used to implement the validated baseline.
+## Validated raid/control manual-QA fixes
+
+Branch: `feat/enemy-frame-raid-lifecycle`
+
+Executed 2026-10-01 on RimWorld 1.6.4871 rev591 with Harmony 2.4.2.0
+
+| Layer | Result |
+|---|---|
+| Clean Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source checks | PASS, 82 checks |
+| Live Core + Harmony | PASS, 403 assertions, 11 fresh processes, 10 save/load transitions |
+| Live Core + Harmony + all installed official expansions | PASS, 403 assertions, 11 fresh processes, 10 save/load transitions |
+| Runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256:
+
+```text
+97568BD25B0473012C156EE123355D3FD67C56301FF28A8CD331C83C9B7A7FA7
+```
+
+The regression suite now proves that an `AssaultColony` Frame consumes its real Lord duty, naturally moves from the raid edge and damages a colony target without test-assigned jobs, target injection or direct AI calls. It also proves Fire At Will on/off behavior, explicit attack preservation, cockpit-based colonist-bar selection and the Frame-specific `LabelShort` overlay while retaining every earlier lifecycle assertion.

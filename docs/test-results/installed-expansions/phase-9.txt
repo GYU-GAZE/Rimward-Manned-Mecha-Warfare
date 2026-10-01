@@ -4,7 +4,7 @@ PASS active raid load restores the operational piloted Frame
 PASS active mixed raid after load: exactly one Frame object with load ID
 PASS active mixed raid pilot after load: exactly one pawn object with pilot ID
 PASS active mixed raid pilot after load: live and exclusively owned
-PASS Lord-owned hostile Frame performs real combat during the active raid
+PASS Lord-owned hostile Frame naturally moves and damages a colony target under AssaultColony without a forced job or target-AI invocation
 PASS downing removes the empty disabled Frame from hostile Lord control
 PASS downing ejects the exact pilot and transfers it coherently into the same raid Lord
 PASS empty disabled raid Frame is inert and cannot retreat itself

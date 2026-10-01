@@ -8,7 +8,6 @@ PASS hostile pilot after load: exactly one pawn object with pilot ID
 PASS hostile pilot after load: live and exclusively owned
 PASS hostile AI fixture provides a spawned mutually hostile humanlike target
 PASS hostile Frame weapon verb is available to vanilla combat AI
-PASS vanilla target search succeeds after map-cache registration; targetSpawned=True targetDowned=False targetDead=False distance=36 targetJob=Wait_Combat autoTargetable=True potentialThreat=True activeThreat=True canReach=True lineOfSight=True attackVerb=Verb_HostileFrameShot current=ZF_FrameIdleJob
 PASS hostile piloted Frame uses ordinary pathing to close weapon range; observed job=Goto
 PASS hostile piloted Frame acquires and damages the player pawn through vanilla ranged combat AI
 PASS hostile Frame can temporarily drop its rifle for the melee fixture
@@ -30,7 +29,7 @@ PASS recovered captured chassis exposes normal player boarding
 PASS original player pilot boards and drafts the captured hostile chassis
 PASS same chassis transitions from hostile AI to ordinary player control
 PASS captured reused Frame restores the normal B ranged command
-PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at King disabled=False auto=40 | Melee attack King disabled=False auto=30 | Go here disabled=False auto=10
+PASS captured reused Frame accepts ordinary player right-click ranged attack; options=Fire at Vicky disabled=False auto=40 | Melee attack Vicky disabled=False auto=30 | Go here disabled=False auto=10
 PASS captured reused Frame causes real ranged damage under player control
 PASS captured reused Frame accepts forced melee; failure=
 PASS captured reused Frame uses the ordinary AttackMelee job

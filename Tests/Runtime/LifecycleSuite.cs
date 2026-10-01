@@ -44,6 +44,8 @@ namespace ZenithFrame.Tests
         private FramePawn raidFrame;
         private Pawn raidPilot;
         private Pawn raidInfantry;
+        private IntVec3 raidFrameNaturalStart;
+        private bool raidFrameMovedNaturally;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -66,6 +68,8 @@ namespace ZenithFrame.Tests
             Scribe_References.Look(ref raidFrame, "testRaidFrame");
             Scribe_References.Look(ref raidPilot, "testRaidPilot");
             Scribe_References.Look(ref raidInfantry, "testRaidInfantry");
+            Scribe_Values.Look(ref raidFrameNaturalStart, "testRaidFrameNaturalStart");
+            Scribe_Values.Look(ref raidFrameMovedNaturally, "testRaidFrameMovedNaturally");
         }
         private void Check(bool condition, string name)
         {
@@ -194,6 +198,8 @@ namespace ZenithFrame.Tests
                 Check(ReferenceEquals(frame.Cockpit.Pilot, pilot), "real boarding job reaches Frame and transfers pilot");
                 Unique(pilot, "boarded");
                 Check(!pilot.Spawned && pilot.holdingOwner == frame.Cockpit.GetDirectlyHeldThings(), "pilot owned by cockpit");
+                Check(ReferenceEquals(FrameColonistBarBridge.SelectionThing(pilot), frame),
+                    "embarked player pilot colonist-bar portrait resolves selection to its containing spawned Frame");
                 Check(!map.mapPawns.AllPawnsSpawned.Contains(pilot) && map.mapPawns.AllPawnsUnspawned.Contains(pilot), "map discovers contained pilot without spawning it");
                 Check(!frame.Cockpit.TryBoard(other) && other.Spawned, "second pilot rejected without loss");
                 Check(frame.Cockpit.Pilot.Faction == frame.Faction, "boarded faction coherence");
@@ -214,12 +220,16 @@ namespace ZenithFrame.Tests
                 Find.Selector.Select(frame);
                 var frameCommands = frame.GetGizmos().OfType<Command>().ToList();
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Command_ColonistDraft), "draft command uses normal colonist draft hotkey");
+                Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc6 && command.defaultLabel == "CommandFireAtWillLabel".Translate()),
+                    "drafted player Frame exposes vanilla Fire At Will state through Misc6 and TexCommand.FireAtWill UI");
                 Check(frameCommands.Any(command => command.hotKey == KeyBindingDefOf.Misc2), "vanilla melee attack gizmo is available for a drafted Frame");
                 Command_VerbTarget rangedCommand = frameCommands.OfType<Command_VerbTarget>().SingleOrDefault(command => command.verb == ManualVerb(frame));
                 Check(rangedCommand != null, "drafted Frame exposes the equipped rifle through vanilla Command_VerbTarget");
                 Check(rangedCommand.hotKey == KeyBindingDefOf.Misc1, "vanilla ranged weapon command uses Misc1 / B");
                 Check(rangedCommand.verb is Verb_FrameShot && rangedCommand.verb.Available(), "normal ranged command uses the Frame weapon verb and is available while piloted and drafted");
                 Check(!frameCommands.Any(command => command.defaultLabel == "Move" || command.defaultLabel == "Fire rifle"), "temporary Move/Fire chess-piece gizmos are absent");
+                Check(frame.GetType().GetMethod(nameof(FramePawn.DrawGUIOverlay)).DeclaringType == typeof(FramePawn),
+                    "every Frame uses its narrow LabelShort map-overlay override");
                 Thing looseRifle = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"));
                 GenSpawn.Spawn(looseRifle, frame.Position + new IntVec3(2, 0, 0), frame.Map);
                 var itemSelection = new List<Pawn> { frame };
@@ -290,7 +300,30 @@ namespace ZenithFrame.Tests
                 frame.jobs.StopAll();
                 frame.stances.CancelBusyStanceHard();
                 if (target != null && !target.Destroyed) target.Destroy();
-
+                frame.drafter.FireAtWill = false;
+                IntVec3 automaticTargetCell = frame.Position + IntVec3.East * 8;
+                ClearTestArea(CellRect.FromLimits(frame.Position, automaticTargetCell).ExpandedBy(2), frame.Map);
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), automaticTargetCell, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(5000, frame);
+                Next(30, 600);
+            }
+            else if (step == 30 && Find.TickManager.TicksGame >= deadline - 100)
+            {
+                Check(!TargetDamaged(), "Fire At Will off prevents natural ranged target acquisition");
+                Check(FloatMenuUtility.GetRangedAttackAction(frame, target, out var _) != null,
+                    "Fire At Will off preserves explicit right-click/B ranged orders");
+                frame.drafter.FireAtWill = true;
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                Next(32, 2400);
+            }
+            else if (step == 32 && TargetDamaged())
+            {
+                Check(frame.CurJobDef == JobDefOf.Wait_Combat && frame.drafter.FireAtWill,
+                    "Fire At Will on naturally acquires and damages a hostile through vanilla Wait_Combat");
+                frame.jobs.StopAll();
+                frame.stances.CancelBusyStanceHard();
+                if (target != null && !target.Destroyed) target.Destroy();
                 if (other != null && !other.Destroyed) other.Destroy();
                 IntVec3 otherCell = frame.Position + IntVec3.West * 2;
                 ClearTestArea(CellRect.CenteredOn(otherCell, 1), frame.Map);
@@ -1063,7 +1096,7 @@ namespace ZenithFrame.Tests
             else if (step == 11 && hostileFrame.CurJobDef == JobDefOf.AttackMelee)
             {
                 Check(true, "captured reused Frame uses the ordinary AttackMelee job");
-                Next(12, 3000);
+                Next(12, 12000);
             }
             else if (step == 12 && TargetDamaged())
             {
@@ -1100,6 +1133,11 @@ namespace ZenithFrame.Tests
             raidFrameId = raidFrame.GetUniqueLoadID();
             raidPilotId = raidPilot.GetUniqueLoadID();
             raidInfantryId = raidInfantry.GetUniqueLoadID();
+            raidFrameNaturalStart = raidFrame.Position;
+            raidFrameMovedNaturally = false;
+            foreach (Hediff_Injury injury in pilot.health.hediffSet.hediffs.OfType<Hediff_Injury>().ToList())
+                pilot.health.RemoveHediff(injury);
+            pilot.drafter.Drafted = true;
 
             Check(raidLord.LordJob is LordJob_AssaultColony && raidLord.ownedPawns.Count == 2 &&
                 raidLord.ownedPawns.Contains(raidFrame) && raidLord.ownedPawns.Contains(raidInfantry) &&
@@ -1131,16 +1169,17 @@ namespace ZenithFrame.Tests
                 UniqueFrame(raidFrame, "active mixed raid after load");
                 Unique(raidPilot, "active mixed raid pilot after load");
 
-                IntVec3 targetCell = CellFinder.RandomClosewalkCellNear(raidFrame.Position, raidFrame.Map, 14);
-                ClearTestArea(CellRect.FromLimits(raidFrame.Position, targetCell).ExpandedBy(2), raidFrame.Map);
-                RelocatePawn(pilot, targetCell, raidFrame.Map);
-                pilot.drafter.Drafted = true;
-                raidInfantry.stances.stunner.StunFor(5000, raidFrame);
-                Next(1, 2400);
+                Next(1, 12000);
             }
-            else if (step == 1 && InjurySeverity(pilot) > 0f)
+            else if (step == 1)
             {
-                Check(true, "Lord-owned hostile Frame performs real combat during the active raid");
+                if (raidFrame.Position != raidFrameNaturalStart)
+                    raidFrameMovedNaturally = true;
+                bool frameWeaponDamage = pilot.health.hediffSet.hediffs.OfType<Hediff_Injury>()
+                    .Any(injury => injury.sourceDef == raidFrame.equipment.Primary.def);
+                if (!raidFrameMovedNaturally || !frameWeaponDamage)
+                    return;
+                Check(true, "Lord-owned hostile Frame naturally moves and damages a colony target under AssaultColony without a forced job or target-AI invocation");
                 raidFrame.jobs.StopAll();
                 raidFrame.stances.CancelBusyStanceHard();
                 pilot.stances.stunner.StunFor(5000, raidFrame);

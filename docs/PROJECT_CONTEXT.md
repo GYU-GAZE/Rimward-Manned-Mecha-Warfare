@@ -231,24 +231,11 @@ Where practical, use RimWorld's normal combat concepts such as:
 
 The mech's weapons should feel like manually controlled pawn weapons.
 
-### Automatic Fire
+### Fire At Will
 
-Automatic/turret-like behavior should **not** be the default weapon mechanic.
+A drafted player Frame uses RimWorld's ordinary **Fire At Will** toggle. With a valid pilot and Fire At Will enabled it may acquire nearby hostile targets through vanilla drafted-pawn combat behavior. Turning it off suppresses automatic ranged acquisition while preserving explicit right-click and **B** attack orders. An empty Frame remains completely inert in either state.
 
-If desired later, it should be enabled through a specific add-on such as an autonomous fire-control system.
-
-Example future concept:
-
-```text
-Utility Add-on:
-Autonomous Fire Control System
-
-Allows selected compatible weapons to independently acquire and fire on targets.
-```
-
-This turns autonomous fire into a build choice rather than a universal weapon rule.
-
-Do not confuse sustained execution of a player-issued attack order with autonomous target acquisition. Continuing to fire at Target A after the player ordered Target A is normal manual targeting. Independently choosing Target B without an order is automation.
+Future autonomous fire-control equipment may add behavior beyond this ordinary drafted-pawn toggle, such as independent weapon systems or operation without direct pilot control. It is not required for vanilla Fire At Will semantics.
 
 ---
 

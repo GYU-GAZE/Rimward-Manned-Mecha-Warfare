@@ -4,9 +4,44 @@ using HarmonyLib;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using System.Collections.Generic;
 
 namespace ZenithFrame
 {
+    public static class FrameColonistBarBridge
+    {
+        public static Thing SelectionThing(Thing portraitThing)
+        {
+            if (!(portraitThing is Pawn pilot) ||
+                !(pilot.holdingOwner?.Owner is CompPilotableMech cockpit) ||
+                !ReferenceEquals(cockpit.Pilot, pilot) ||
+                !(cockpit.Frame is FramePawn frame) || !frame.Spawned ||
+                frame.Faction != Faction.OfPlayer)
+                return portraitThing;
+            return frame;
+        }
+
+        internal static void RedirectList(List<Thing> things)
+        {
+            for (int index = 0; index < things.Count; index++)
+                things[index] = SelectionThing(things[index]);
+            for (int index = things.Count - 1; index >= 0; index--)
+                if (things.IndexOf(things[index]) != index) things.RemoveAt(index);
+        }
+    }
+
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistOrCorpseAt))]
+    internal static class Patch_ColonistBar_ColonistOrCorpseAt_Frame
+    {
+        private static void Postfix(ref Thing __result) => __result = FrameColonistBarBridge.SelectionThing(__result);
+    }
+
+    [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.MapColonistsOrCorpsesInScreenRect))]
+    internal static class Patch_ColonistBar_MapColonistsOrCorpsesInScreenRect_Frame
+    {
+        private static void Postfix(List<Thing> __result) => FrameColonistBarBridge.RedirectList(__result);
+    }
+
     [StaticConstructorOnStartup]
     public static class FrameHarmonyBootstrap
     {

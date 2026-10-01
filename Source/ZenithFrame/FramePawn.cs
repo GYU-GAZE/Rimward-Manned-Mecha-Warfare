@@ -1,4 +1,5 @@
 using Verse;
+using UnityEngine;
 
 namespace ZenithFrame
 {
@@ -21,6 +22,13 @@ namespace ZenithFrame
         {
             base.ExitMap(allowedToJoinOrCreateCaravan, exitDir);
             Cockpit?.Notify_ExitedMap();
+        }
+        public override void DrawGUIOverlay()
+        {
+            base.DrawGUIOverlay();
+            if (!Spawned || Map.fogGrid.IsFogged(Position)) return;
+            Vector2 position = GenMapUI.LabelDrawPosFor(this, -0.6f);
+            GenMapUI.DrawThingLabel(position, LabelShort, GenMapUI.DefaultThingLabelColor);
         }
     }
 }

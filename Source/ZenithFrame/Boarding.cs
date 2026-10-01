@@ -39,6 +39,18 @@ namespace ZenithFrame
         protected override Job TryGiveJob(Pawn pawn) => JobMaker.MakeJob(ZenithJobDefOf.ZF_FrameIdleJob);
     }
 
+    public sealed class ThinkNode_Conditional_OperationalPlayerFrame : ThinkNode_Conditional
+    {
+        protected override bool Satisfied(Pawn pawn) =>
+            pawn is FramePawn frame && frame.Cockpit.CanTakePlayerOrders && frame.Drafted;
+    }
+
+    public sealed class JobGiver_FramePlayerCombatWait : ThinkNode_JobGiver
+    {
+        protected override Job TryGiveJob(Pawn pawn) =>
+            JobMaker.MakeJob(JobDefOf.Wait_Combat, 180, checkOverrideOnExpiry: true);
+    }
+
     public sealed class ThinkNode_Conditional_OperationalHostileFrame : ThinkNode_Conditional
     {
         protected override bool Satisfied(Pawn pawn) =>
