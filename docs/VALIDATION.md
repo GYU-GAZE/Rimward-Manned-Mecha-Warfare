@@ -1,5 +1,44 @@
 # MVP validation status
 
+## Validated embarked pilot abilities and psycasts
+
+Branch: `feat/embarked-pilot-abilities`
+
+Implementation commits begin at `d870d67`, `00c9dff`, `5d38de4` and `224d01f` with final fixes and validation recorded by the later commits on the same branch.
+
+Executed 2026-10-02 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean core + optional VEF Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/compatibility checks | PASS, 114 checks |
+| Ability matrix A: Core only | PASS, 37 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: installed official DLC | PASS, 45 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: installed official DLC + real VEF, no VPE | PASS, 61 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: installed official DLC + real VEF + real VPE | PASS, 76 assertions, 4 fresh processes, 3 save/load transitions |
+| Full lifecycle regression, Core + Harmony | PASS, 563 assertions, 20 fresh processes, 19 save/load transitions |
+| Runtime log gates | PASS on every retained final run, with no exception/config/XML/reference/asset-loading errors |
+
+The original pilot owns every vanilla, Royalty, VEF and VPE ability, cooldown and psychic resource. The spawned Frame supplies only the physical command, targeting and job host. Tests prove self, Pawn-target and ground-target casts; current Frame origin for range and LOS; real Royalty psyfocus/entropy; real VEF command/job/component/cooldown; real VPE command, psyset, effect, psyfocus and entropy; pilot replacement; targeter cancellation; ejection; hostile vanilla and VEF AI; and save/load without copied chassis state or a temporarily spawned pilot.
+
+The VEF integration patches the exact cast-driver component property. A regression guard forbids patching the shared generic `ThingWithComps.GetComp<T>` body after the installed Mono runtime proved that such a patch can contaminate unrelated component lookups. VPE's exceptional warmup lookup is handled only at its exact generated lambda call site.
+
+### Combined ability manual QA checklist
+
+1. Start with Royalty, VEF and VPE enabled and a pilot who has one vanilla/Royalty ability plus a visible VPE psycast in a psyset
+2. Board the pilot and draft the Frame
+3. Confirm the Frame shows its one Overdrive command and each original pilot command exactly once
+4. Cast Overdrive and confirm its effect and cooldown remain on the chassis
+5. Cast one pilot self ability and confirm the effect, cooldown, psyfocus and entropy remain on the pilot
+6. Cast one Pawn-target ability and one ground-target ability; confirm range, LOS, warmup and visuals originate at the current Frame position
+7. Move the Frame and repeat the range/LOS check from the new position
+8. Enter targeting and disembark; confirm targeting cancels with no stale caster or job
+9. Reboard, save during cooldown and reload; confirm the same pilot, abilities, VPE psyset, resources and Frame Overdrive state
+10. Replace the pilot and confirm neither pilot-owned state nor Frame-owned Overdrive transfers between owners
+11. Down the Frame and confirm safe ejection with pilot abilities and VPE state intact
+12. Spawn a hostile piloted Frame and confirm it can use an AI-valid pilot ability while exposing no pilot commands to the player
+
 ## Validated machine-owned Frame ability lifecycle
 
 Branch: `feat/frame-abilities`
@@ -54,7 +93,7 @@ Fresh-process coverage preserves one exact ability instance, remaining cooldown 
 19. Hack and recover a hostile Frame; confirm the captured chassis retains Overdrive
 20. Spawn a hostile piloted Frame and confirm it naturally uses Overdrive during combat
 
-Pilot-owned abilities and psycasts were not started. They remain the next canonical milestone.
+This section records the earlier machine-owned milestone. Pilot-owned abilities and psycasts are validated separately above.
 
 ## Validated pilot combat skill bridge
 

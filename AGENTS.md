@@ -19,6 +19,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - map removal must detach nested pilots before vanilla recursively snapshots map pawns; never solve this by globally faking `Pawn.Map` or `Pawn.Position`
 - pilot combat skills and experience remain owned by the cockpit pilot; Frames may consume the live skill contribution while operational but must never copy, own or serialize pilot skill progression
 - Frame abilities belong to the Frame; pilot presence may enable operation, but ability ownership, effects and cooldowns remain machine state and must never be copied to the pilot
+- pilot abilities and psycasts remain on the exact pilot; while embarked, the Frame may provide the spawned execution host but must never receive copied abilities, cooldowns, psychic resources, VEF `CompAbilities` or VPE state
 
 ### Frames are NOT Biotech mechs
 
@@ -100,6 +101,10 @@ Run, where available:
 dotnet run --project Tests/Policy -c Release
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
+./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH
+./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
+./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -WithInstalledExpansions -VEFDir VEF_PATH
+./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -VEFDir VEF_PATH -VPEDir VPE_PATH
 ```
 
 A manually discovered bug should become an automated regression test when practical.

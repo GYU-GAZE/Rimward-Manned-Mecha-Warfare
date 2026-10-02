@@ -65,6 +65,18 @@ Hostile operational Frames expose the same AI-usable ability to vanilla `JobGive
 
 These values and the debug presentation are provisional. Abilities owned by the contained pilot, including psycasts, remain a separate later milestone because the real caster Pawn is unspawned while embarked.
 
+## Embarked pilot abilities and psycasts
+
+Pilot abilities remain pilot state. The original vanilla or Royalty `Ability`, VEF `Ability`, cooldown, charge, `Pawn_PsychicEntropyTracker`, VEF `CompAbilities`, VPE implant and psyset stay on the exact contained Pawn. The Frame receives no copied tracker, component, ability or resource. Intrinsic Frame abilities such as Overdrive remain independent chassis state.
+
+When an operational pilot is contained, `FramePawn.GetGizmos` forwards the original pilot commands beside the Frame's own commands. Targeting, range, LOS and warmup use the spawned Frame as the physical caster. Self effects and resource changes still resolve against the pilot. The original cast job runs on `Frame.jobs`, preserving the normal ability object and job driver while the pilot remains exclusively owned by the cockpit.
+
+The core bridge supports RimWorld abilities and Royalty psycasts. It binds already-created verbs to the current Frame, preserves logical self targets in job target C, projects only the exact pilot's ability-time map/position/draw/draft queries and restores the pilot caster on cancellation or cockpit invalidation. Hostile operational Frames use pilot-owned AI-valid abilities through the Frame ThinkTree without exposing player gizmos.
+
+VEF support is a separate conditionally loaded `ZenithFrame.VEF.dll`. It forwards the real configured `Command_Ability`, starts the real VEF job on the Frame and redirects the exact `JobDriver_CastAbilityOnce.CompAbilities` getter to the pilot component during that cast. The shared generic `ThingWithComps.GetComp<T>` body must never be patched because Mono can share that native body across unrelated component types. VPE needs one narrow optional transpiler for its generated warmup lambda, which bypasses the VEF driver property and directly asks the toil actor for `CompAbilities`.
+
+VEF hostile AI evaluates each enabled autocast ability against targets inside that ability's own range and validator. Save/load, pilot replacement, disembark, downing and ejection keep every ability and resource with its original owner. See `docs/PILOT_ABILITY_BRIDGE.md` for the investigated runtime pipelines and compatibility boundary.
+
 ## Harmony control bridge
 
 Harmony is a runtime dependency, but the patch surface is intentionally narrow. Frames are **not** reclassified as colonists or Biotech mechs.
@@ -206,7 +218,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
-- One debug chassis ability only. Pilot abilities, psycasts, ability loadouts and final ability balance remain deferred.
+- One debug chassis ability and the pilot ability execution bridge are implemented. Ability loadouts, universal third-party compatibility and final ability balance remain deferred.
 
 ## Patch and dependency audit
 

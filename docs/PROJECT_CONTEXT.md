@@ -646,6 +646,14 @@ The 300-tick effect, 900-tick cooldown and MoveSpeed modifier are deterministic 
 
 ---
 
+## 14.45. Proven Embarked Pilot Ability Bridge
+
+An embarked pilot keeps every personal ability, psycast, cooldown and psychic resource on the original pilot Pawn. The operational Frame supplies the spawned map position, target origin, warmup actor and job host required by RimWorld, Royalty, VEF and VPE pipelines. It never receives a copied pilot ability, ability tracker, VEF component, VPE state or psychic resource.
+
+The selected Frame forwards the real vanilla, Royalty, VEF and VPE commands. Self abilities still affect the pilot, targeted and ground abilities originate from the current Frame position, pilot swaps move no state, and disembark/ejection cancel transient targeting safely. Hostile Frames can use AI-valid pilot abilities while the same ownership rules remain in force.
+
+Compatibility is deliberately pipeline-based. Core has no VEF/VPE reference. The optional VEF assembly loads only with VEF, uses its public ability objects and job driver, and contains the narrow VPE warmup adaptation discovered in the installed 1.6 assemblies. Mods that bypass both supported ability pipelines or require a truly spawned owner may need their own later adapter. Ability loadouts remain outside this milestone.
+
 ## 14.5. Combined-Arms Principle
 
 Mechs are intended to become common and dangerous military assets, but they must not be the only valid way to play.

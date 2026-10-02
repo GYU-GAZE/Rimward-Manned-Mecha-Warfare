@@ -121,7 +121,9 @@ The optional adapter returns the Frame from VEF's targeting-source `Caster`/`Cas
 - `JobDriver_CastAbilityOnce` normally fetches `CompAbilities` from its spawned job actor.
 - warmup callbacks use the toil actor for aim/sounds and the ability owner for several VEF effects.
 
-The adapter starts the normal VEF job on the Frame and makes that driver's `CompAbilities` lookup resolve to the pilot's existing component. No component is added to the Frame. The Frame supplies the spawned actor, pathing, stance, aim pie, and interruption lifecycle; the pilot component continues to supply the original ability and targets.
+The adapter starts the normal VEF job on the Frame and makes the exact `JobDriver_CastAbilityOnce.CompAbilities` getter resolve to the pilot's existing component. It never patches the closed generic `ThingWithComps.GetComp<CompAbilities>` method: Mono shares generic native bodies in this runtime, and patching that method contaminated unrelated lookups such as `GetComp<CompEquippable>`. No component is added to the Frame. The Frame supplies the spawned actor, pathing, stance, aim pie, and interruption lifecycle; the pilot component continues to supply the original ability and targets.
+
+Hostile VEF selection evaluates each enabled autocast ability separately. `AttackTargetFinder` is constrained by that ability's own range, `AICanUseOn`, and `ValidateTarget`, so an invalid distant target cannot hide another valid target in range.
 
 ## VPE Psycast pipeline
 
@@ -134,7 +136,7 @@ VPE 1.6 uses VEF abilities and adds behavior through the existing pilot objects.
 - `Pawn_EntropyTracker_GetGizmo_Prefix` replaces the vanilla tracker gizmo with the real VPE `PsychicStatusGizmo`.
 - `Hediff_PsycastAbilities` owns levels, points, paths, psysets, channeling state, and progression on the pilot.
 
-The VEF adapter is therefore also the VPE cast bridge. VPE commands, psyset controls, status gizmo, hediff, progression, costs, and save data are forwarded from the pilot without a VPE-specific copy or replacement UI.
+The VEF adapter is therefore also the VPE cast bridge. VPE commands, psyset controls, status gizmo, hediff, progression, costs, and save data are forwarded from the pilot without a VPE-specific copy or replacement UI. VPE's generated warmup lambda directly calls `toil.actor.GetComp<CompAbilities>` instead of the VEF driver property, so the optional assembly narrowly transpiles that one call site to resolve the pilot component during the exact active cast.
 
 ## Optional dependency strategy
 
@@ -190,3 +192,16 @@ May need later mod-specific support:
 - bespoke casting managers or UI that never use the shared command/targeter/job paths
 
 No universal compatibility claim is made. Production code contains no per-DefName psycast table and no copied Frame equivalents.
+
+## Validated matrix
+
+Executed 2026-10-02 against RimWorld 1.6.4871 rev591 with rev590 reference assemblies, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Configuration | Fresh-process result |
+|---|---|
+| A: Core only | PASS, four phases and three save/load transitions |
+| B: all installed official DLC, no VEF/VPE | PASS, including real Royalty psyfocus and entropy |
+| C: official DLC plus real VEF, no VPE | PASS, including real VEF command/job/cooldown and hostile ThinkTree cast |
+| D: official DLC plus real VEF and VPE | PASS, including real `VPE_SpeedBoost`, `Command_Ability_Psycast`, psyset, psyfocus, entropy, swap, ejection and reload |
+
+Every configuration proves self, Pawn-target and ground-target casts, origin movement with the Frame, no spawned pilot, no chassis copy, targeter cleanup, pilot swap, ejection and hostile vanilla AI. VEF configurations also prove the original `CompAbilities`, command, job driver and hostile VEF AI. The full existing 20-phase lifecycle suite also passes after the bridge, including machine-owned Overdrive, hacking, raids, caravans/map removal, recovery and fresh-process persistence.
