@@ -6,6 +6,7 @@ namespace ZenithFrame
     public sealed partial class FramePawn : Pawn
     {
         public CompPilotableMech Cockpit => GetComp<CompPilotableMech>();
+        public CompFrameLoadout Loadout => GetComp<CompFrameLoadout>();
         public CompFrameRecovery Recovery => GetComp<CompFrameRecovery>();
         public CompFrameHacking Hacking => GetComp<CompFrameHacking>();
         public override void Kill(DamageInfo? dinfo, Hediff exactCulprit = null)

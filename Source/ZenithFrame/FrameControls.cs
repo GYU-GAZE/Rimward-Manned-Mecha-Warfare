@@ -40,8 +40,6 @@ namespace ZenithFrame
             {
                 drafter.FireAtWill = true;
             }
-            if (!respawningAfterLoad && equipment.Primary == null)
-                equipment.AddEquipment((ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle")));
         }
 
         protected override void Tick()

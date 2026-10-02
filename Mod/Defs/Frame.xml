@@ -32,6 +32,11 @@
     </tools>
     <comps>
       <li Class="ZenithFrame.CompProperties_PilotableMech" />
+      <li Class="ZenithFrame.CompProperties_FrameLoadout">
+        <weaponCapacity>1</weaponCapacity>
+        <defaultWeapon>ZF_DebugRifle</defaultWeapon>
+        <developmentWeapons><li>ZF_DebugRifle</li><li>ZF_DebugHeavyRifle</li></developmentWeapons>
+      </li>
       <li Class="ZenithFrame.CompProperties_FrameRecovery" />
       <li Class="ZenithFrame.CompProperties_FrameHacking" />
     </comps><butcherProducts><Steel>20</Steel></butcherProducts>
@@ -73,9 +78,20 @@
     <techLevel>Industrial</techLevel><defName>ZF_DebugRifle</defName><label>Frame debug rifle</label><description>Development weapon for manually targeted sustained attack orders.</description>
     <graphicData><texPath>Things/Item/Equipment/WeaponRanged/AssaultRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>8</Mass><RangedWeapon_Cooldown>1.5</RangedWeapon_Cooldown><AccuracyTouch>1</AccuracyTouch><AccuracyShort>1</AccuracyShort><AccuracyMedium>1</AccuracyMedium><AccuracyLong>1</AccuracyLong></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Weapon</category></li></modExtensions>
     <verbs>
       <li><verbClass>ZenithFrame.Verb_HostileFrameShot</verbClass><hasStandardCommand>false</hasStandardCommand><onlyManualCast>false</onlyManualCast><defaultProjectile>Bullet_AssaultRifle</defaultProjectile><warmupTime>0.5</warmupTime><range>30</range><burstShotCount>3</burstShotCount><ticksBetweenBurstShots>6</ticksBetweenBurstShots><soundCast>Shot_AssaultRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
       <li><verbClass>ZenithFrame.Verb_FrameShot</verbClass><hasStandardCommand>true</hasStandardCommand><onlyManualCast>true</onlyManualCast><defaultProjectile>Bullet_AssaultRifle</defaultProjectile><warmupTime>0.5</warmupTime><range>30</range><burstShotCount>3</burstShotCount><ticksBetweenBurstShots>6</ticksBetweenBurstShots><soundCast>Shot_AssaultRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
+    </verbs>
+  </ThingDef>
+  <ThingDef ParentName="BaseWeapon">
+    <techLevel>Industrial</techLevel><defName>ZF_DebugHeavyRifle</defName><label>Frame debug heavy rifle</label><description>Development Frame Weapon addon with a slower single long-range shot.</description>
+    <graphicData><texPath>Things/Item/Equipment/WeaponRanged/SniperRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>14</Mass><RangedWeapon_Cooldown>2.5</RangedWeapon_Cooldown><AccuracyTouch>1</AccuracyTouch><AccuracyShort>1</AccuracyShort><AccuracyMedium>1</AccuracyMedium><AccuracyLong>1</AccuracyLong></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Weapon</category></li></modExtensions>
+    <verbs>
+      <li><verbClass>ZenithFrame.Verb_HostileFrameShot</verbClass><hasStandardCommand>false</hasStandardCommand><onlyManualCast>false</onlyManualCast><defaultProjectile>Bullet_SniperRifle</defaultProjectile><warmupTime>1.5</warmupTime><range>40</range><burstShotCount>1</burstShotCount><soundCast>Shot_SniperRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
+      <li><verbClass>ZenithFrame.Verb_FrameShot</verbClass><hasStandardCommand>true</hasStandardCommand><onlyManualCast>true</onlyManualCast><defaultProjectile>Bullet_SniperRifle</defaultProjectile><warmupTime>1.5</warmupTime><range>40</range><burstShotCount>1</burstShotCount><soundCast>Shot_SniperRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
     </verbs>
   </ThingDef>
 </Defs>
