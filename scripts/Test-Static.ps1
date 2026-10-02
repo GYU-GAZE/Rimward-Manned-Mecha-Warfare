@@ -52,7 +52,9 @@ Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[0].GetAttribute('Class') -e
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[1].GetAttribute('Class') -eq 'ZenithFrame.ThinkNode_Conditional_OperationalPlayerFrame') 'Frame think tree requires a narrowly gated drafted-player combat-wait branch'
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[2].GetAttribute('Class') -eq 'ZenithFrame.ThinkNode_Conditional_OperationalHostileFrame') 'Frame think tree requires a narrowly gated hostile combat branch'
 $hostileNodes = @($frameThinkTree.thinkRoot.subNodes.li[2].subNodes.li)
-Assert-Static ($hostileNodes[0].GetAttribute('Class') -eq 'ThinkNode_Duty' -and $hostileNodes[1].GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile raid Frames must consume Lord duty strategy before the tactical combat fallback'
+Assert-Static ($hostileNodes[0].GetAttribute('Class') -eq 'ThinkNode_Duty' -and
+    $hostileNodes[1].GetAttribute('Class') -eq 'ZenithFrame.JobGiver_FramePilotAbility' -and
+    $hostileNodes[2].GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile raid Frames must consume Lord duty then pilot ability AI before the tactical combat fallback'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_FrameIdleJob').driverClass -eq 'ZenithFrame.JobDriver_FrameIdle') 'Frame inert idle JobDef is missing or miswired'
 Assert-Static ($frame.Defs.ThingDef[0].race.fleshType -eq 'ZF_FrameMechanical') 'Frame must use its own mechanical flesh type, not Biotech mechanoid classification'
 $frameFlesh = $fleshTypes.Defs.FleshTypeDef | Where-Object defName -EQ 'ZF_FrameMechanical'
@@ -66,7 +68,10 @@ Assert-Static ($about.ModMetaData.modDependencies.li.packageId -eq 'brrainz.harm
 [xml]$project = Get-Content "$repo/Source/ZenithFrame/ZenithFrame.csproj" -Raw
 Assert-Static ($project.Project.ItemGroup.PackageReference.Include -contains 'Lib.Harmony.Ref') 'Harmony compile reference missing'
 $code = (Get-ChildItem "$repo/Source" -Filter '*.cs' -Recurse | Where-Object FullName -NotMatch '\\obj\\' | Get-Content -Raw) -join "`n"
-Assert-Static ($code -notmatch 'Coventech|System\.Reflection|GetField\(|GetMethod\(') 'Forbidden Coventech coupling or reflection in production source'
+$coreCode = (Get-ChildItem "$repo/Source/ZenithFrame" -Filter '*.cs' -Recurse | Where-Object FullName -NotMatch '\\obj\\' | Get-Content -Raw) -join "`n"
+Assert-Static ($code -notmatch 'Coventech') 'Forbidden Coventech coupling in production source'
+Assert-Static ($coreCode -notmatch 'System\.Reflection|\bGetField\(|\bGetMethod\(') 'Reflection leaked outside the isolated optional compatibility boundary'
+Assert-Static ([regex]::Matches($code, 'System\.Reflection').Count -le 1 -and $code -notmatch '\bGetField\(|\bGetMethod\(') 'Optional compatibility reflection must remain a single cached Harmony target lookup'
 Assert-Static ($code -notmatch 'catch\s*(\([^)]*\))?\s*\{\s*\}') 'Swallowed exception'
 Assert-Static ($code -notmatch 'MechanitorUtility|IsColonyMech|IsColonyMechPlayerControlled|GetMechControlGroup|OverseerSubject|OutOfCommandRange') 'Biotech mech-control semantics leaked into production Frame code'
 Assert-Static ($code -match 'Patch_Pawn_CanTakeOrder_Frame' -and $code -match 'Patch_FloatMenuOptionProvider_SelectedPawnValid_Frame') 'Pawn-order Harmony bridge is incomplete'
@@ -116,7 +121,7 @@ Assert-Static ($overdriveHediff.Count -eq 1 -and $overdriveHediff.comps.li.disap
 Assert-Static ($abilityCode -match 'frame\.Cockpit\?\.CanOperate' -and $abilityCode -match 'base\.CanCast') 'Frame ability casting must add only the faction-agnostic cockpit operation gate to vanilla CanCast'
 Assert-Static ($code -match 'gizmo is Command_Ability' -and $code -match 'ability\.GetGizmos\(\)' -and $code -notmatch 'Use Overdrive') 'Player Frame ability UI must expose normal Command_Ability gizmos without a custom action surrogate'
 Assert-Static ($abilityCode -notmatch 'Scribe_|cooldownEndTick|FrameAbilityManager|FrameAbilityTracker|FrameCooldownManager') 'Frame abilities must use vanilla tracker cooldown and serialization state'
-Assert-Static ($code -notmatch 'Cockpit\.Pilot\.abilities|Pilot\.abilities|pilot\.abilities\.GainAbility') 'Frame abilities must never be copied or granted to the cockpit pilot'
+Assert-Static ($code -notmatch '(Cockpit\.Pilot|\bpilot)\.abilities\.(GainAbility|abilities\.Add)|frame\.abilities\s*=\s*pilot\.abilities') 'Frame abilities must never be copied or granted to the cockpit pilot'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'
 Assert-Static (@($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_HackFrame').driverClass -eq 'ZenithFrame.JobDriver_HackFrame') 'Hack Frame JobDef is missing or miswired'

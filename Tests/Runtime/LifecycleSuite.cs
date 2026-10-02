@@ -1769,7 +1769,12 @@ namespace ZenithFrame.Tests
                     "empty-machine fresh-process load preserves intrinsic ability state without enabling cast");
                 Check(frame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
                     "repeated fresh-process load creates no duplicate ability or cooldown instance");
-                RelocatePawn(other, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+                // The previous ranged-XP fixture can legitimately catch friendly
+                // fire after ejection. Use a fresh healthy operator here so this
+                // chassis cooldown test does not depend on incidental wounds.
+                if (other != null && !other.Destroyed) other.Destroy();
+                other = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer),
+                    CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
                 Check(frame.Cockpit.TryBoard(other) && frame.SetDrafted(true),
                     "new pilot boards the same Frame while its machine cooldown remains");
                 Check(!OwnsOverdrive(other) && Overdrive(frame).Id == savedAbilityId,
