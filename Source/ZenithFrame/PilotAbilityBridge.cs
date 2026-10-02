@@ -74,10 +74,21 @@ namespace ZenithFrame
 
         public static bool IsCasting(Pawn pilot) => pilot != null && castingPilots.Contains(pilot);
 
+        public static bool BindVanillaAbility(Ability ability)
+        {
+            if (ability == null || !TryGetOperationalFrame(ability.pawn, out FramePawn frame)) return false;
+            ability.verb.caster = frame;
+            return true;
+        }
+
         public static void Cancel(Pawn pilot)
         {
             if (pilot == null) return;
             castingPilots.Remove(pilot);
+            if (pilot.abilities != null)
+                foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
+                    if (ability?.verb != null && ability.verb.caster is FramePawn)
+                        ability.verb.caster = pilot;
             if (ReferenceEquals(targetingPilot, pilot))
             {
                 targetingPilot = null;
@@ -112,6 +123,7 @@ namespace ZenithFrame
             {
                 foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
                 {
+                    FrameAbilityContext.BindVanillaAbility(ability);
                     bool visible = (frame.Drafted || ability.def.displayGizmoWhileUndrafted) && ability.GizmosVisible();
                     if (!visible) continue;
                     foreach (Command command in ability.GetGizmos()) yield return command;
@@ -146,6 +158,7 @@ namespace ZenithFrame
             if (!ReferenceEquals(___pawn, owner) ||
                 !FrameAbilityContext.TryGetOperationalFrame(owner, out FramePawn frame)) return true;
 
+            FrameAbilityContext.BindVanillaAbility(job.ability);
             FrameAbilityContext.BeginCast(owner);
             __result = frame.jobs.TryTakeOrderedJob(job, tag, requestQueueing);
             if (!__result) FrameAbilityContext.EndCast(owner);
@@ -155,7 +168,7 @@ namespace ZenithFrame
 
     // A self ability still targets its owning pilot. The spawned Frame is kept
     // in target A solely so the stock JobDriver has a valid actor/target for its
-    // despawn checks; target B records the real logical target across save/load.
+    // despawn checks; target C records the real logical target across save/load.
     [HarmonyPatch(typeof(Ability), nameof(Ability.GetJob))]
     internal static class Patch_Ability_GetJob_EmbarkedSelfTarget
     {
@@ -164,8 +177,9 @@ namespace ZenithFrame
             Pawn pilot = __instance?.pawn;
             if (__result == null || !ReferenceEquals(target.Thing, pilot) ||
                 !FrameAbilityContext.TryGetOperationalFrame(pilot, out FramePawn frame)) return;
+            FrameAbilityContext.BindVanillaAbility(__instance);
             __result.targetA = frame;
-            __result.targetB = pilot;
+            __result.targetC = pilot;
         }
     }
 
@@ -176,11 +190,10 @@ namespace ZenithFrame
         private static void Prefix(Ability __instance, ref LocalTargetInfo target, ref LocalTargetInfo dest)
         {
             Pawn pilot = __instance?.pawn;
-            if (!ReferenceEquals(dest.Thing, pilot) ||
-                !FrameAbilityContext.TryGetOperationalFrame(pilot, out FramePawn frame) ||
-                !ReferenceEquals(target.Thing, frame)) return;
+            if (!FrameAbilityContext.TryGetOperationalFrame(pilot, out FramePawn frame) ||
+                !ReferenceEquals(target.Thing, frame) || frame.CurJob?.ability != __instance ||
+                !ReferenceEquals(frame.CurJob.targetC.Thing, pilot)) return;
             target = pilot;
-            dest = LocalTargetInfo.Invalid;
         }
     }
 
@@ -347,6 +360,8 @@ namespace ZenithFrame
             LocalTargetInfo target = attackTarget.Thing;
             using (FrameAbilityContext.EnterTransient(pilot))
             {
+                foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
+                    FrameAbilityContext.BindVanillaAbility(ability);
                 foreach (Ability ability in pilot.abilities.AICastableAbilities(target, true))
                 {
                     if (!ability.CanCast.Accepted || !ability.AICanTargetNow(target)) continue;
