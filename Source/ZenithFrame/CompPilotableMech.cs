@@ -120,6 +120,7 @@ namespace ZenithFrame
 
         public void StopFrame()
         {
+            FrameAbilityContext.Cancel(Pilot);
             if (Frame.drafter != null) Frame.drafter.Drafted = false;
             Frame.pather?.StopDead();
             Frame.jobs?.StopAll();

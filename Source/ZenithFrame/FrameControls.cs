@@ -117,6 +117,9 @@ namespace ZenithFrame
                 }
             }
 
+            foreach (Gizmo pilotAbilityGizmo in PilotAbilityGizmos.VanillaFor(this))
+                yield return pilotAbilityGizmo;
+
             foreach (Gizmo attackGizmo in PawnAttackGizmoUtility.GetAttackGizmos(this))
                 yield return attackGizmo;
             var draft = new Command_Toggle
