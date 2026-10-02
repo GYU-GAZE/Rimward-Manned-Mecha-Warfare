@@ -1,5 +1,59 @@
 # MVP validation status
 
+## Validated physical Frame Weapon loadout
+
+Branch: `feat/frame-loadout`
+
+Implementation commit: `0bca418`
+
+Runtime regression commit: `a20966e`
+
+Executed 2026-10-02 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony, all installed official expansions, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean core + optional VEF Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/loadout checks | PASS, 128 checks |
+| Full lifecycle, Core + Harmony | PASS, 592 assertions, 24 fresh processes, 23 save/load transitions |
+| Full lifecycle, installed official DLC + Harmony | PASS, 592 assertions, 24 fresh processes, 23 save/load transitions |
+| Ability matrix A: Core only | PASS, 37 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: installed official DLC | PASS, 45 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: installed official DLC + real VEF, no VPE | PASS, 61 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: installed official DLC + real VEF + real VPE | PASS, 76 checks, 4 fresh processes, 3 save/load transitions |
+| Runtime log gates | PASS on every final run, with no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll     0271C8B446A1DC034A6422A7C346195422BB70A3F46FB33AB520F6E318E7A11F
+ZenithFrame.VEF.dll 86B0F0B54D7749B787C21C578476235E829A77B07E93CF98BDB1194C5FB77AEB
+```
+
+The debug Frame now declares one functional Weapon slot. Its definition-provided rifle initializes exactly once, while the heavy development rifle proves that different physical range, warmup, burst and cooldown values immediately flow through ordinary **B**, right-click, Fire At Will and hostile AI combat. The same pilot skill contribution remains independent of the installed weapon.
+
+Every installed Weapon is one physical Thing owned only by `Pawn_EquipmentTracker`. Runtime tests preserve its exact identity through installation, removal, active-combat mutation, save/load, world ownership, downing, recovery, hostile use, hacking, capture and destruction. A lost weapon remains lost, a deliberately weaponless Frame remains weaponless, and recovery never steals an identical neighboring item. Ordinary unmarked weapons plus explicit Utility and Power fixtures are rejected from the Weapon slot.
+
+The suite also keeps the complete pilot lifecycle and all supported ability pipelines green. Frame-owned Overdrive remains chassis state; Core/Royalty, VEF and VPE abilities remain on the exact cockpit pilot; changing or losing a Weapon creates no copied ability, cooldown, psychic resource or equipment owner.
+
+### Frame loadout manual QA checklist
+
+1. Spawn a debug Frame and confirm its inspect pane reports exactly one default Weapon
+2. Use the development removal command and confirm the exact rifle appears on the map and the Frame becomes weaponless
+3. Board and draft while weaponless; confirm movement, melee and Overdrive remain available while **B** and ranged right-click attacks are absent
+4. Install the heavy development rifle and confirm **B**, right-click attack and Fire At Will use its slower single long-range shot immediately
+5. Start an attack, change the Weapon through the development API and confirm the old job, stance, targeter and verb do not continue
+6. Save and reload with the heavy rifle installed; confirm the same Weapon remains installed exactly once
+7. Remove the Weapon, save and reload; confirm the default does not respawn
+8. Down an armed Frame and confirm the pilot ejects and the exact Weapon drops nearby
+9. Recover the chassis while that Weapon survives nearby and confirm the same item is reclaimed
+10. Down it again, destroy or move the dropped Weapon away and place an identical one nearby; recover and confirm the slot stays empty
+11. Let a hostile Frame fight with the heavy rifle, then down, hack, recover and board it; confirm the captured chassis retains the exact hostile Weapon
+12. Move an armed Frame into world-pawn ownership and reload; confirm its exact pilot and Weapon remain nested correctly
+13. Destroy an armed Frame and confirm no duplicate or ownerless Weapon remains while the pilot still follows normal ejection rules
+
+Utility behavior, Power behavior, multiple Weapon slots, generated enemy loadouts and the final player-facing configuration UI remain deferred.
+
 ## Validated embarked pilot abilities and psycasts
 
 Branch: `feat/embarked-pilot-abilities`

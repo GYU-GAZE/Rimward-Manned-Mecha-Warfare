@@ -13,7 +13,7 @@ It is deliberately **not** a RimWorld/Biotech controllable mech. The debug Frame
 
 Because `RaceProps.IsMechanoid` is false, Mechanitor, Overseer, bandwidth, command-range and mech-control-group semantics are not the Frame control model.
 
-A debug rifle is created on first spawn and serializes as ordinary Pawn equipment.
+The loadout component installs the definition-provided default debug rifle exactly once. It serializes as ordinary Pawn equipment and is never regenerated merely because the Frame later becomes weaponless.
 
 ## Pilot ownership
 
@@ -120,7 +120,25 @@ Current patch points:
    - awards vanilla-formula melee experience to the exact operating pilot at real melee execution
    - leaves damage, hit resolution and every non-Frame verb unchanged
 
+10. `Pawn_HealthTracker.MakeDowned`
+   - captures the exact installed Frame Weapon immediately before vanilla incapacity handling may drop it
+   - records only a shallow reference after downing and leaves every non-Frame pawn unchanged
+
 `Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
+
+## Physical Frame loadout
+
+`CompFrameLoadout` owns policy and mutation for the deliberately small add-on vocabulary `Weapon`, `Utility` and `Power`. The current chassis has one Weapon slot. Only Weapon is functional in this milestone; Utility and Power exist as explicit categories for future work and have no gameplay fields or installation path yet.
+
+An installed Weapon is a real `ThingWithComps` held only by the Frame's vanilla `Pawn_EquipmentTracker`. The loadout does not keep a second `ThingOwner`, deep-scribe a duplicate item or reconstruct equipment from `defName`. Installation and removal transfer the exact object through normal equipment/map ownership. Eligibility requires an explicit `FrameAddonExtension` whose category is `Weapon`; ordinary RimWorld weapons and test Utility/Power add-ons are rejected.
+
+`CompProperties_FrameLoadout` declares capacity one, one optional default Weapon and development-only candidate Weapons. The default is initialized once for a newly created Frame. The saved `defaultInitialized` flag prevents respawn, recovery and save/load from replacing a removed, destroyed or intentionally absent Weapon.
+
+Every loadout mutation stops Frame operation first. Current jobs, stance, active verbs, targeters and draft state are cleared before the equipment tracker changes, so neither the old verb nor a stale combat job can survive a swap. The normal `Command_VerbTarget`, right-click attack, Fire At Will and hostile AI pipelines then bind the newly installed weapon immediately. Pilot skill contribution stays independent of weapon physics.
+
+Vanilla downing physically drops equipped weapons. A narrow Frame-only `Pawn_HealthTracker.MakeDowned` patch remembers the exact pre-downing Weapon as one shallow scribed reference because this custom nonhumanlike Pawn does not reliably retain vanilla `mindState.droppedWeapon`. Recovery may reclaim that object only while it still exists, is spawned on the same map and lies within two cells. If it was destroyed or removed, the slot remains empty; an identical nearby item is never substituted. Hacking preserves the same relation, world-owned Frames retain equipped items normally, and destruction leaves no duplicate or ownerless loadout object.
+
+The only current loadout controls are development commands plus a concise inspect line. Multiweapon support, Utility/Power behavior and the final player-facing loadout UI remain deferred.
 
 ## Weapon behavior
 
@@ -187,7 +205,7 @@ The game-over bridge remains explicit ownership-based presence logic. It does no
 
 The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. A narrow Frame-only Harmony gate also prevents vanilla Rescue/Capture actions and autonomous rescue jobs from treating the chassis as an injured or imprisonable biological Pawn. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
 
-`TryRecover` operates on the existing `FramePawn`. It restores missing-part common ancestors one at a time, then individual injuries largest-first only if still needed, stopping as soon as RimWorld's normal health evaluation clears the downed state. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. If vanilla dropped the fixed debug rifle during incapacity, recovery transfers that exact nearby item back into the equipment owner; it does not create another weapon.
+`TryRecover` operates on the existing `FramePawn`. It restores missing-part common ancestors one at a time, then individual injuries largest-first only if still needed, stopping as soon as RimWorld's normal health evaluation clears the downed state. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. It delegates weapon recovery to `CompFrameLoadout`, which reclaims only the exact remembered nearby item and leaves the chassis weaponless when that object is gone.
 
 Successful recovery leaves the chassis unpiloted, undrafted and inactive. A pilot must board again through the normal boarding job before Pawn-first controls become available. Dead and destroyed Frames fail recovery.
 
@@ -213,8 +231,9 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
-- One fixed debug weapon only.
-- No final repair economy, reload/ammunition, power, research, loadout system, chassis variants or final art.
+- One functional Weapon slot with two deterministic development weapons; no multiweapon support or generated enemy loadouts.
+- No final loadout UI. Utility and Power are category vocabulary only and have no functional installation behavior.
+- No final repair economy, reload/ammunition, power system, research, chassis variants or final art.
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
@@ -225,7 +244,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 Production currently uses:
 
 - Harmony as the single third-party runtime dependency
-- nine narrowly scoped Harmony patch points described above
+- ten narrowly scoped Harmony patch points described above, including the Frame-only downing capture used for exact dropped-weapon recovery
 - zero reflection
 - zero Coventech references/dependencies
 - no bundled Harmony DLL
@@ -233,4 +252,4 @@ Production currently uses:
 
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
-The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge and machine-owned Frame ability lifecycle were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge, machine-owned Frame ability lifecycle, embarked pilot abilities and physical Frame Weapon loadout were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.

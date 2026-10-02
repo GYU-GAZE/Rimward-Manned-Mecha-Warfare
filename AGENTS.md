@@ -20,6 +20,8 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - pilot combat skills and experience remain owned by the cockpit pilot; Frames may consume the live skill contribution while operational but must never copy, own or serialize pilot skill progression
 - Frame abilities belong to the Frame; pilot presence may enable operation, but ability ownership, effects and cooldowns remain machine state and must never be copied to the pilot
 - pilot abilities and psycasts remain on the exact pilot; while embarked, the Frame may provide the spawned execution host but must never receive copied abilities, cooldowns, psychic resources, VEF `CompAbilities` or VPE state
+- installed Frame add-ons are physical Things; the vanilla equipment tracker is the sole owner of the installed Weapon, and removal, downing, recovery, hacking, world transfer and destruction must preserve exact item identity without DefName replacement, duplicate ownership or silent fabrication
+- loadout category eligibility is explicit through `FrameAddonExtension`; ordinary weapons and Utility/Power add-ons must never enter the Weapon slot merely because they have compatible RimWorld equipment metadata
 
 ### Frames are NOT Biotech mechs
 

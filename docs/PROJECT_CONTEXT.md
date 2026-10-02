@@ -199,6 +199,16 @@ A heavier chassis may have more.
 
 The purpose is to allow meaningful specialization without turning mech configuration into inventory-management hell.
 
+### Current physical Weapon-slot foundation
+
+The first implemented slice has exactly one functional Weapon slot on the debug Frame. `Weapon`, `Utility` and `Power` are the durable category vocabulary, but Utility and Power deliberately have no functional behavior yet. Multiweapon support and the final loadout UI are deferred.
+
+Installed weapons are physical RimWorld Things. The Frame's normal equipment tracker is their sole authoritative owner, while `CompFrameLoadout` owns capacity, explicit category eligibility and safe mutation. A compatible item must opt in through `FrameAddonExtension` as `Weapon`; being an ordinary equippable RimWorld weapon is insufficient.
+
+The default weapon is definition-driven and initialized once. Removing, losing or destroying it never causes a replacement to appear on respawn, recovery or reload. Installation, removal, downing, recovery, hacking, world transfer and destruction preserve the exact object identity. Recovery reclaims only the remembered weapon that vanilla actually dropped near the chassis; it never searches by definition or steals an identical neighbor.
+
+Development-only commands expose the mutation API for validation. Player-facing configuration, costs, work, facilities, multiple slots and production content remain later work.
+
 ---
 
 ## 5. Weapon Philosophy
@@ -524,15 +534,15 @@ EmergencyEject()
 And:
 
 ```text
-CompMechLoadout
+CompFrameLoadout
 
-InstalledWeapons
-InstalledUtilities
-InstalledPowerSource
+InstalledWeapon
+RememberedDroppedWeapon
 
-CanInstall(...)
-Install(...)
-Remove(...)
+CanInstallWeapon(...)
+TryInstallWeapon(...)
+CanRemoveWeapon(...)
+TryRemoveWeapon(...)
 ```
 
 Avoid reflection where our own explicit API can solve the problem.
@@ -602,7 +612,7 @@ Suggested order:
 13. Pilot skill bridging
 14. Frame abilities
 15. Pilot abilities / psycasts
-16. Loadout system
+16. Physical single-Weapon loadout foundation (implemented)
 17. Power / utility add-ons
 18. Proper UI
 19. Additional chassis/content
