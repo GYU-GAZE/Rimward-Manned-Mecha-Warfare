@@ -28,7 +28,7 @@ if (!(Test-Path "$runtime/Mods/Harmony/About/About.xml")) {
     }
 }
 New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
-Copy-Item "$repo/Tests/Runtime/About" "$runtime/Mods/ZenithTests" -Recurse -Force
+Copy-Item "$repo/Tests/Runtime/About","$repo/Tests/Runtime/Defs" "$runtime/Mods/ZenithTests" -Recurse -Force
 Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$runtime/Mods/ZenithTests/Assemblies" -Force
 $expansionMods = ''
 if ($WithInstalledExpansions) {
@@ -64,7 +64,7 @@ New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Nul
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-foreach ($phase in 0..19) {
+foreach ($phase in 0..23) {
     if ($phase -gt 0) { Copy-Item "$profile/Saves/ZenithLifecycle.rws" "$profile/Saves/Autostart.rws" -Force }
     # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
     # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.

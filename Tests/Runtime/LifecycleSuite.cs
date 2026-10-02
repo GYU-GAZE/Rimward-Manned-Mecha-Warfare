@@ -60,6 +60,12 @@ namespace ZenithFrame.Tests
         private int savedAbilityCooldown;
         private int savedAbilityEffectTicks;
         private float savedAbilityBaseMoveSpeed;
+        private ThingWithComps loadoutWeapon;
+        private ThingWithComps unrelatedWeapon;
+        private string loadoutWeaponId;
+        private string loadoutFrameId;
+        private string loadoutPilotId;
+        private string worldWeaponId;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -96,6 +102,12 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref savedAbilityCooldown, "testAbilityCooldown");
             Scribe_Values.Look(ref savedAbilityEffectTicks, "testAbilityEffectTicks");
             Scribe_Values.Look(ref savedAbilityBaseMoveSpeed, "testAbilityBaseMoveSpeed");
+            Scribe_References.Look(ref loadoutWeapon, "testLoadoutWeapon");
+            Scribe_References.Look(ref unrelatedWeapon, "testUnrelatedWeapon");
+            Scribe_Values.Look(ref loadoutWeaponId, "testLoadoutWeaponId");
+            Scribe_Values.Look(ref loadoutFrameId, "testLoadoutFrameId");
+            Scribe_Values.Look(ref loadoutPilotId, "testLoadoutPilotId");
+            Scribe_Values.Look(ref worldWeaponId, "testWorldWeaponId");
         }
         private void Check(bool condition, string name)
         {
@@ -151,7 +163,11 @@ namespace ZenithFrame.Tests
                 else if (phase == 16) FrameAbilityStart();
                 else if (phase == 17) FrameAbilityActiveLoad();
                 else if (phase == 18) FrameAbilityEmptyLoadAndLifecycle();
-                else FrameAbilityCapturedLoad();
+                else if (phase == 19) FrameAbilityCapturedLoad();
+                else if (phase == 20) FrameLoadoutStart();
+                else if (phase == 21) FrameLoadoutInstalledLoadAndDown();
+                else if (phase == 22) FrameLoadoutRecoveryCaptureAndWorld();
+                else FrameLoadoutFinalLoadAndDestruction();
             }
             catch (Exception e)
             {
@@ -1657,8 +1673,11 @@ namespace ZenithFrame.Tests
                 Check(frame.Recovery.TryRecover(), "recovering the chassis alone succeeds without restoring old pilot skill state");
                 Check(!frame.Cockpit.HasPilot && !frame.CanTakeOrder,
                     "recovered empty chassis has no operator skill contribution or combat control");
+                if (pilot != null && !pilot.Destroyed) pilot.Destroy();
+                pilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+                pilotId = pilot.GetUniqueLoadID();
                 SetCombatSkills(pilot, 3, 4);
-                RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
+                GenSpawn.Spawn(pilot, CellFinder.RandomClosewalkCellNear(frame.Position, frame.Map, 1), frame.Map);
                 Check(frame.Cockpit.TryBoard(pilot), "different pilot boards the recovered same chassis");
                 AssertPilotStat(frame, pilot, StatDefOf.ShootingAccuracyPawn, SkillDefOf.Shooting, "recovered Frame new Shooting 3");
                 AssertPilotStat(frame, pilot, StatDefOf.MeleeHitChance, SkillDefOf.Melee, "recovered Frame new Melee 4");
@@ -1862,6 +1881,273 @@ namespace ZenithFrame.Tests
             Check(!OwnsOverdrive(pilot) && !OwnsOverdrive(hostilePilot) &&
                 !HasOverdriveEffect(pilot) && !HasOverdriveEffect(hostilePilot),
                 "neither original hostile pilot nor replacement player pilot acquires machine ability state");
+            SaveNext(20);
+        }
+
+        private void FrameLoadoutStart()
+        {
+            if (Find.TickManager.TicksGame < 1000) return;
+            if (step == 1 && TargetDamaged())
+            {
+                Check(frame.CurJobDef == JobDefOf.AttackStatic && frame.CurJob.verbToUse is Verb_FrameShot &&
+                    ReferenceEquals(frame.CurJob.verbToUse.EquipmentSource, loadoutWeapon),
+                    "right-click attack fires the exact installed Heavy Rifle through the ordinary combat job");
+                Check(frame.Loadout.TryRemoveWeapon(out ThingWithComps removedHeavy) && ReferenceEquals(removedHeavy, loadoutWeapon),
+                    "weapon mutation during active combat removes the exact item safely");
+                Check(frame.CurJob == null && frame.stances.curStance is Stance_Mobile &&
+                    frame.GetGizmos().OfType<Command_VerbTarget>().All(command => !(command.verb is Verb_FrameShot)),
+                    "active combat mutation clears stale job stance verb and weapon command immediately");
+                Check(frame.Loadout.TryInstallWeapon(removedHeavy) && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon),
+                    "same Heavy Rifle reinstalls without item replacement after combat cancellation");
+                if (target != null && !target.Destroyed) target.Destroy();
+                target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), frame.Position + IntVec3.East * 20, frame.Map);
+                ((Pawn)target).stances.stunner.StunFor(10000, frame);
+                Check(frame.SetDrafted(true), "reinstalled Heavy Rifle Frame redrafts through normal control");
+                frame.drafter.FireAtWill = true;
+                Next(2, 3000);
+                return;
+            }
+            if (step == 2 && TargetDamaged())
+            {
+                Check(frame.CurJobDef == JobDefOf.Wait_Combat && frame.drafter.FireAtWill &&
+                    ReferenceEquals(frame.equipment.Primary, loadoutWeapon),
+                    "Fire At Will naturally uses the newly installed Heavy Rifle");
+                frame.Cockpit.StopFrame();
+                if (target != null && !target.Destroyed) target.Destroy();
+                Check(frame.SetDrafted(true), "installed Heavy Rifle state is saved on an operational drafted Frame");
+                SaveNext(21);
+                return;
+            }
+            if (step != 0) return;
+            Map map = Find.CurrentMap;
+            IntVec3 center = map.Center;
+            ClearTestArea(CellRect.CenteredOn(center, 45), map);
+
+            frame = SpawnFrame(center);
+            pilot = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), center + IntVec3.West, map);
+            target = GenSpawn.Spawn(GenerateCombatTarget(Faction.OfAncientsHostile), center + IntVec3.East * 20, map);
+            ((Pawn)target).stances.stunner.StunFor(10000, frame);
+            frameId = loadoutFrameId = frame.GetUniqueLoadID();
+            pilotId = loadoutPilotId = pilot.GetUniqueLoadID();
+
+            ThingWithComps defaultRifle = frame.Loadout.InstalledWeapon;
+            Check(defaultRifle?.def.defName == "ZF_DebugRifle" && frame.equipment.AllEquipmentListForReading.Count == 1,
+                "fresh debug Frame initializes exactly one default Weapon through its loadout definition");
+            Check(frame.Loadout.Props.weaponCapacity == 1 &&
+                defaultRifle.def.GetModExtension<FrameAddonExtension>()?.category == FrameAddonCategory.Weapon,
+                "chassis capacity and addon category explicitly define the single Weapon slot");
+            Check(frame.GetInspectString().Contains("Weapon: " + defaultRifle.LabelCap),
+                "inspect string reports the physical installed Weapon");
+
+            string defaultId = defaultRifle.GetUniqueLoadID();
+            Check(frame.Loadout.TryRemoveWeapon(out ThingWithComps removedDefault) &&
+                ReferenceEquals(removedDefault, defaultRifle) && removedDefault.GetUniqueLoadID() == defaultId &&
+                removedDefault.Spawned && frame.equipment.Primary == null,
+                "removing default Weapon returns the exact physical Thing to the map");
+
+            ThingWithComps ordinary = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Gun_Autopistol"));
+            Check(!frame.Loadout.CanInstallWeapon(ordinary, out _) && !frame.Loadout.TryInstallWeapon(ordinary),
+                "ordinary unmarked RimWorld weapon is rejected by Frame loadout policy");
+            ordinary.Destroy();
+
+            ThingWithComps utility = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_TestUtilityAddon"));
+            ThingWithComps power = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_TestPowerAddon"));
+            Check(!frame.Loadout.TryInstallWeapon(utility) && !frame.Loadout.TryInstallWeapon(power),
+                "Utility and Power category items cannot enter the Weapon slot");
+            utility.Destroy();
+            power.Destroy();
+
+            Check(frame.Cockpit.TryBoard(pilot) && frame.SetDrafted(true),
+                "weaponless Frame remains pilotable and draftable");
+            Check(frame.GetGizmos().OfType<Command_VerbTarget>().All(command => !(command.verb is Verb_FrameShot)) &&
+                FloatMenuUtility.GetRangedAttackAction(frame, target, out _) == null,
+                "weaponless Frame exposes no B command and fabricates no ranged attack");
+            Check(FloatMenuUtility.GetMeleeAttackAction(frame, target, out _) != null &&
+                frame.GetGizmos().OfType<Command_Ability>().Any(command => command.Ability == Overdrive(frame)),
+                "weaponless Frame retains intrinsic melee and machine ability commands");
+
+            loadoutWeapon = (ThingWithComps)GenSpawn.Spawn(
+                ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")), center + IntVec3.North, map);
+            loadoutWeaponId = loadoutWeapon.GetUniqueLoadID();
+            float pilotShooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            Check(frame.Loadout.TryInstallWeapon(loadoutWeapon) && ReferenceEquals(frame.equipment.Primary, loadoutWeapon) &&
+                !loadoutWeapon.Spawned && loadoutWeapon.GetUniqueLoadID() == loadoutWeaponId,
+                "exact map-spawned Heavy Rifle transfers into Pawn_EquipmentTracker without recreation");
+            Check(!frame.Loadout.TryInstallWeapon(removedDefault) && removedDefault.Spawned &&
+                frame.equipment.AllEquipmentListForReading.Count == 1,
+                "occupied single Weapon slot cannot silently accept a second item");
+            Check(Approximately(frame.GetStatValue(StatDefOf.ShootingAccuracyPawn), pilotShooting),
+                "weapon physics change independently from the same pilot Shooting contribution");
+            Check(frame.SetDrafted(true), "Frame redrafts after safe Heavy Rifle installation");
+
+            Verb_FrameShot heavyVerb = ManualVerb(frame) as Verb_FrameShot;
+            Check(heavyVerb != null && heavyVerb.verbProps.range == 40f && heavyVerb.verbProps.burstShotCount == 1 &&
+                heavyVerb.verbProps.warmupTime == 1.5f && loadoutWeapon.GetStatValue(StatDefOf.RangedWeapon_Cooldown) == 2.5f,
+                "Heavy Rifle has deterministic range warmup burst and cooldown distinct from Debug Rifle");
+            Check(frame.GetGizmos().OfType<Command_VerbTarget>().Any(command => command.verb == heavyVerb && command.hotKey == KeyBindingDefOf.Misc1),
+                "normal B command immediately binds the newly installed Heavy Rifle verb");
+
+            OnGui(() =>
+            {
+                List<FloatMenuOption> options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, target.DrawPos, out _);
+                FloatMenuOption attack = FloatMenuMakerMap.GetAutoTakeOption(options);
+                Check(attack != null && attack.Priority == MenuOptionPriority.AttackEnemy,
+                    "right-click immediately exposes a normal ranged attack with the Heavy Rifle");
+                attack.Chosen(colonistOrdering: true, null);
+                Next(1, 3000);
+            });
+        }
+
+        private void FrameLoadoutInstalledLoadAndDown()
+        {
+            if (step == 0)
+            {
+                Check(frame.GetUniqueLoadID() == loadoutFrameId && pilot.GetUniqueLoadID() == loadoutPilotId &&
+                    loadoutWeapon.GetUniqueLoadID() == loadoutWeaponId && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon),
+                    "fresh-process load preserves exact Frame pilot and installed Heavy Rifle identities");
+                Check(!loadoutWeapon.Spawned && loadoutWeapon.holdingOwner != null &&
+                    frame.equipment.AllEquipmentListForReading.Count == 1,
+                    "loaded Heavy Rifle has one authoritative equipment owner and no map duplicate");
+                Check(frame.GetGizmos().OfType<Command_VerbTarget>().Any(command => command.verb == ManualVerb(frame)),
+                    "loaded Frame immediately restores the Heavy Rifle B command");
+
+                worldFrame = SpawnFrame(frame.Position + IntVec3.North * 8);
+                Check(worldFrame.Loadout.TryRemoveWeapon(out ThingWithComps worldDefault),
+                    "world fixture removes its definition-provided default through loadout API");
+                worldDefault.Destroy();
+                ThingWithComps worldHeavy = (ThingWithComps)GenSpawn.Spawn(
+                    ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")), worldFrame.Position + IntVec3.East, frame.Map);
+                worldWeaponId = worldHeavy.GetUniqueLoadID();
+                Check(worldFrame.Loadout.TryInstallWeapon(worldHeavy), "world fixture installs an exact physical Heavy Rifle");
+                worldPilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+                GenSpawn.Spawn(worldPilot, worldFrame.Position + IntVec3.West, frame.Map);
+                Check(worldFrame.Cockpit.TryBoard(worldPilot), "world fixture boards its exact generated pilot");
+                worldFrameId = worldFrame.GetUniqueLoadID();
+                worldPilotId = worldPilot.GetUniqueLoadID();
+                worldFrame.DeSpawn();
+                Find.WorldPawns.PassToWorld(worldFrame);
+                Find.WorldPawns.ForcefullyKeptPawns.Add(worldFrame);
+                Check(Find.WorldPawns.Contains(worldFrame) && ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) &&
+                    worldFrame.Loadout.InstalledWeapon.GetUniqueLoadID() == worldWeaponId,
+                    "world-owned Frame retains exact cockpit and installed weapon before save");
+
+                DownByMissingLegs(frame);
+                Check(frame.Downed && !frame.Cockpit.HasPilot && pilot.Spawned,
+                    "downing modular Frame ejects its exact pilot normally");
+                Check(frame.Loadout.InstalledWeapon == null && loadoutWeapon.Spawned &&
+                    ReferenceEquals(frame.Loadout.RememberedDroppedWeapon, loadoutWeapon),
+                    "vanilla downing drops and remembers the exact installed Heavy Rifle");
+                SaveNext(22);
+            }
+        }
+
+        private void FrameLoadoutRecoveryCaptureAndWorld()
+        {
+            Pawn heavyVictim = Find.CurrentMap.mapPawns.AllPawnsSpawned.FirstOrDefault(candidate =>
+                candidate.health?.hediffSet?.hediffs.OfType<Hediff_Injury>().Any(injury =>
+                    injury.sourceDef == DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")) == true);
+            if (step == 1 && heavyVictim != null)
+            {
+                Check(ReferenceEquals(hostileFrame.equipment.Primary, loadoutWeapon) &&
+                    hostileFrame.equipment.PrimaryEq.AllVerbs.OfType<Verb_HostileFrameShot>().Any(verb => verb.Available()),
+                    "hostile AI naturally uses the exact installed Heavy Rifle and its hostile verb");
+                if (target != null && !target.Destroyed) target.Destroy();
+                if (pilot != null && !pilot.Destroyed) pilot.Destroy();
+                pilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+                pilotId = pilot.GetUniqueLoadID();
+                GenSpawn.Spawn(pilot, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
+                CompleteHostileLoadoutCapture();
+                return;
+            }
+            if (step != 0) return;
+            Check(frame.GetUniqueLoadID() == loadoutFrameId && frame.Downed &&
+                loadoutWeapon.GetUniqueLoadID() == loadoutWeaponId && loadoutWeapon.Spawned &&
+                ReferenceEquals(frame.Loadout.RememberedDroppedWeapon, loadoutWeapon),
+                "fresh-process downed load preserves exact dropped-weapon relationship");
+            Check(frame.Recovery.TryRecover() && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon) &&
+                frame.Loadout.RememberedDroppedWeapon == null,
+                "recovery reclaims only the exact surviving remembered Heavy Rifle");
+
+            DownByMissingLegs(frame);
+            Check(frame.Downed && loadoutWeapon.Spawned && ReferenceEquals(frame.Loadout.RememberedDroppedWeapon, loadoutWeapon),
+                "second downing remembers the same exact modular weapon");
+            loadoutWeapon.Destroy();
+            unrelatedWeapon = (ThingWithComps)GenSpawn.Spawn(
+                ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")), frame.Position, frame.Map);
+            string unrelatedId = unrelatedWeapon.GetUniqueLoadID();
+            Check(frame.Recovery.TryRecover() && frame.Loadout.InstalledWeapon == null && unrelatedWeapon.Spawned &&
+                unrelatedWeapon.GetUniqueLoadID() == unrelatedId,
+                "recovery leaves chassis weaponless when exact weapon is lost and never steals an identical neighbor");
+
+            IntVec3 hostileCell = frame.Position + IntVec3.East * 10;
+            Map loadoutMap = frame.Map;
+            RelocatePawn(frame, frame.Position + IntVec3.West * 80, loadoutMap);
+            hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(hostileCell, loadoutMap);
+            hostileFrameId = hostileFrame.GetUniqueLoadID();
+            hostilePilot = hostileFrame.Cockpit.Pilot;
+            Check(hostileFrame.Loadout.TryRemoveWeapon(out ThingWithComps hostileDefault),
+                "hostile Frame uses the same loadout mutation API as player Frame");
+            hostileDefault.Destroy();
+            ThingWithComps capturedHeavy = (ThingWithComps)GenSpawn.Spawn(
+                ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")), hostileFrame.Position + IntVec3.West, loadoutMap);
+            loadoutWeapon = capturedHeavy;
+            loadoutWeaponId = capturedHeavy.GetUniqueLoadID();
+            Check(hostileFrame.Loadout.TryInstallWeapon(capturedHeavy),
+                "hostile fixture receives the exact physical Heavy Rifle through common loadout policy");
+            RelocatePawn(pilot, hostileFrame.Position + IntVec3.East * 80, loadoutMap);
+            Pawn armedTarget = GenerateCombatCapableHuman(Faction.OfPlayer);
+            if (armedTarget.equipment.Primary == null)
+                armedTarget.equipment.AddEquipment((ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Gun_Autopistol")));
+            target = GenSpawn.Spawn(armedTarget, hostileFrame.Position + IntVec3.West * 20, loadoutMap);
+            hostileFrame.jobs.StopAll();
+            hostileFrame.stances.CancelBusyStanceHard();
+            Next(1, 3600);
+        }
+
+        private void CompleteHostileLoadoutCapture()
+        {
+            ThingWithComps capturedHeavy = loadoutWeapon;
+            DownByMissingLegs(hostileFrame);
+            Check(hostileFrame.Downed && capturedHeavy.Spawned && ReferenceEquals(hostileFrame.Loadout.RememberedDroppedWeapon, capturedHeavy),
+                "hostile downing drops and remembers its exact installed Heavy Rifle");
+            Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.Faction == Faction.OfPlayer,
+                "hacking converts the same disabled chassis without resetting its loadout relation");
+            Check(hostileFrame.Recovery.TryRecover() && ReferenceEquals(hostileFrame.Loadout.InstalledWeapon, capturedHeavy),
+                "captured chassis recovery reclaims the exact surviving hostile weapon");
+            RelocatePawn(pilot, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
+            Check(hostileFrame.Cockpit.TryBoard(pilot) && ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot),
+                "player pilot boards captured chassis with captured weapon intact");
+            SaveNext(23);
+        }
+
+        private void FrameLoadoutFinalLoadAndDestruction()
+        {
+            if (step != 0) return;
+            Check(frame.GetUniqueLoadID() == loadoutFrameId && frame.Loadout.InstalledWeapon == null &&
+                unrelatedWeapon.Spawned,
+                "intentionally weaponless Frame remains weaponless after save/load without default respawn or neighbor theft");
+            Check(hostileFrame.GetUniqueLoadID() == hostileFrameId &&
+                loadoutWeapon.GetUniqueLoadID() == loadoutWeaponId &&
+                ReferenceEquals(hostileFrame.Loadout.InstalledWeapon, loadoutWeapon) &&
+                ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot),
+                "captured Frame fresh-process load preserves exact chassis pilot and captured weapon");
+            Check(hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1 &&
+                Overdrive(hostileFrame).pawn == hostileFrame && !OwnsOverdrive(pilot),
+                "modular loadout remains separate from machine and pilot ability ownership");
+            Check(worldFrame.GetUniqueLoadID() == worldFrameId && worldPilot.GetUniqueLoadID() == worldPilotId &&
+                Find.WorldPawns.Contains(worldFrame) && ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) &&
+                worldFrame.Loadout.InstalledWeapon.GetUniqueLoadID() == worldWeaponId,
+                "fresh-process world Frame retains exact nested pilot and installed weapon");
+
+            ThingWithComps destroyedFrameWeapon = hostileFrame.Loadout.InstalledWeapon;
+            string destroyedWeaponId = destroyedFrameWeapon.GetUniqueLoadID();
+            hostileFrame.Destroy();
+            int survivingCopies = Find.Maps.SelectMany(map => map.listerThings.AllThings)
+                .Count(thing => !thing.Destroyed && thing.GetUniqueLoadID() == destroyedWeaponId);
+            Check(survivingCopies <= 1 && (destroyedFrameWeapon.Destroyed || destroyedFrameWeapon.Spawned),
+                "ordinary Frame destruction creates no duplicate or ownerless modular weapon Thing");
+            Check(pilot.Spawned && !hostileFrame.Cockpit.HasPilot,
+                "Frame destruction still ejects the exact pilot independently from loadout outcome");
             Finish();
         }
 

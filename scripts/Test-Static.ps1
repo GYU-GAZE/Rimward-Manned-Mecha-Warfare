@@ -43,6 +43,8 @@ foreach ($entry in $refs.GetEnumerator()) { Assert-Static ($defs.ContainsKey($en
 $weaponVerbs = @($frame.Defs.ThingDef[1].verbs.li)
 Assert-Static ($weaponVerbs[0].verbClass -eq 'ZenithFrame.Verb_HostileFrameShot' -and $weaponVerbs[0].onlyManualCast -eq 'false' -and $weaponVerbs[0].hasStandardCommand -eq 'false') 'Hostile Frame requires a primary AI-only weapon verb'
 Assert-Static ($weaponVerbs[1].verbClass -eq 'ZenithFrame.Verb_FrameShot' -and $weaponVerbs[1].onlyManualCast -eq 'true') 'Player Frame weapon verb must remain manually targeted'
+$heavyWeapon = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugHeavyRifle')
+Assert-Static ($heavyWeapon.Count -eq 1 -and $heavyWeapon.verbs.li[0].range -eq '40' -and $heavyWeapon.verbs.li[0].burstShotCount -eq '1' -and $heavyWeapon.statBases.RangedWeapon_Cooldown -eq '2.5') 'Heavy Rifle must remain a mechanically distinct single-shot development Weapon'
 Assert-Static ($weaponVerbs[1].hasStandardCommand -eq 'true') 'Debug rifle must expose vanilla Command_VerbTarget / Misc1'
 Assert-Static ($frame.Defs.ThingDef[0].race.thinkTreeMain -eq 'ZF_FrameIdle') 'Frame must not inherit autonomous AI'
 Assert-Static ($frame.Defs.ThingDef[0].race.trainability -eq 'None') 'Frame must not expose animal training and must serialize a valid training tracker'
@@ -139,6 +141,19 @@ Assert-Static ($code -notmatch 'isDisabled\s*[;=]') 'Recovery must not persist a
 $recoveryCode = Get-Content "$repo/Source/ZenithFrame/CompFrameRecovery.cs" -Raw
 Assert-Static ($recoveryCode -notmatch 'SetFaction\s*\(') 'Recovery must not convert hostile Frame ownership'
 Assert-Static ($recoveryCode -notmatch 'PawnGenerator|ThingMaker\.MakeThing') 'Recovery must not construct or replace the existing Frame Pawn'
+$loadoutCode = Get-Content "$repo/Source/ZenithFrame/FrameLoadout.cs" -Raw
+$controlCode = Get-Content "$repo/Source/ZenithFrame/FrameControls.cs" -Raw
+$loadoutComp = @($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLoadout')
+Assert-Static ($loadoutComp.Count -eq 1 -and $loadoutComp.weaponCapacity -eq '1' -and $loadoutComp.defaultWeapon -eq 'ZF_DebugRifle') 'Debug Frame must define one Weapon capacity and its development default locally'
+Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -in @('ZF_DebugRifle','ZF_DebugHeavyRifle') -and $_.modExtensions.li.category -eq 'Weapon' }).Count -eq 2) 'Both development weapons require explicit Frame Weapon metadata'
+Assert-Static ($controlCode -notmatch 'ZF_DebugRifle|ThingMaker\.MakeThing') 'Frame SpawnSetup must not hardcode or manufacture its default weapon'
+Assert-Static ($recoveryCode -notmatch 'ZF_DebugRifle|ReclaimDroppedDebugWeapon|GenRadial|ThingMaker\.MakeThing') 'Recovery must reclaim only the generic exact remembered weapon reference'
+Assert-Static ($loadoutCode -match 'mindState\?\.droppedWeapon' -and $loadoutCode -match 'rememberedDroppedWeapon' -and $loadoutCode -match 'Patch_PawnHealthTracker_MakeDowned_FrameWeapon') 'Loadout recovery must prefer vanilla remembered primary and narrowly retain the exact Frame drop reference'
+Assert-Static ([regex]::Matches($loadoutCode, 'Scribe_References\.Look').Count -eq 1 -and $loadoutCode -notmatch 'Scribe_Deep\.Look|ThingOwner') 'Loadout may shallow-scribe one dropped-weapon reference but must never duplicate equipment ownership'
+Assert-Static ($loadoutCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(') 'Frame loadout must use no reflection'
+Assert-Static ($loadoutCode -match 'GetModExtension<FrameAddonExtension>' -and $loadoutCode -match 'category != FrameAddonCategory\.Weapon') 'Ordinary weapons and non-Weapon addon categories must be rejected explicitly'
+Assert-Static ($loadoutCode -match 'defaultLoadoutInitialized' -and $loadoutCode -match 'if \(respawningAfterLoad \|\| InstalledWeapon != null') 'Default loadout initialization must persist once and never recreate an intentionally removed weapon'
+Assert-Static ($loadoutCode -notmatch 'utilityCapacity|powerCapacity|energy|PowerConsumption|RadarBonus') 'Utility and Power gameplay must remain deferred'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"
