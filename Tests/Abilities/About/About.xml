@@ -1,0 +1,6 @@
+<ModMetaData>
+  <name>ZENITH ability tests - DO NOT SHIP</name><author>GYU-GAZE</author>
+  <packageId>gyugaze.zenithframe.abilitytests</packageId><supportedVersions><li>1.6</li></supportedVersions>
+  <modDependencies><li><packageId>gyugaze.zenithframe.rimward</packageId><displayName>ZENITH FRAME</displayName></li></modDependencies>
+  <description>Disposable-profile embarked ability integration harness. Development only.</description>
+</ModMetaData>

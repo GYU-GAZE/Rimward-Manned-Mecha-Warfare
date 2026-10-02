@@ -71,7 +71,10 @@ $code = (Get-ChildItem "$repo/Source" -Filter '*.cs' -Recurse | Where-Object Ful
 $coreCode = (Get-ChildItem "$repo/Source/ZenithFrame" -Filter '*.cs' -Recurse | Where-Object FullName -NotMatch '\\obj\\' | Get-Content -Raw) -join "`n"
 Assert-Static ($code -notmatch 'Coventech') 'Forbidden Coventech coupling in production source'
 Assert-Static ($coreCode -notmatch 'System\.Reflection|\bGetField\(|\bGetMethod\(') 'Reflection leaked outside the isolated optional compatibility boundary'
-Assert-Static ([regex]::Matches($code, 'System\.Reflection').Count -le 1 -and $code -notmatch '\bGetField\(|\bGetMethod\(') 'Optional compatibility reflection must remain a single cached Harmony target lookup'
+Assert-Static ([regex]::Matches($code, 'System\.Reflection').Count -le 2 -and $code -notmatch '\bGetField\(|\bGetMethod\(') 'Optional compatibility reflection must remain cached and isolated to the VPE transpiler'
+Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(ThingWithComps\).*GetComp' -and $code -match 'JobDriver_CastAbilityOnce.*CompAbilities.*MethodType\.Getter') 'VEF routing must patch the exact cast-driver getter and never the shared generic GetComp body'
+Assert-Static ($code -match 'Patch_VPEPsycastWarmup_CompAbilities' -and $code -match '<WarmupToil>b__0') 'VPE warmup requires its narrow generated-method transpiler'
+Assert-Static ($code -match 'Patch_FramePilotAbility_VEFHostileAI' -and $code -match 'ability\.def\.range') 'VEF hostile AI must select validated targets within each ability range'
 Assert-Static ($code -notmatch 'catch\s*(\([^)]*\))?\s*\{\s*\}') 'Swallowed exception'
 Assert-Static ($code -notmatch 'MechanitorUtility|IsColonyMech|IsColonyMechPlayerControlled|GetMechControlGroup|OverseerSubject|OutOfCommandRange') 'Biotech mech-control semantics leaked into production Frame code'
 Assert-Static ($code -match 'Patch_Pawn_CanTakeOrder_Frame' -and $code -match 'Patch_FloatMenuOptionProvider_SelectedPawnValid_Frame') 'Pawn-order Harmony bridge is incomplete'

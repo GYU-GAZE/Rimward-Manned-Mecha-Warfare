@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>ZF_TestVEFTargetEffect</defName>
+    <label>VEF pilot target marker</label>
+    <description>Harness-only VEF ability marker.</description>
+    <hediffClass>HediffWithComps</hediffClass>
+    <isBad>true</isBad>
+  </HediffDef>
+  <VEF.Abilities.AbilityDef>
+    <defName>ZF_TestVEFTarget</defName>
+    <label>VEF pilot target test</label>
+    <description>Harness-only VEF targeted ability.</description>
+    <abilityClass>ZenithFrame.AbilityTests.VEF.TestTargetAbility</abilityClass>
+    <iconPath>UI/Commands/DesirePower</iconPath>
+    <showUndrafted>true</showUndrafted>
+    <targetMode>Pawn</targetMode>
+    <range>12</range>
+    <castTime>30</castTime>
+    <cooldownTime>1800</cooldownTime>
+    <requireLineOfSight>true</requireLineOfSight>
+  </VEF.Abilities.AbilityDef>
+</Defs>
