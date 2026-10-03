@@ -1,5 +1,46 @@
 # MVP validation status
 
+## Validated Frame body, damage and pilot trauma
+
+Branch: `feat/frame-body-pilot-trauma`
+
+Implementation HEAD before this validation record: `962997b`
+
+Executed 2026-10-03 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony assembly/file 2.4.1.0, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean core + optional VEF Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/body checks | PASS, 218 checks |
+| Full lifecycle, Core + Harmony | PASS, 738 checks, 32 successful fresh processes, 31 save/load transitions |
+| Full lifecycle, installed official DLC + Harmony | PASS, 738 checks, 32 fresh processes, 31 save/load transitions |
+| New body, damage, trauma, self-tend and healthy-hack coverage | PASS, 56 assertions in phases 29 through 31 per lifecycle profile |
+| Ability matrix A: Core only | PASS, 37 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: installed official DLC | PASS, 50 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: installed official DLC + real VEF, no VPE | PASS, 64 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: installed official DLC + real VEF + real VPE | PASS, 77 checks, 4 fresh processes, 3 save/load transitions |
+| Runtime log gates | PASS for every accepted phase, with no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll     A38BC2CB4FF33C77AFAC466D3B07B7A6936D01524F4B3E68A4565B2B6838BD67
+ZenithFrame.VEF.dll 44E6C457C541C5959F2888DE60DC3F66576A7D33B7C4FEBAD7633F987236D755
+```
+
+The Frame now uses a purpose-built 25-part mechanical body and ordinary Pawn health. Torso or Core destruction is fatal; loss of Cockpit, Head or Moving capacity downs the chassis; manipulation and sight loss remain nonfatal. Frame-only lethal-damage-threshold, required-capacity death and pain shock are suppressed without changing ordinary pawns. The deterministic development damage command targets a real selected body part and every result remains a real injury or missing part in the standard health model.
+
+Damage resolved specifically on the Cockpit transfers half its resolved amount to the exact contained pilot through ordinary `Pawn.TakeDamage`. Contained pilots receive health ticks without a full pawn tick, so bleeding and health progression continue while embarked. A downed pilot is ejected immediately. Frame death detaches the pilot before corpse creation, preserving one exact pilot object and avoiding corpse ownership corruption.
+
+An embarked pilot can self-tend using only exact medicine held in that pilot's inventory. The job keeps the Frame as the spawned physical actor, the exact pilot as patient and doctor, and the exact medicine as a continuously validated target. Tend quality, Medicine skill and deterministic XP belong to that pilot and survive fresh-process save/load. Recovery removes repairable injuries but never reconstructs a missing body part. A living, empty hostile or factionless Frame can be hacked while healthy; an occupied chassis remains ineligible.
+
+The Frame inspect UI now reports machine Moving, Manipulation and Sight capacities plus the exact pilot's health, consciousness and bleed rate. Tests cover body topology, nonfatal capacity loss, fatal parts, lethal-threshold suppression, exact cockpit transfer, embarked bleeding, delayed pilot downing and ejection, corpse safety, save/load identity, exact-medicine self-tend, pilot Medicine XP, healthy hacking and the no-reconstruction recovery boundary.
+
+One official-DLC hostile-AI phase initially retained a stale vanilla `Goto` job after the test fixture moved its target. The fixture now stops that stale job after relocation and lets the ordinary ThinkTree reacquire the target. The corrected phase and every later phase passed without assigning an attack target or combat job from the test.
+
+The current internal-part hit chances and the 50 percent cockpit transfer are provisional balance values. Body definitions use a minimal `0.01` torso frostbite vulnerability because the RimWorld body-definition loader rejects a body whose complete vulnerability total is zero; the Frame's temperature range makes this inert in ordinary play. Missing-part reconstruction remains deliberately unavailable until a later repair-system milestone.
+
 ## Validated proper Frame UI
 
 Branch: `feat/frame-ui`
