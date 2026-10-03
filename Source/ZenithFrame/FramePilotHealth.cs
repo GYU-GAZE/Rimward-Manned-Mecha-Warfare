@@ -41,7 +41,7 @@ namespace ZenithFrame
                     EndJobWith(JobCondition.Incompletable);
                     return;
                 }
-                ExactPilot.skills?.Learn(SkillDefOf.Medicine, 60f);
+                ExactPilot.skills?.Learn(SkillDefOf.Medicine, 60f, direct: true, ignoreLearnRate: true);
                 TendUtility.DoTend(ExactPilot, ExactPilot, Medicine);
             };
             finish.defaultCompleteMode = ToilCompleteMode.Instant;
