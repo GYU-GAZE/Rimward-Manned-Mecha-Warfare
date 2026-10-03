@@ -2659,7 +2659,8 @@ namespace ZenithFrame.Tests
                     "completed self-tend consumes exactly one carried medicine and no map stockpile item");
                 SkillRecord medicineSkill = pilot.skills.GetSkill(SkillDefOf.Medicine);
                 Check(medicineSkill.TotallyDisabled || medicineSkill.XpTotalEarned > damageMedicineXpBefore,
-                    "embarked self-tend awards Medicine XP to the exact capable pilot");
+                    "embarked self-tend awards Medicine XP to the exact capable pilot; before=" + damageMedicineXpBefore +
+                    " after=" + medicineSkill.XpTotalEarned + " disabled=" + medicineSkill.TotallyDisabled);
                 Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
                     "embarked self-tend uses normal TendUtility on the real pilot wounds");
 
