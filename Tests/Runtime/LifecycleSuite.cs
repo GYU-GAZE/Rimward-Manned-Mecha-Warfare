@@ -181,7 +181,9 @@ namespace ZenithFrame.Tests
                 else if (phase == 24) FramePowerUtilityStart();
                 else if (phase == 25) FramePowerUtilityUnpoweredLoad();
                 else if (phase == 26) FramePowerUtilityPoweredLifecycle();
-                else FramePowerUtilityWorldAndDestruction();
+                else if (phase == 27) FramePowerUtilityWorldAndDestruction();
+                else if (phase == 28) FrameUiLifecycle();
+                else FrameUiWorldLoad();
             }
             catch (Exception e)
             {
@@ -2306,6 +2308,134 @@ namespace ZenithFrame.Tests
             Check(worldUtility.Destroyed && worldPower.Destroyed && !worldFrame.Cockpit.HasPilot &&
                 Current.Game.GetComponent<PilotRecovery>().GetDirectlyHeldThings().Contains(worldPilot),
                 "off-map Frame destruction deterministically destroys addons while transferring exact pilot safely");
+
+            frame = SpawnFrame(Find.CurrentMap.Center + IntVec3.West * 12);
+            frameId = frame.GetUniqueLoadID();
+            FrameUiSnapshot empty = FrameUiSnapshot.From(frame);
+            Check(empty.Frame == frame && empty.Pilot == null && empty.PilotForInspection == null &&
+                empty.Weapon == frame.Loadout.InstalledWeapon && empty.Utility == null && empty.Power == frame.Loadout.InstalledPower,
+                "empty player Frame UI resolves exact chassis loadout and no pilot safely");
+            Check(empty.OperationalState == FrameOperationalState.Unpiloted && !empty.IsReadOnly && empty.CanRename &&
+                !empty.CanDisembark && !empty.CanInspectPilot,
+                "empty player Frame UI derives unpiloted state and only valid player actions");
+            Check(frame.def.inspectorTabs.Contains(typeof(ITab_Frame)), "Frame definition exposes the native compact Frame inspect tab");
+            Check(FrameUiActions.TryRename(frame, "Gespenst-03") && frame.Name.ToStringFull == "Gespenst-03",
+                "Frame rename writes normal Pawn.Name and immediately changes chassis identity");
+            Check(!FrameUiActions.TryRename(frame, "") && !FrameUiActions.TryRename(frame, new string('X', 29)),
+                "Frame naming rejects empty and overlong labels without replacing valid identity");
+
+            pilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+            pilot.Name = new NameTriple("Alexandria", "Pilot-With-A-Long-Name", "Constantinople");
+            SetCombatSkills(pilot, 13, 7);
+            GenSpawn.Spawn(pilot, frame.Position + IntVec3.East, frame.Map);
+            pilotId = pilot.GetUniqueLoadID();
+            Check(frame.Cockpit.TryBoard(pilot), "Frame UI fixture boards its exact long-named pilot");
+            loadoutUtility = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"));
+            Check(frame.Loadout.TryInstallUtility(loadoutUtility), "Frame UI fixture installs its exact Utility through loadout API");
+            loadoutPower = frame.Loadout.InstalledPower;
+            FrameUiSnapshot occupied = FrameUiSnapshot.From(frame);
+            Check(occupied.Pilot == pilot && occupied.PilotForInspection == pilot && !pilot.Spawned &&
+                occupied.ShootingLevel == 13 && occupied.MeleeLevel == 7,
+                "occupied Frame UI reads exact contained pilot identity and live combat skills without spawning a duplicate");
+            Check(occupied.Weapon == frame.Loadout.InstalledWeapon && occupied.Utility == loadoutUtility &&
+                occupied.Power == loadoutPower && occupied.AvailablePower == 2 && occupied.RequiredPower == 2 &&
+                occupied.UtilityState == FrameUtilityState.Powered,
+                "Frame UI reads exact physical Weapon Utility Power and powered static budget");
+            int abilitiesBefore = frame.GetGizmos().OfType<Command_Ability>().Count();
+            ThingWithComps weaponBefore = frame.Loadout.InstalledWeapon;
+            FrameUiSnapshot.From(frame);
+            Check(frame.GetGizmos().OfType<Command_Ability>().Count() == abilitiesBefore &&
+                frame.Loadout.InstalledWeapon == weaponBefore && frame.Loadout.InstalledUtility == loadoutUtility &&
+                frame.Loadout.InstalledPower == loadoutPower && ReferenceEquals(pilot.holdingOwner?.Owner, frame.Cockpit),
+                "reading Frame UI data creates no ability commands pilot copies or loadout duplicates");
+            Check(frame.Loadout.TryRemovePower(out Thing exactPower) && ReferenceEquals(exactPower, loadoutPower) &&
+                FrameUiSnapshot.From(frame).UtilityState == FrameUtilityState.Unpowered,
+                "removing exact Power updates Frame UI data to unpowered immediately");
+            Check(frame.Loadout.TryInstallPower(exactPower) && ReferenceEquals(frame.Loadout.InstalledPower, loadoutPower) &&
+                FrameUiSnapshot.From(frame).UtilityState == FrameUtilityState.Powered,
+                "reinstalling exact Power updates Frame UI data to powered without recreating Utility");
+            SaveNext(28);
+        }
+
+        private void FrameUiLifecycle()
+        {
+            if (step != 0) return;
+            FrameUiSnapshot loaded = FrameUiSnapshot.From(frame);
+            string pilotName = pilot.Name.ToStringFull;
+            Check(frame.GetUniqueLoadID() == frameId && pilot.GetUniqueLoadID() == pilotId && frame.Name.ToStringFull == "Gespenst-03" &&
+                loaded.Pilot == pilot && loaded.Utility == loadoutUtility && loaded.Power == loadoutPower,
+                "fresh-process load preserves Frame name exact pilot and exact displayed loadout objects");
+            Check(FrameUiActions.TryRename(frame, "Gespenst-04") && pilot.Name.ToStringFull == pilotName,
+                "renaming Frame never changes contained pilot name");
+            Check(frame.Cockpit.TryDisembark() && FrameUiSnapshot.From(frame).Pilot == null,
+                "disembark immediately changes Frame UI pilot field to None through shared cockpit path");
+            other = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), frame.Position + IntVec3.East, frame.Map);
+            Check(frame.Cockpit.TryBoard(other) && frame.Name.ToStringFull == "Gespenst-04" && FrameUiSnapshot.From(frame).Pilot == other,
+                "pilot swap immediately restores exact pilot UI reference without changing Frame name");
+            Check(frame.Cockpit.TryDisembark(), "UI pilot-swap fixture releases replacement pilot");
+            RelocatePawn(pilot, frame.Position + IntVec3.East, frame.Map);
+            Check(frame.Cockpit.TryBoard(pilot), "original UI pilot reboards exact chassis");
+            DownByMissingLegs(frame);
+            FrameUiSnapshot disabled = FrameUiSnapshot.From(frame);
+            Check(disabled.OperationalState == FrameOperationalState.Disabled && disabled.IsRecoverable && disabled.Pilot == null && pilot.Spawned,
+                "downing derives disabled recoverable No Pilot UI from real health and cockpit state");
+            Check(frame.Recovery.TryRecover() && FrameUiSnapshot.From(frame).OperationalState == FrameOperationalState.Unpiloted,
+                "recovery immediately updates UI state from the same real chassis health");
+
+            hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(frame.Position + IntVec3.North * 8, frame.Map);
+            hostilePilot = hostileFrame.Cockpit.Pilot;
+            FrameUiSnapshot hostile = FrameUiSnapshot.From(hostileFrame);
+            Check(hostile.Pilot == hostilePilot && hostile.PilotForInspection == hostilePilot && hostile.IsReadOnly &&
+                !hostile.CanRename && !hostile.CanDisembark && hostile.CanInspectPilot && !hostilePilot.Spawned,
+                "hostile occupied Frame UI exposes exact pilot inspection read-only without spawning or player actions");
+            DownByMissingLegs(hostileFrame);
+            FrameUiSnapshot hostileDisabled = FrameUiSnapshot.From(hostileFrame);
+            Check(hostileDisabled.IsHackable && hostileDisabled.IsReadOnly && hostileDisabled.OperationalState == FrameOperationalState.Disabled,
+                "hostile disabled Frame UI derives hackable read-only status from existing components");
+            RelocatePawn(pilot, hostileFrame.Position + IntVec3.East, hostileFrame.Map);
+            Check(hostileFrame.Hacking.TryHack(pilot) && !FrameUiSnapshot.From(hostileFrame).IsReadOnly,
+                "hacking immediately updates UI ownership without separate saved presentation state");
+
+            FramePawn factionless = SpawnFactionlessFrame(frame.Position + IntVec3.South * 8);
+            DownByMissingLegs(factionless);
+            FrameUiSnapshot factionlessData = FrameUiSnapshot.From(factionless);
+            Check(factionlessData.Frame == factionless && factionlessData.Pilot == null && factionlessData.IsReadOnly &&
+                factionlessData.IsHackable && factionlessData.OperationalState == FrameOperationalState.Disabled,
+                "factionless disabled Frame UI resolves safely with derived hackable status");
+
+            Check(frame.Recovery.TryRecover() || !frame.Downed, "player UI chassis is mobile before world fixture");
+            RelocatePawn(pilot, frame.Position + IntVec3.East, frame.Map);
+            Check(frame.Cockpit.TryBoard(pilot), "player UI fixture reboards before final command audit");
+            int commandCount = frame.GetGizmos().OfType<Command_Ability>().Count();
+            FrameUiSnapshot.From(frame);
+            Check(frame.GetGizmos().OfType<Command_Ability>().Count() == commandCount,
+                "opening UI state around lifecycle changes never duplicates ability commands");
+
+            worldFrame = SpawnFrame(frame.Position + IntVec3.West * 8);
+            worldPilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(worldPilot, worldFrame.Position + IntVec3.East, frame.Map);
+            Check(worldFrame.Cockpit.TryBoard(worldPilot), "off-map UI fixture boards exact pilot");
+            worldFrameId = worldFrame.GetUniqueLoadID();
+            worldPilotId = worldPilot.GetUniqueLoadID();
+            worldFrame.DeSpawn();
+            Find.WorldPawns.PassToWorld(worldFrame);
+            Find.WorldPawns.ForcefullyKeptPawns.Add(worldFrame);
+            FrameUiSnapshot worldData = FrameUiSnapshot.From(worldFrame);
+            Check(worldData.Frame == worldFrame && worldData.Pilot == worldPilot && !worldFrame.Spawned && !worldPilot.Spawned,
+                "off-map Frame UI data resolves exact nested pilot without map assumptions or temporary spawn");
+            SaveNext(29);
+        }
+
+        private void FrameUiWorldLoad()
+        {
+            if (step != 0) return;
+            FrameUiSnapshot worldData = FrameUiSnapshot.From(worldFrame);
+            Check(worldFrame.GetUniqueLoadID() == worldFrameId && worldPilot.GetUniqueLoadID() == worldPilotId &&
+                worldData.Pilot == worldPilot && worldData.Weapon == worldFrame.Loadout.InstalledWeapon &&
+                worldData.Power == worldFrame.Loadout.InstalledPower,
+                "fresh-process world load keeps UI bound to exact Frame pilot Weapon and Power identities");
+            Check(!worldFrame.Spawned && !worldPilot.Spawned && ReferenceEquals(worldPilot.holdingOwner?.Owner, worldFrame.Cockpit),
+                "world UI inspection data never spawns or duplicates the contained pilot");
             Finish();
         }
 

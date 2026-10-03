@@ -164,6 +164,19 @@ Assert-Static ($loadoutCode -match 'override float GetStatOffset\(StatDef stat\)
 Assert-Static ($loadoutCode -notmatch 'override void CompTick|battery|recharge|fuel|temperature|heat') 'Static addon power must not introduce a tick simulation fuel heat or recharge system'
 Assert-Static ($loadoutCode -match 'PrepareForFrameDestruction' -and $loadoutCode -match 'Frame\.Spawned.*TryDrop' -and $loadoutCode -match 'exact\.Destroy\(\)') 'Destruction requires explicit spawned salvage and off-map destruction policies'
 Assert-Static ($loadoutCode -notmatch 'InstalledUtilityDef|InstalledPowerDef|utilityActive|powerActive') 'Installed addon identity and active state must not be serialized as parallel fake truth'
+$uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
+Assert-Static ($frame.Defs.ThingDef[0].inspectorTabs.li -eq 'ZenithFrame.ITab_Frame' -and $uiCode -match 'class ITab_Frame : ITab') 'Frame UI must use a native inspect tab attached to the Frame definition'
+Assert-Static ($uiCode -match 'class FrameUiSnapshot' -and $uiCode -match 'Pilot = frame\?\.Cockpit\?\.Pilot' -and $uiCode -match 'Weapon = loadout\?\.InstalledWeapon' -and $uiCode -match 'Utility = loadout\?\.InstalledUtility' -and $uiCode -match 'Power = loadout\?\.InstalledPower') 'Frame UI presentation must read exact cockpit and physical loadout objects'
+Assert-Static ($uiCode -match 'AvailableAddonPower' -and $uiCode -match 'RequiredAddonPower' -and $uiCode -match 'IsUtilityPowered') 'Frame UI power display must derive from the live static addon budget'
+Assert-Static ($uiCode -match 'summaryHealth.*SummaryHealthPercent' -and $uiCode -match 'IsRecoverablyDisabled' -and $uiCode -match 'IsHackableDisabledChassis') 'Frame UI condition recovery and hacking state must derive from existing authoritative components'
+Assert-Static ($uiCode -match 'Dialog_Rename<Dialog_RenameFrame\.Target>' -and $uiCode -match 'frame\.Name = new NameSingle' -and $uiCode -notmatch 'customFrameName|Scribe_') 'Frame naming must use normal Pawn.Name persistence without parallel UI state'
+Assert-Static ($uiCode -match 'PortraitsCache\.Get\(data\.Pilot' -and $uiCode -match 'CharacterCardUtility\.DrawCharacterCard' -and $uiCode -match 'HealthCardUtility\.DrawPawnHealthCard') 'Contained pilot inspection must reuse vanilla portrait character and health presentation'
+Assert-Static ($uiCode -notmatch 'GenSpawn|\.DeSpawn\(|ThingMaker|PassToWorld') 'Frame UI must never temporarily spawn move or recreate the contained pilot or loadout items'
+Assert-Static ($uiCode -notmatch 'ZF_DebugRifle|ZF_DebugReactor|ZF_DebugMobilityBooster|ZF_DebugFrameOverdrive|ZF_DebugFrame') 'Production Frame UI must remain data-driven with no debug content DefNames'
+Assert-Static ($uiCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(|Coventech|MechanitorUtility|IsColonyMech|Overseer') 'Frame UI must use stable local APIs without reflection Coventech or Biotech control semantics'
+Assert-Static ($uiCode -notmatch 'GainAbility|GiveAbility|StartAbilityJob|QueueCastingJob|GetGizmos\(') 'Frame UI must display ability summaries without recreating commands or entering targeting'
+Assert-Static ($uiCode -match 'IsReadOnly = frame\?\.Faction != Faction\.OfPlayer' -and $uiCode -match 'CanRename = .*Faction == Faction\.OfPlayer' -and $uiCode -match 'CanDisembark = .*Faction == Faction\.OfPlayer') 'Hostile and factionless Frame UI must remain read-only'
+Assert-Static ($uiCode -match 'Text\.WordWrap = false' -and $uiCode -match 'TooltipHandler\.TipRegion' -and $uiCode -match 'BeginScrollView') 'Frame UI must clip long labels with tooltips and remain scrollable at constrained scale'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"
