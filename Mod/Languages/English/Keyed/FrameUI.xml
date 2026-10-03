@@ -9,6 +9,12 @@
   <ZF_Chassis>Chassis</ZF_Chassis>
   <ZF_OperationalState>Operational state</ZF_OperationalState>
   <ZF_Integrity>Integrity</ZF_Integrity>
+  <ZF_Moving>Moving</ZF_Moving>
+  <ZF_Manipulation>Manipulation</ZF_Manipulation>
+  <ZF_Sight>Sight</ZF_Sight>
+  <ZF_PilotHealth>Health</ZF_PilotHealth>
+  <ZF_Consciousness>Consciousness</ZF_Consciousness>
+  <ZF_BleedRate>Bleeding</ZF_BleedRate>
   <ZF_FrameHealth>Frame health</ZF_FrameHealth>
   <ZF_FrameActionsTip>These actions operate on the selected physical chassis.</ZF_FrameActionsTip>
   <ZF_InspectPilot>Inspect pilot</ZF_InspectPilot>

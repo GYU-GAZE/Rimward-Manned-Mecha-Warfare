@@ -35,6 +35,12 @@ namespace ZenithFrame
         public FrameUtilityState UtilityState { get; }
         public FrameOperationalState OperationalState { get; }
         public float Integrity { get; }
+        public float FrameMoving { get; }
+        public float FrameManipulation { get; }
+        public float FrameSight { get; }
+        public float PilotHealth { get; }
+        public float PilotConsciousness { get; }
+        public float PilotBleedRate { get; }
         public int ShootingLevel { get; }
         public int MeleeLevel { get; }
         public int FrameAbilityCount { get; }
@@ -60,6 +66,12 @@ namespace ZenithFrame
                 loadout.IsUtilityPowered ? FrameUtilityState.Powered : FrameUtilityState.Unpowered;
             OperationalState = ResolveOperationalState(frame);
             Integrity = frame?.health?.summaryHealth?.SummaryHealthPercent ?? 0f;
+            FrameMoving = Capacity(frame, PawnCapacityDefOf.Moving);
+            FrameManipulation = Capacity(frame, PawnCapacityDefOf.Manipulation);
+            FrameSight = Capacity(frame, PawnCapacityDefOf.Sight);
+            PilotHealth = Pilot?.health?.summaryHealth?.SummaryHealthPercent ?? 0f;
+            PilotConsciousness = Capacity(Pilot, PawnCapacityDefOf.Consciousness);
+            PilotBleedRate = Pilot?.health?.hediffSet?.BleedRateTotal ?? 0f;
             ShootingLevel = SkillLevel(Pilot, SkillDefOf.Shooting);
             MeleeLevel = SkillLevel(Pilot, SkillDefOf.Melee);
             FrameAbilityCount = frame?.abilities?.AllAbilitiesForReading.Count() ?? 0;
@@ -74,6 +86,8 @@ namespace ZenithFrame
         public static FrameUiSnapshot From(FramePawn frame) => new FrameUiSnapshot(frame);
 
         private static int SkillLevel(Pawn pawn, SkillDef skill) => pawn?.skills?.GetSkill(skill)?.Level ?? -1;
+        private static float Capacity(Pawn pawn, PawnCapacityDef capacity) =>
+            pawn?.health?.capacities?.GetLevel(capacity) ?? 0f;
 
         private static FrameOperationalState ResolveOperationalState(FramePawn frame)
         {
@@ -146,7 +160,7 @@ namespace ZenithFrame
             if (frame == null) return;
             FrameUiSnapshot data = FrameUiSnapshot.From(frame);
             Rect outer = new Rect(12f, 10f, size.x - 24f, size.y - 20f);
-            Rect view = new Rect(0f, 0f, outer.width - 16f, 505f);
+            Rect view = new Rect(0f, 0f, outer.width - 16f, 690f);
             Widgets.BeginScrollView(outer, ref scrollPosition, view);
             float y = 0f;
             DrawFrameSection(data, view.width, ref y);
@@ -164,6 +178,9 @@ namespace ZenithFrame
             Row("Faction".Translate(), data.Frame.Faction?.Name ?? "None".Translate(), width, ref y);
             Row("ZF_OperationalState".Translate(), StateLabel(data.OperationalState), width, ref y);
             Row("ZF_Integrity".Translate(), data.Integrity.ToStringPercent(), width, ref y);
+            Row("ZF_Moving".Translate(), data.FrameMoving.ToStringPercent(), width, ref y);
+            Row("ZF_Manipulation".Translate(), data.FrameManipulation.ToStringPercent(), width, ref y);
+            Row("ZF_Sight".Translate(), data.FrameSight.ToStringPercent(), width, ref y);
 
             Rect buttons = new Rect(0f, y, width, 30f);
             float half = (width - 6f) / 2f;
@@ -185,16 +202,20 @@ namespace ZenithFrame
                 return;
             }
 
-            Rect portrait = new Rect(0f, y, 82f, 100f);
+            Rect portrait = new Rect(0f, y, 82f, 124f);
             GUI.DrawTexture(portrait, PortraitsCache.Get(data.Pilot, portrait.size, Rot4.South));
-            Rect details = new Rect(92f, y, width - 92f, 100f);
+            Rect details = new Rect(92f, y, width - 92f, 124f);
             float py = details.y;
             ClippedLabel(new Rect(details.x, py, details.width, 24f), data.Pilot.LabelShortCap, GameFont.Medium);
             py += 27f;
             ClippedLabel(new Rect(details.x, py, details.width, 22f), (data.Pilot.Faction?.Name ?? "None".Translate()) + " - " + PilotState(data.Pilot));
             py += 23f;
             ClippedLabel(new Rect(details.x, py, details.width, 22f), "Shooting".Translate() + ": " + data.ShootingLevel + "    " + "Melee".Translate() + ": " + data.MeleeLevel);
-            y += 106f;
+            py += 23f;
+            ClippedLabel(new Rect(details.x, py, details.width, 22f), "ZF_PilotHealth".Translate() + ": " + data.PilotHealth.ToStringPercent() + "    " + "ZF_Consciousness".Translate() + ": " + data.PilotConsciousness.ToStringPercent());
+            py += 23f;
+            ClippedLabel(new Rect(details.x, py, details.width, 22f), "ZF_BleedRate".Translate() + ": " + data.PilotBleedRate.ToStringPercent() + "/d");
+            y += 130f;
 
             float half = (width - 6f) / 2f;
             if (Widgets.ButtonText(new Rect(0f, y, half, 28f), "ZF_InspectPilot".Translate()))
