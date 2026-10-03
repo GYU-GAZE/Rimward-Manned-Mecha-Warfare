@@ -1015,6 +1015,7 @@ namespace ZenithFrame.Tests
                 ClearTestArea(CellRect.FromLimits(hostileFrame.Position, firingCell).ExpandedBy(2), hostileFrame.Map);
                 RelocatePawn(playerTarget, firingCell, hostileFrame.Map);
                 playerTarget.stances.stunner.StunFor(5000, hostileFrame);
+                hostileFrame.jobs.StopAll();
                 Next(2, 4800);
             }
             else if (step == 1 && !hostileProbePassed && Find.TickManager.TicksGame >= deadline - 2300)
