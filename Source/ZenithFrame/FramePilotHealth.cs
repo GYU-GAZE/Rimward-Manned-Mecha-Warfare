@@ -29,7 +29,6 @@ namespace ZenithFrame
                 float speed = pilot.GetStatValue(StatDefOf.MedicalTendSpeed);
                 tend.actor.jobs.curDriver.ticksLeftThisToil = (int)(600f / speed);
             };
-            tend.tickAction = () => ExactPilot?.skills?.Learn(SkillDefOf.Medicine, 0.1f);
             tend.defaultCompleteMode = ToilCompleteMode.Delay;
             tend.WithProgressBarToilDelay(TargetIndex.A);
             yield return tend;
@@ -42,6 +41,7 @@ namespace ZenithFrame
                     EndJobWith(JobCondition.Incompletable);
                     return;
                 }
+                ExactPilot.skills?.Learn(SkillDefOf.Medicine, 60f);
                 TendUtility.DoTend(ExactPilot, ExactPilot, Medicine);
             };
             finish.defaultCompleteMode = ToilCompleteMode.Instant;
