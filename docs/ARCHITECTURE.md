@@ -270,3 +270,13 @@ Production currently uses:
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
 The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge, machine-owned Frame ability lifecycle, embarked pilot abilities and physical Frame Weapon loadout were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+
+## Humanoid Frame body and pilot trauma
+
+`ZF_HumanoidFrameBody` replaces the temporary Lancer body with 25 mechanical records. Normal Pawn body-part and capacity code owns all chassis injury truth. Torso and internal Core are fatal. Head Assembly, internal Cockpit, and incapable Moving are disabling. Manipulation and Sight are performance capacities and are not death conditions.
+
+Frame-only health patches suppress vanilla lethal injury accumulation, generic lethal required capacities, and pain-shock downing while preserving explicit Hediff death and Torso core-part death. `FrameDamageRules` centralizes the additional Core, Head, Cockpit, and Moving queries without serialized flags.
+
+Resolved Cockpit injury transfers the chassis definition's fraction to the exact pilot through normal `Pawn.TakeDamage`. Cockpit health ticking calls only the contained pilot's `Pawn_HealthTracker.HealthTick`. Downed and Kill transitions eject the pilot immediately; vanilla then owns map downing, rescue, capture, medical care, and corpse creation.
+
+Embarked self-tend is a Frame job with exact pilot and carried-medicine targets. The pilot supplies MedicalTendSpeed, Medicine XP, wound state, and normal `TendUtility`; map medicine is never searched. See `docs/FRAME_DAMAGE_MODEL.md` for the complete contract and QA sequence.

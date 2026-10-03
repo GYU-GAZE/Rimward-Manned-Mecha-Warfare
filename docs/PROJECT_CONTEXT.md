@@ -696,6 +696,14 @@ The important rule is:
 ```text
 Mechs should reshape warfare.
 They should not invalidate the rest of RimWorld warfare.
+
+### Permanent humanoid Frame damage foundation
+
+The debug chassis now uses the original 25-part `ZF_HumanoidFrameBody`. Real Pawn body parts and capacities degrade Manipulation, Moving, and Sight. Torso/Core loss destroys; Head/Cockpit loss or incapable Moving disables; accumulated peripheral injury, pain shock, Manipulation, and Sight do not define Frame death.
+
+Internal Cockpit injury can transfer definition-driven damage to the exact contained pilot through normal human damage and armor. Contained pilot health ticks without full Pawn AI, and Downed or Kill transitions eject before ownership or corpse creation can become invalid. A healthy hostile or factionless Frame abandoned by its pilot is inert and hackable.
+
+The exact pilot may self-tend through a save-safe Frame job using only their own inventory and Medicine skill. Development recovery no longer reconstructs missing parts. Construction work, material reconstruction, timed hacking redesign, Docking Bays, and service logistics remain assigned to the next Frame Service & Docking milestone.
 ```
 
 ---

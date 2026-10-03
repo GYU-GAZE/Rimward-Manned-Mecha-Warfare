@@ -28,6 +28,12 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - Frame UI reads the exact selected `FramePawn`, cockpit pilot and physical loadout objects on demand; never cache or serialize copied presentation state
 - contained-pilot UI must use the real Pawn without temporary spawn/despawn, and hostile or factionless Frame inspection stays read-only
 - ability controls remain in their existing command pipelines; the Frame information tab may summarize them but must never recreate cast commands or targeters
+- humanoid Frame health uses `ZF_HumanoidFrameBody` and the real `Pawn_HealthTracker`; never add parallel Frame HP, copied pilot HP, or serialized disable/death flags
+- Torso or internal Core destruction kills a Frame; missing Head Assembly, missing internal Cockpit, or incapable Moving downs it; Manipulation, Sight, pain shock, required-capacity lethality, and accumulated injury threshold are nonfatal unless an explicit Hediff independently causes death
+- pilot trauma is permitted only when the resolved Frame `DamageResult` contains positive injury on the internal Cockpit; transferred damage must call normal `Pawn.TakeDamage` on the exact contained pilot
+- contained pilot health advances through `Pawn_HealthTracker.HealthTick`, never a full contained `Pawn.DoTick`; Downed and Kill transitions must detach the exact pilot immediately
+- embarked self-tend runs as a Frame job but doctors and patients the exact pilot, uses only medicine in that pilot's inventory, and awards Medicine XP to that pilot
+- recovery may clear repairable injuries and reclaim the exact dropped Weapon but must never reconstruct missing mechanical body parts; material reconstruction belongs to Frame Service & Docking
 
 ### Frames are NOT Biotech mechs
 
