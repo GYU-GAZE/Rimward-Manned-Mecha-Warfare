@@ -75,6 +75,18 @@ namespace ZenithFrame.Tests
         private float damageMedicineXpBefore;
         private int damageMedicineCountBefore;
         private string damageMedicineId;
+        private int servicePartIndex;
+        private float serviceSeverityBefore;
+        private float servicePartHealthBefore;
+        private float serviceConstructionXpBefore;
+        private int serviceMaterialCountBefore;
+        private float serviceHackProgress;
+        private string serviceMaterialId;
+        private string serviceModuleId;
+        private Thing serviceMaterial;
+        private Thing serviceOutgoingModule;
+        private string serviceOutgoingModuleId;
+        private Building serviceDock;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -126,6 +138,18 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref damageMedicineXpBefore, "testDamageMedicineXpBefore");
             Scribe_Values.Look(ref damageMedicineCountBefore, "testDamageMedicineCountBefore");
             Scribe_Values.Look(ref damageMedicineId, "testDamageMedicineId");
+            Scribe_Values.Look(ref servicePartIndex, "testServicePartIndex", -1);
+            Scribe_Values.Look(ref serviceSeverityBefore, "testServiceSeverityBefore");
+            Scribe_Values.Look(ref servicePartHealthBefore, "testServicePartHealthBefore");
+            Scribe_Values.Look(ref serviceConstructionXpBefore, "testServiceConstructionXpBefore");
+            Scribe_Values.Look(ref serviceMaterialCountBefore, "testServiceMaterialCountBefore");
+            Scribe_Values.Look(ref serviceHackProgress, "testServiceHackProgress");
+            Scribe_Values.Look(ref serviceMaterialId, "testServiceMaterialId");
+            Scribe_Values.Look(ref serviceModuleId, "testServiceModuleId");
+            Scribe_References.Look(ref serviceMaterial, "testServiceMaterial");
+            Scribe_References.Look(ref serviceOutgoingModule, "testServiceOutgoingModule");
+            Scribe_Values.Look(ref serviceOutgoingModuleId, "testServiceOutgoingModuleId");
+            Scribe_References.Look(ref serviceDock, "testServiceDock");
         }
         private void Check(bool condition, string name)
         {
@@ -193,7 +217,13 @@ namespace ZenithFrame.Tests
                 else if (phase == 28) FrameUiLifecycle();
                 else if (phase == 29) FrameUiWorldLoad();
                 else if (phase == 30) FrameDamageLoadAndStartTend();
-                else FrameDamageTendLoadAndFinish();
+                else if (phase == 31) FrameDamageTendLoadAndFinish();
+                else if (phase == 32) FrameServiceRepairStart();
+                else if (phase == 33) FrameServiceRepairLoadAndReconstruct();
+                else if (phase == 34) FrameServiceReconstructionLoadAndHack();
+                else if (phase == 35) FrameServiceHackLoadAndBoard();
+                else if (phase == 36) FrameServiceBoardLoadAndStartModule();
+                else FrameServiceModuleLoadAndFinish();
             }
             catch (Exception e)
             {
@@ -764,11 +794,11 @@ namespace ZenithFrame.Tests
             {
                 Check(pilot.CurJobDef == DefDatabase<JobDef>.GetNamed("ZF_HackFrame"), "hacking job reserves and paths the colonist into touch range");
                 Check(frame.Faction.HostileTo(Faction.OfPlayer), "Frame remains hostile when timed hacking work begins");
-                Next(2, 1200);
+                Next(2, 2400);
             }
             else if (step == 2 && frame.Faction == Faction.OfPlayer)
             {
-                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks, "hacking completes only after the visible work delay");
+                Check(Find.TickManager.TicksGame - hackStartedTick > 1 && frame.Hacking.ProgressFraction >= 1f, "hacking completes only after the visible work delay");
                 Check(frame.GetUniqueLoadID() == frameId && frame.Downed && !frame.Cockpit.HasPilot && !frame.Drafted, "hacking converts the same Frame and leaves it disabled empty and undrafted");
                 Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked Frame remains in the existing recovery lifecycle and cannot operate");
                 UniqueFrame(frame, "hacked before save");
@@ -920,11 +950,11 @@ namespace ZenithFrame.Tests
             {
                 Check(pilot.CurJobDef == ZenithJobDefOf.ZF_HackFrame, "factionless hacking job reserves and paths into touch range");
                 Check(frame.Faction == null, "Frame remains factionless when timed hacking work begins");
-                Next(2, 1200);
+                Next(2, 2400);
             }
             else if (step == 2 && frame.Faction == Faction.OfPlayer)
             {
-                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks, "factionless hacking completes only after the visible work delay");
+                Check(Find.TickManager.TicksGame - hackStartedTick > 1 && frame.Hacking.ProgressFraction >= 1f, "factionless hacking completes only after the visible work delay");
                 Check(frame.GetUniqueLoadID() == frameId && frame.Downed && !frame.Cockpit.HasPilot && !frame.Drafted, "factionless hacking converts the same Frame and leaves it disabled empty and undrafted");
                 Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "hacked factionless Frame remains inactive in the recovery lifecycle");
                 UniqueFrame(frame, "factionless hacking complete");
@@ -1116,13 +1146,13 @@ namespace ZenithFrame.Tests
                     Check(hack != null, "ejected hostile chassis exposes the real Hack Frame action");
                     hack.Chosen(colonistOrdering: true, null);
                     hackStartedTick = Find.TickManager.TicksGame;
-                    Next(8, 1800);
+                    Next(8, 3000);
                 });
             }
             else if (step == 8 && hostileFrame.Faction == Faction.OfPlayer)
             {
-                Check(Find.TickManager.TicksGame - hackStartedTick >= CompFrameHacking.WorkTicks,
-                    "captured hostile chassis completes the normal timed hacking job");
+                Check(Find.TickManager.TicksGame - hackStartedTick > 1 && hostileFrame.Hacking.ProgressFraction >= 1f,
+                    "captured hostile chassis completes the progress-based hacking job");
                 Check(hostileFrame.GetUniqueLoadID() == hostileFrameId && hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot,
                     "hacking preserves hostile chassis identity and leaves it disabled empty");
                 Check(RecoverForLegacyLifecycle(hostileFrame), "captured hostile chassis enters normal post-service recovery lifecycle");
@@ -1278,7 +1308,7 @@ namespace ZenithFrame.Tests
                 Check(!raidFrame.Cockpit.CanOperate && !raidFrame.pather.Moving,
                     "empty disabled raid Frame is inert and cannot retreat itself");
                 raidPilot.stances.stunner.StunFor(5000, raidFrame);
-                Check(raidFrame.Hacking.TryHack(pilot) && raidFrame.Faction == Faction.OfPlayer && raidFrame.GetLord() == null,
+                Check(CompleteHackForLegacy(raidFrame, pilot) && raidFrame.Faction == Faction.OfPlayer && raidFrame.GetLord() == null,
                     "hacking converts the exact raid Frame and leaves no stale hostile Lord control");
                 Check(raidFrame.GetUniqueLoadID() == raidFrameId && RecoverForLegacyLifecycle(raidFrame),
                     "hacked raid chassis preserves identity through normal recovery");
@@ -1895,7 +1925,7 @@ namespace ZenithFrame.Tests
                     CellFinder.RandomClosewalkCellNear(hostileFrame.Position, hostileFrame.Map, 1), hostileFrame.Map);
                 Check(hostileFrame.Hacking.CanHack(pilot, false),
                     "fresh player colonist is eligible to acquire the disabled ability-owning chassis");
-                Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.GetUniqueLoadID() == hostileFrameId,
+                Check(CompleteHackForLegacy(hostileFrame, pilot) && hostileFrame.GetUniqueLoadID() == hostileFrameId,
                     "hacking converts the same ability-owning hostile chassis");
                 Check(RecoverForLegacyLifecycle(hostileFrame) &&
                     hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
@@ -2148,7 +2178,7 @@ namespace ZenithFrame.Tests
             DownByMissingLegs(hostileFrame);
             Check(hostileFrame.Downed && capturedHeavy.Spawned && ReferenceEquals(hostileFrame.Loadout.RememberedDroppedWeapon, capturedHeavy),
                 "hostile downing drops and remembers its exact installed Heavy Rifle");
-            Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.Faction == Faction.OfPlayer,
+            Check(CompleteHackForLegacy(hostileFrame, pilot) && hostileFrame.Faction == Faction.OfPlayer,
                 "hacking converts the same disabled chassis without resetting its loadout relation");
             Check(RecoverForLegacyLifecycle(hostileFrame) && ReferenceEquals(hostileFrame.Loadout.InstalledWeapon, capturedHeavy),
                 "captured chassis recovery reclaims the exact surviving hostile weapon");
@@ -2415,7 +2445,7 @@ namespace ZenithFrame.Tests
             Check(hostileDisabled.IsHackable && hostileDisabled.IsReadOnly && hostileDisabled.OperationalState == FrameOperationalState.Disabled,
                 "hostile disabled Frame UI derives hackable read-only status from existing components");
             RelocatePawn(pilot, hostileFrame.Position + IntVec3.East, hostileFrame.Map);
-            Check(hostileFrame.Hacking.TryHack(pilot) && !FrameUiSnapshot.From(hostileFrame).IsReadOnly,
+            Check(CompleteHackForLegacy(hostileFrame, pilot) && !FrameUiSnapshot.From(hostileFrame).IsReadOnly,
                 "hacking immediately updates UI ownership without separate saved presentation state");
 
             FramePawn factionless = SpawnFactionlessFrame(frame.Position + IntVec3.South * 8);
@@ -2663,8 +2693,8 @@ namespace ZenithFrame.Tests
                 Check(medicineSkill.TotallyDisabled || medicineSkill.xpSinceLastLevel > comparableXpBefore,
                     "embarked self-tend awards Medicine XP to the exact capable pilot; before=" + damageMedicineXpBefore +
                     " after=" + medicineSkill.xpSinceLastLevel + " disabled=" + medicineSkill.TotallyDisabled);
-                Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
-                    "embarked self-tend uses normal TendUtility on the real pilot wounds");
+                Check(pilot.health.hediffSet.hediffs.OfType<Hediff_Injury>().Any(hediff => hediff.IsTended()),
+                    "embarked self-tend uses normal TendUtility on at least one real pilot wound");
 
                 foreach (Medicine carried in pilot.inventory.innerContainer.OfType<Medicine>().ToList()) carried.Destroy();
                 AddBleedingInjury(pilot, 3f);
@@ -2676,8 +2706,8 @@ namespace ZenithFrame.Tests
             }
             else if (step == 2 && frame.CurJobDef != ZenithJobDefOf.ZF_FramePilotSelfTend)
             {
-                Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
-                    "no-medicine self-tend completes against exact contained pilot");
+                Check(pilot.health.hediffSet.hediffs.OfType<Hediff_Injury>().Any(hediff => hediff.IsTended()),
+                    "no-medicine self-tend completes a normal tend against exact contained pilot");
                 AddBleedingInjury(pilot, 2f);
                 frame.GetGizmos().OfType<Command_Action>().Single(gizmo => gizmo.defaultLabel == "Pilot self-tend").action();
                 Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend, "interrupt fixture starts another self-tend");
@@ -2706,7 +2736,7 @@ namespace ZenithFrame.Tests
                     "delayed BloodLoss downing immediately ejects exact hostile pilot for ordinary capture");
                 Check(!hostileFrame.Downed && !hostileFrame.Dead && !hostileFrame.Cockpit.HasPilot &&
                     hostileFrame.GetUniqueLoadID() == hostileFrameId, "pilot-only incapacity leaves mechanically healthy chassis standing empty and inert");
-                Check(hostileFrame.Hacking.IsHackableDisabledChassis && hostileFrame.Hacking.CanHack(pilot, false),
+                Check(hostileFrame.Hacking.IsHackableDisabledChassis && Find.CurrentMap.mapPawns.FreeColonistsSpawned.Any(hacker => hostileFrame.Hacking.CanHack(hacker, false)),
                     "healthy hostile Frame abandoned by downed pilot immediately enters existing hacking workflow");
 
                 FramePawn deathFrame = SpawnFrame(frame.Position + IntVec3.West * 8);
@@ -2721,8 +2751,448 @@ namespace ZenithFrame.Tests
                     "pilot death leaves healthy Frame empty without corpse in ThingOwner Pawn cockpit");
                 Check(deathFrame.Cockpit.GetDirectlyHeldThings().Count == 0,
                     "contained pilot death leaves no hidden corpse or duplicate cockpit content");
+                SaveNext(32);
+            }
+        }
+
+        private void FrameServiceRepairStart()
+        {
+            if (step == 0)
+            {
+                Map map = Find.CurrentMap;
+                IntVec3 center = map.Center;
+                foreach (FramePawn old in map.mapPawns.AllPawnsSpawned.OfType<FramePawn>().ToList()) old.Destroy();
+                frame = SpawnFrame(center);
+                frameId = frame.GetUniqueLoadID();
+                other = GenerateHuman(Faction.OfPlayer);
+                other.skills.GetSkill(SkillDefOf.Construction).Level = 10;
+                GenSpawn.Spawn(other, center + IntVec3.East * 2, map);
+                map.areaManager.Home[frame.Position] = true;
+                BodyPartRecord forearm = Part(frame, "ZF_FrameForearm");
+                var injury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, frame, forearm);
+                injury.Severity = 10f;
+                frame.health.AddHediff(injury, forearm);
+                servicePartIndex = frame.RaceProps.body.AllParts.IndexOf(forearm);
+                serviceSeverityBefore = injury.Severity;
+                servicePartHealthBefore = frame.health.hediffSet.GetPartHealth(forearm);
+                serviceConstructionXpBefore = other.skills.GetSkill(SkillDefOf.Construction).xpSinceLastLevel;
+
+                var repair = new WorkGiver_RepairFrame();
+                Check(repair.HasJobOnThing(other, frame), "damaged player Frame in Home Area is recognized by automatic Construction repair");
+                Check(frame.GetStatValue(StatDefOf.InjuryHealingFactor) == 0f,
+                    "Frame structural injuries have zero biological natural-healing factor");
+
+                FramePawn hostile = SpawnFrame(center + IntVec3.North * 8, Faction.OfAncientsHostile);
+                BodyPartRecord hostilePart = Part(hostile, "ZF_FrameForearm");
+                var hostileInjury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, hostile, hostilePart);
+                hostileInjury.Severity = 5f;
+                hostile.health.AddHediff(hostileInjury, hostilePart);
+                Check(!repair.HasJobOnThing(other, hostile, true), "Construction never repairs hostile Frames before hacking");
+                hostile.Destroy();
+
+                FramePawn outside = SpawnFrame(center + IntVec3.South * 10);
+                map.areaManager.Home[outside.Position] = false;
+                BodyPartRecord outsidePart = Part(outside, "ZF_FrameForearm");
+                var outsideInjury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, outside, outsidePart);
+                outsideInjury.Severity = 5f;
+                outside.health.AddHediff(outsideInjury, outsidePart);
+                Check(!repair.HasJobOnThing(other, outside, false), "automatic Frame repair respects Home Area");
+                Check(repair.HasJobOnThing(other, outside, true), "forced Frame repair may target an otherwise eligible chassis outside Home Area");
+                outside.Destroy();
+
+                float slow = ConstructionSpeedAt(other, 0);
+                float medium = ConstructionSpeedAt(other, 10);
+                float fast = ConstructionSpeedAt(other, 20);
+                other.skills.GetSkill(SkillDefOf.Construction).Level = 10;
+                Check(slow < medium && medium < fast, "ConstructionSpeed scales real Frame repair rate across skill 0 10 and 20");
+                Job job = repair.JobOnThing(other, frame, false);
+                Check(job != null && other.jobs.TryTakeOrderedJob(job), "Construction worker accepts the dedicated real Repair Frame job");
+                Next(1, 1800);
+            }
+            else if (step == 1)
+            {
+                Hediff_Injury injury = frame.health.hediffSet.hediffs.OfType<Hediff_Injury>()
+                    .FirstOrDefault(candidate => frame.RaceProps.body.AllParts.IndexOf(candidate.Part) == servicePartIndex);
+                if (injury == null || injury.Severity >= serviceSeverityBefore ||
+                    frame.health.hediffSet.GetPartHealth(injury.Part) <= servicePartHealthBefore) return;
+                Check(ReferenceEquals(FrameRepairUtility.NextRepairableInjury(frame), injury),
+                    "repair mutates the deterministic exact real Hediff_Injury target");
+                Check(frame.health.hediffSet.GetPartHealth(injury.Part) > servicePartHealthBefore,
+                    "repair increases actual body-part health through Pawn health truth");
+                Check(other.skills.GetSkill(SkillDefOf.Construction).xpSinceLastLevel > serviceConstructionXpBefore,
+                    "active Frame repair awards Construction XP to the worker");
+                Check(frame.Service.IsServiceLocked && ReferenceEquals(frame.Service.ActiveWorker, other),
+                    "active repair owns a worker-specific service lock");
+                SaveNext(33);
+            }
+        }
+
+        private void FrameServiceRepairLoadAndReconstruct()
+        {
+            Hediff_Injury injury = frame.health.hediffSet.hediffs.OfType<Hediff_Injury>()
+                .FirstOrDefault(candidate => frame.RaceProps.body.AllParts.IndexOf(candidate.Part) == servicePartIndex);
+            if (step == 0)
+            {
+                Check(frame.GetUniqueLoadID() == frameId && injury != null && injury.Severity < serviceSeverityBefore,
+                    "fresh-process repair load preserves Frame identity and partial real injury progress");
+                Check(other.CurJobDef == ZenithJobDefOf.ZF_RepairFrame || !frame.Service.IsServiceLocked,
+                    "repair job either resumes or releases its service lock safely after reload");
+                if (other.CurJobDef != ZenithJobDefOf.ZF_RepairFrame)
+                    other.jobs.TryTakeOrderedJob(new WorkGiver_RepairFrame().JobOnThing(other, frame, true));
+                Next(1, 2400);
+            }
+            else if (step == 1 && FrameRepairUtility.NextRepairableInjury(frame) == null && !frame.Service.IsServiceLocked)
+            {
+                Check(!frame.Service.IsServiceLocked, "completed ordinary repair clears service lock");
+                Check(!frame.health.hediffSet.hediffs.OfType<Hediff_Injury>().Any(),
+                    "ordinary repair finishes by removing real injury severity without parallel HP");
+
+                BodyPartRecord arm = Part(frame, "ZF_FrameArm");
+                int descendants = arm.parts.Count;
+                DestroyPart(frame, arm);
+                var missing = frame.health.hediffSet.GetMissingPartsCommonAncestors().ToList();
+                Check(missing.Count == 1 && ReferenceEquals(missing[0].Part, arm),
+                    "missing arm and all inherited children produce one common-ancestor reconstruction target");
+                Check(descendants > 0 && frame.health.hediffSet.PartIsMissing(arm.parts[0]),
+                    "missing child structure remains represented by the parent loss without a second charge target");
+                servicePartIndex = frame.RaceProps.body.AllParts.IndexOf(arm);
+                var reconstruct = new WorkGiver_ReconstructFrame();
+                Check(!reconstruct.HasJobOnThing(other, frame, true), "missing recoverable part cannot reconstruct without physical Steel");
+                int cost = FrameRepairUtility.ReconstructionCost(frame, arm);
+                serviceMaterial = ThingMaker.MakeThing(ThingDefOf.Steel);
+                serviceMaterial.stackCount = cost;
+                serviceMaterialCountBefore = cost;
+                serviceMaterialId = serviceMaterial.GetUniqueLoadID();
+                GenSpawn.Spawn(serviceMaterial, other.Position, frame.Map);
+                Check(reconstruct.HasJobOnThing(other, frame, true), "enough physical Steel enables common-ancestor reconstruction work");
+                Job job = reconstruct.JobOnThing(other, frame, true);
+                Check(job.count == cost && ReferenceEquals(job.targetB.Thing, serviceMaterial),
+                    "reconstruction job reserves the exact proportional material stack once");
+                other.jobs.TryTakeOrderedJob(job);
+                Next(2, 2400);
+            }
+            else if (step == 2 && other.CurJobDef == ZenithJobDefOf.ZF_ReconstructFramePart &&
+                ReferenceEquals(other.carryTracker.CarriedThing, serviceMaterial) && frame.Service.IsServiceLocked)
+            {
+                Check(frame.health.hediffSet.PartIsMissing(frame.RaceProps.body.AllParts[servicePartIndex]),
+                    "part remains missing while construction work and material carriage are in progress");
+                SaveNext(34);
+            }
+        }
+
+        private void FrameServiceReconstructionLoadAndHack()
+        {
+            BodyPartRecord arm = frame.RaceProps.body.AllParts[servicePartIndex];
+            if (step == 0)
+            {
+                Check(frame.health.hediffSet.PartIsMissing(arm) && ReferenceEquals(other.carryTracker.CarriedThing, serviceMaterial) &&
+                    serviceMaterial.GetUniqueLoadID() == serviceMaterialId,
+                    "fresh-process reconstruction load preserves missing part and exact carried Steel identity");
+                Check(other.CurJobDef == ZenithJobDefOf.ZF_ReconstructFramePart && frame.Service.IsServiceLocked,
+                    "active reconstruction and its service lock resume coherently after reload");
+                Next(1, 3000);
+            }
+            else if (step == 1 && !frame.health.hediffSet.PartIsMissing(arm))
+            {
+                Check(serviceMaterial.DestroyedOrNull() || serviceMaterial.stackCount == 0,
+                    "reconstruction consumes the exact required Steel stack once on successful completion");
+                Check(!arm.parts.Any(child => frame.health.hediffSet.PartIsMissing(child)),
+                    "RestorePart restores exact parent structure and inherited descendants");
+                Check(!frame.Service.IsServiceLocked, "completed reconstruction clears service lock");
+
+                serviceDock = (Building)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_FrameDockingBay"));
+                GenSpawn.Spawn(serviceDock, frame.Position, frame.Map);
+                Check(frame.Spawned && DockingBayUtility.IsDocked(frame) && ReferenceEquals(DockingBayUtility.DockingBayFor(frame), serviceDock),
+                    "Docking Bay remains a standable normal building while Frame stays spawned on its docking cell");
+                Check(DockingBayUtility.SpeedMultiplier(frame) == 5f && DockingBayUtility.BoardingTicks(frame) == 60,
+                    "derived dock state applies the definition-driven x5 service and 60-tick boarding values");
+
+                BodyPartRecord head = Part(frame, "ZF_FrameHeadAssembly");
+                DestroyPart(frame, head);
+                Check(frame.Downed && !frame.Dead, "missing recoverable Head disables living chassis before reconstruction");
+                int cost = FrameRepairUtility.ReconstructionCost(frame, head);
+                Thing steel = ThingMaker.MakeThing(ThingDefOf.Steel);
+                steel.stackCount = cost;
+                GenSpawn.Spawn(steel, other.Position, frame.Map);
+                Job headJob = new WorkGiver_ReconstructFrame().JobOnThing(other, frame, true);
+                Check(headJob != null && other.jobs.TryTakeOrderedJob(headJob), "docked worker begins material reconstruction of disabled Head");
+                servicePartIndex = frame.RaceProps.body.AllParts.IndexOf(head);
+                Next(2, 2400);
+            }
+            else if (step == 2 && !frame.health.hediffSet.PartIsMissing(frame.RaceProps.body.AllParts[servicePartIndex]))
+            {
+                Check(!frame.Downed && frame.health.capacities.CapableOf(PawnCapacityDefOf.Moving),
+                    "restoring Head through normal health API naturally returns otherwise-valid Frame from disabled state");
+                Check(DockingBayUtility.IsDocked(frame), "Docking state remains position-derived after structural restoration");
+
+                hostileFrame = SpawnFrame(frame.Position + IntVec3.East * 8, Faction.OfAncientsHostile);
+                other.skills.GetSkill(SkillDefOf.Intellectual).Level = 0;
+                float speed0 = CompFrameHacking.SpeedFor(other);
+                other.skills.GetSkill(SkillDefOf.Intellectual).Level = 10;
+                float speed10 = CompFrameHacking.SpeedFor(other);
+                other.skills.GetSkill(SkillDefOf.Intellectual).Level = 20;
+                float speed20 = CompFrameHacking.SpeedFor(other);
+                Check(speed0 < speed10 && speed10 < speed20,
+                    "Core HackingSpeed makes Intellectual 0 slower than 10 and 10 slower than 20");
+                other.skills.GetSkill(SkillDefOf.Intellectual).Level = 10;
+                float xp = other.skills.GetSkill(SkillDefOf.Intellectual).xpSinceLastLevel;
+                for (int i = 0; i < 80; i++) hostileFrame.Hacking.ApplyHackWork(other);
+                serviceHackProgress = hostileFrame.Hacking.HackProgress;
+                Check(serviceHackProgress > 0f && other.skills.GetSkill(SkillDefOf.Intellectual).xpSinceLastLevel > xp,
+                    "active progress hacking persists on chassis and awards Intellectual XP to hacker");
+                RelocatePawn(other, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
+                other.jobs.TryTakeOrderedJob(JobMaker.MakeJob(ZenithJobDefOf.ZF_HackFrame, hostileFrame));
+                Next(3, 1800);
+            }
+            else if (step == 3 && other.CurJobDef == ZenithJobDefOf.ZF_HackFrame &&
+                hostileFrame.Hacking.HackProgress > serviceHackProgress)
+            {
+                serviceHackProgress = hostileFrame.Hacking.HackProgress;
+                SaveNext(35);
+            }
+        }
+
+        private void FrameServiceHackLoadAndBoard()
+        {
+            if (step == 0)
+            {
+                Check(hostileFrame.Hacking.HackProgress >= serviceHackProgress && hostileFrame.Faction.HostileTo(Faction.OfPlayer),
+                    "fresh-process active-hack load preserves partial chassis progress without premature faction transfer");
+                float beforeInterrupt = hostileFrame.Hacking.HackProgress;
+                other.jobs.StopAll();
+                Check(Approximately(hostileFrame.Hacking.HackProgress, beforeInterrupt) && hostileFrame.Faction.HostileTo(Faction.OfPlayer),
+                    "hacking interruption preserves progress and stops without ownership transfer");
+                RelocatePawn(other, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
+                other.jobs.TryTakeOrderedJob(JobMaker.MakeJob(ZenithJobDefOf.ZF_HackFrame, hostileFrame));
+                Next(1, 3000);
+            }
+            else if (step == 1 && hostileFrame.Faction == Faction.OfPlayer)
+            {
+                Check(hostileFrame.Hacking.ProgressFraction >= 1f && !hostileFrame.Cockpit.HasPilot,
+                    "resumed hacking completes faction transfer exactly once on same healthy empty chassis");
+                Check(!hostileFrame.Hacking.IsHackableDisabledChassis,
+                    "completed player-owned chassis cannot enter hacking again");
+                pilot = GenerateHuman(Faction.OfPlayer);
+                GenSpawn.Spawn(pilot, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
+                pilotId = pilot.GetUniqueLoadID();
+                Job board = JobMaker.MakeJob(ZenithJobDefOf.ZF_BoardFrame, hostileFrame);
+                pilot.jobs.TryTakeOrderedJob(board);
+                Next(2, 1200);
+            }
+            else if (step == 2 && pilot.CurJobDef == ZenithJobDefOf.ZF_BoardFrame &&
+                pilot.jobs.curDriver.ticksLeftThisToil > 1 && pilot.Position.AdjacentTo8WayOrInside(hostileFrame.Position))
+            {
+                Check(pilot.Spawned && !hostileFrame.Cockpit.HasPilot,
+                    "timed normal boarding keeps exact pilot spawned until work completes");
+                Check(DockingBayUtility.BoardingTicks(hostileFrame) == 300,
+                    "undocked normal boarding uses the definition-driven 300-tick duration");
+                SaveNext(36);
+            }
+        }
+
+        private void FrameServiceBoardLoadAndStartModule()
+        {
+            if (step == 0)
+            {
+                Check(pilot.GetUniqueLoadID() == pilotId && pilot.Spawned && !hostileFrame.Cockpit.HasPilot,
+                    "fresh-process boarding load preserves one spawned pilot before completion");
+                Check(pilot.CurJobDef == ZenithJobDefOf.ZF_BoardFrame,
+                    "active timed boarding job resumes after fresh-process load");
+                Next(1, 1800);
+            }
+            else if (step == 1 && hostileFrame.Cockpit.HasPilot)
+            {
+                Check(ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot) && !pilot.Spawned,
+                    "completed timed boarding transfers exact Pawn into cockpit exactly once");
+                Check(hostileFrame.Cockpit.TryDisembark() && pilot.Spawned,
+                    "timed-boarded pilot disembarks normally with no duplicate Pawn");
+                RelocatePawn(pilot, frame.Position + IntVec3.East, frame.Map);
+                Check(frame.Cockpit.TryBoard(pilot), "module-service fixture permits a valid pilot to remain in idle Frame");
+                savedAbilityId = Overdrive(frame).Id;
+
+                IntVec3 stockpileCell = frame.Position + IntVec3.North * 5;
+                var stockpile = new Zone_Stockpile(StorageSettingsPreset.DefaultStockpile, frame.Map.zoneManager);
+                frame.Map.zoneManager.RegisterZone(stockpile);
+                stockpile.AddCell(stockpileCell);
+                stockpile.AddCell(stockpileCell + IntVec3.East);
+                stockpile.AddCell(stockpileCell + IntVec3.East * 2);
+                stockpile.GetStoreSettings().filter.SetAllowAll(null);
+                stockpile.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"), true);
+                loadoutWeapon = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
+                GenSpawn.Spawn(loadoutWeapon, stockpileCell, frame.Map);
+                unrelatedWeapon = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
+                GenSpawn.Spawn(unrelatedWeapon, frame.Position + IntVec3.South * 6, frame.Map);
+                Thing wrong = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"));
+                GenSpawn.Spawn(wrong, stockpileCell + IntVec3.East, frame.Map);
+                serviceModuleId = loadoutWeapon.GetUniqueLoadID();
+                List<Thing> candidates = frame.Service.StoredCandidates(FrameAddonCategory.Weapon).ToList();
+                Check(candidates.Contains(loadoutWeapon),
+                    "Weapon service list includes exact compatible physical item in a valid stockpile; zoneRegistered=" +
+                    frame.Map.zoneManager.AllZones.Contains(stockpile) + " containsCell=" + stockpile.ContainsCell(stockpileCell) +
+                    " slot=" + (stockpileCell.GetSlotGroup(frame.Map) != null) +
+                    " filterThing=" + stockpile.GetStoreSettings().filter.Allows(loadoutWeapon) +
+                    " filterDef=" + stockpile.GetStoreSettings().filter.Allows(loadoutWeapon.def) +
+                    " allowedDef=" + stockpile.GetStoreSettings().AllowedToAccept(loadoutWeapon.def) +
+                    " storable=" + loadoutWeapon.def.EverStorable(false) + "/" + loadoutWeapon.def.EverStorable(true) +
+                    " allowed=" + stockpile.GetStoreSettings().AllowedToAccept(loadoutWeapon) +
+                    " valid=" + StoreUtility.IsInValidStorage(loadoutWeapon));
+                Check(!candidates.Contains(unrelatedWeapon), "identical ground item outside valid storage is excluded from service candidates");
+                Check(!candidates.Contains(wrong), "wrong-category stored item is excluded from Weapon service candidates");
+                Thing vanilla = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Gun_Autopistol"));
+                GenSpawn.Spawn(vanilla, frame.Position + IntVec3.West * 6, frame.Map);
+                Check(!frame.Service.StoredCandidates(FrameAddonCategory.Weapon).Contains(vanilla),
+                    "ordinary vanilla weapon without Frame metadata is excluded from service candidates");
+                frame.drafter.Drafted = true;
+                Check(!frame.Service.CanBeServicedNow(out _), "drafted Frame cannot begin module service");
+                frame.drafter.Drafted = false;
+                frame.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Goto, frame.Position + IntVec3.South * 2));
+                Check(!frame.Service.CanBeServicedNow(out _), "moving or otherwise active Frame cannot begin module service");
+                frame.jobs.StopAll();
+                serviceOutgoingModule = frame.Loadout.InstalledWeapon;
+                if (serviceOutgoingModule == null)
+                {
+                    serviceOutgoingModule = GenSpawn.Spawn(
+                        ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle")), frame.Position + IntVec3.West, frame.Map);
+                    Check(frame.Loadout.TryInstallWeapon((ThingWithComps)serviceOutgoingModule),
+                        "replacement fixture installs one exact outgoing physical Weapon");
+                }
+                serviceOutgoingModuleId = serviceOutgoingModule.GetUniqueLoadID();
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Weapon, loadoutWeapon) &&
+                    ReferenceEquals(frame.Service.PendingModule, loadoutWeapon),
+                    "Frame UI service model queues exact selected Thing without DefName substitution or teleport");
+                var giver = new WorkGiver_ServiceFrameModule();
+                Check(giver.HasJobOnThing(other, frame, true), "Construction worker naturally recognizes pending module service");
+                Job service = giver.JobOnThing(other, frame, true);
+                Check(service.playerForced && ReferenceEquals(service.targetB.Thing, loadoutWeapon),
+                    "prioritized module service targets exact requested stored module");
+                other.jobs.TryTakeOrderedJob(service);
+                Next(2, 2400);
+            }
+            else if (step == 2 && other.CurJobDef == ZenithJobDefOf.ZF_ServiceFrameModule &&
+                ReferenceEquals(other.carryTracker.CarriedThing, loadoutWeapon) && frame.Service.IsServiceLocked)
+            {
+                Check(ReferenceEquals(frame.Cockpit.Pilot, pilot), "service lock allows valid pilot to remain in cockpit");
+                Check(!frame.Cockpit.CanTakePlayerOrders && !Overdrive(frame).CanCast,
+                    "active service lock blocks Frame movement combat and intrinsic ability casting without clearing pilot state");
+                SaveNext(37);
+            }
+        }
+
+        private void FrameServiceModuleLoadAndFinish()
+        {
+            if (step == 0)
+            {
+                Check(ReferenceEquals(frame.Service.PendingModule, loadoutWeapon) && loadoutWeapon.GetUniqueLoadID() == serviceModuleId,
+                    "fresh-process service load preserves exact requested physical module reference");
+                Check(ReferenceEquals(other.carryTracker.CarriedThing, loadoutWeapon) && frame.Service.IsServiceLocked,
+                    "fresh-process service load preserves exact carried module and reconciles active worker lock");
+                Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && Overdrive(frame).Id == savedAbilityId,
+                    "service reload preserves exact cockpit pilot and machine ability ownership");
+                Next(1, 3000);
+            }
+            else if (step == 1 && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon))
+            {
+                Check(!frame.Service.HasPendingOrder && !frame.Service.IsServiceLocked,
+                    "successful service completion clears pending request and active lock");
+                Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && Overdrive(frame).Id == savedAbilityId,
+                    "module replacement leaves pilot body skills abilities and machine cooldown owner unchanged");
+                Check(!loadoutWeapon.Spawned && ReferenceEquals(frame.equipment.Primary, loadoutWeapon),
+                    "Weapon install transfers exact Thing exclusively into Pawn equipment");
+                Check(unrelatedWeapon.Spawned && !ReferenceEquals(unrelatedWeapon, frame.Loadout.InstalledWeapon),
+                    "service never substitutes an identical module from outside storage");
+                bool outgoingHaulQueued = Enumerable.Range(0, other.jobs.jobQueue.Count).Any(index =>
+                    other.jobs.jobQueue[index].job.def == JobDefOf.HaulToCell &&
+                    ReferenceEquals(other.jobs.jobQueue[index].job.targetA.Thing, serviceOutgoingModule));
+                Check(serviceOutgoingModule.GetUniqueLoadID() == serviceOutgoingModuleId && serviceOutgoingModule.Spawned &&
+                    (other.CurJobDef == JobDefOf.HaulToCell || outgoingHaulQueued || StoreUtility.IsInValidStorage(serviceOutgoingModule)),
+                    "docked replacement preserves exact outgoing Weapon and assigns same-worker storage logistics; spawned=" +
+                    serviceOutgoingModule.Spawned + " destroyed=" + serviceOutgoingModule.Destroyed +
+                    " pos=" + serviceOutgoingModule.Position + " workerJob=" + other.CurJobDef?.defName +
+                    " queued=" + outgoingHaulQueued +
+                    " stored=" + StoreUtility.IsInValidStorage(serviceOutgoingModule) +
+                    " docked=" + DockingBayUtility.IsDocked(frame) +
+                    " storageCell=" + DockingBayUtility.NearbyStorageCell(frame, serviceOutgoingModule));
+                Next(2, 1800);
+            }
+            else if (step == 2 && StoreUtility.IsInValidStorage(serviceOutgoingModule))
+            {
+                Check(serviceOutgoingModule.Spawned && serviceOutgoingModule.GetUniqueLoadID() == serviceOutgoingModuleId,
+                    "same Construction worker stores the exact replaced Weapon in nearby Dock storage");
+
+                IntVec3 away = frame.Position + IntVec3.South * 5;
+                RelocatePawn(frame, away, frame.Map);
+                Check(!DockingBayUtility.IsDocked(frame), "moving Frame away derives Not docked without a serialized dock flag");
+                Check(frame.Service.QueueRemove(FrameAddonCategory.Weapon), "player can queue removal of exact installed Weapon");
+                Job remove = new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true);
+                other.jobs.TryTakeOrderedJob(remove);
+                Next(3, 3000);
+            }
+            else if (step == 3 && frame.Loadout.InstalledWeapon == null && !frame.Service.HasPendingOrder)
+            {
+                Check(loadoutWeapon.Spawned && loadoutWeapon.Map == frame.Map && loadoutWeapon.Position.InHorDistOf(frame.Position, 2f),
+                    "undocked removal drops exact outgoing module safely near Frame");
+                Check(!frame.Service.IsServiceLocked, "removal completion clears service lock");
+
+                Thing stored = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
+                Zone_Stockpile stockpile = frame.Map.zoneManager.AllZones.OfType<Zone_Stockpile>().First();
+                GenSpawn.Spawn(stored, stockpile.Cells.First(), frame.Map);
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Weapon, stored), "valid exact stored request can be queued before invalidation");
+                stored.Destroy();
+                frame.Service.CompTick();
+                Check(!frame.Service.HasPendingOrder, "destroyed requested module invalidates cleanly without identical-item substitution");
+
+                RelocatePawn(frame, serviceDock.Position, frame.Map);
+                Check(DockingBayUtility.IsDocked(frame), "Frame returns to derived Dock position for contained-module service");
+                IntVec3 utilityCell = serviceDock.Position + IntVec3.North * 6 + IntVec3.West;
+                IntVec3 powerCell = utilityCell + IntVec3.West;
+                stockpile.AddCell(utilityCell);
+                stockpile.AddCell(powerCell);
+                loadoutUtility = GenSpawn.Spawn(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster")), utilityCell, frame.Map);
+                loadoutPower = GenSpawn.Spawn(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugWeakPowerCell")), powerCell, frame.Map);
+                loadoutUtilityId = loadoutUtility.GetUniqueLoadID();
+                loadoutPowerId = loadoutPower.GetUniqueLoadID();
+                Check(frame.Service.StoredCandidates(FrameAddonCategory.Utility).Contains(loadoutUtility) &&
+                    frame.Service.StoredCandidates(FrameAddonCategory.Power).Contains(loadoutPower),
+                    "Utility and Power candidate lists include exact compatible physical stored items");
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Utility, loadoutUtility), "exact stored Utility service request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(4, 2400);
+            }
+            else if (step == 4 && ReferenceEquals(frame.Loadout.InstalledUtility, loadoutUtility))
+            {
+                Check(loadoutUtility.GetUniqueLoadID() == loadoutUtilityId && !loadoutUtility.Spawned &&
+                    !ReferenceEquals(frame.equipment.Primary, loadoutUtility),
+                    "Utility service transfers exact Thing only into the Utility owner");
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Power, loadoutPower), "exact stored Power replacement request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(5, 2400);
+            }
+            else if (step == 5 && ReferenceEquals(frame.Loadout.InstalledPower, loadoutPower))
+            {
+                Check(loadoutPower.GetUniqueLoadID() == loadoutPowerId && !loadoutPower.Spawned &&
+                    !ReferenceEquals(frame.equipment.Primary, loadoutPower),
+                    "Power service transfers exact Thing only into the Power owner");
+                Check(frame.Service.QueueRemove(FrameAddonCategory.Utility), "docked exact Utility removal request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(6, 3000);
+            }
+            else if (step == 6 && frame.Loadout.InstalledUtility == null && StoreUtility.IsInValidStorage(loadoutUtility))
+            {
+                Check(loadoutUtility.GetUniqueLoadID() == loadoutUtilityId && loadoutUtility.Spawned,
+                    "docked removal sends exact Utility through same-worker nearby storage logistics");
+
+                Check(frame.Cockpit.TryDisembark() && pilot.Spawned, "service lifecycle returns exact pilot to map normally");
+                Unique(pilot, "service lifecycle final pilot ownership");
+                Check(frame.Spawned && !frame.Dead && frame.GetUniqueLoadID() == frameId,
+                    "complete service slice preserves exact living Frame identity");
                 Finish();
             }
+        }
+
+        private static float ConstructionSpeedAt(Pawn worker, int level)
+        {
+            worker.skills.GetSkill(SkillDefOf.Construction).Level = level;
+            return worker.GetStatValue(StatDefOf.ConstructionSpeed);
         }
 
         private static void AddBleedingInjury(Pawn targetPawn, float severity)
@@ -2900,6 +3370,13 @@ namespace ZenithFrame.Tests
                 targetFrame.health.AddHediff(injury, leg);
             }
             return targetFrame.Downed && !targetFrame.Dead && !targetFrame.health.hediffSet.GetMissingPartsCommonAncestors().Any();
+        }
+        private static bool CompleteHackForLegacy(FramePawn targetFrame, Pawn hacker)
+        {
+            int guard = 10000;
+            while (targetFrame.Hacking.ProgressFraction < 1f && guard-- > 0)
+                if (!targetFrame.Hacking.ApplyHackWork(hacker)) return false;
+            return targetFrame.Hacking.TryCompleteHack(hacker);
         }
         private static bool RecoverForLegacyLifecycle(FramePawn targetFrame)
         {

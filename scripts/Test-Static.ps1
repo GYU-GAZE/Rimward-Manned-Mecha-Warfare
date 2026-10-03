@@ -34,22 +34,24 @@ foreach ($file in Get-ChildItem "$repo/Mod/Defs" -Filter '*.xml' -Recurse) {
 }
 [xml]$frame = Get-Content "$repo/Mod/Defs/Frame.xml" -Raw
 [xml]$fleshTypes = Get-Content "$repo/Mod/Defs/FrameFleshTypes.xml" -Raw
+$frameDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugFrame')[0]
+$rifleDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugRifle')[0]
 $refs = @{
-    BodyDef = $frame.Defs.ThingDef[0].race.body
-    FleshTypeDef = $frame.Defs.ThingDef[0].race.fleshType
-    LifeStageDef = $frame.Defs.ThingDef[0].race.lifeStageAges.li.def
-    ThingDef = $frame.Defs.ThingDef[1].verbs.li[0].defaultProjectile
-    SoundDef = $frame.Defs.ThingDef[1].verbs.li[0].soundCast
+    BodyDef = $frameDef.race.body
+    FleshTypeDef = $frameDef.race.fleshType
+    LifeStageDef = $frameDef.race.lifeStageAges.li.def
+    ThingDef = $rifleDef.verbs.li[0].defaultProjectile
+    SoundDef = $rifleDef.verbs.li[0].soundCast
 }
 foreach ($entry in $refs.GetEnumerator()) { Assert-Static ($defs.ContainsKey($entry.Key + ':' + $entry.Value)) "Missing game def reference: $($entry.Key):$($entry.Value)" }
-$weaponVerbs = @($frame.Defs.ThingDef[1].verbs.li)
+$weaponVerbs = @($rifleDef.verbs.li)
 Assert-Static ($weaponVerbs[0].verbClass -eq 'ZenithFrame.Verb_HostileFrameShot' -and $weaponVerbs[0].onlyManualCast -eq 'false' -and $weaponVerbs[0].hasStandardCommand -eq 'false') 'Hostile Frame requires a primary AI-only weapon verb'
 Assert-Static ($weaponVerbs[1].verbClass -eq 'ZenithFrame.Verb_FrameShot' -and $weaponVerbs[1].onlyManualCast -eq 'true') 'Player Frame weapon verb must remain manually targeted'
 $heavyWeapon = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugHeavyRifle')
 Assert-Static ($heavyWeapon.Count -eq 1 -and $heavyWeapon.verbs.li[0].range -eq '40' -and $heavyWeapon.verbs.li[0].burstShotCount -eq '1' -and $heavyWeapon.statBases.RangedWeapon_Cooldown -eq '2.5') 'Heavy Rifle must remain a mechanically distinct single-shot development Weapon'
 Assert-Static ($weaponVerbs[1].hasStandardCommand -eq 'true') 'Debug rifle must expose vanilla Command_VerbTarget / Misc1'
-Assert-Static ($frame.Defs.ThingDef[0].race.thinkTreeMain -eq 'ZF_FrameIdle') 'Frame must not inherit autonomous AI'
-Assert-Static ($frame.Defs.ThingDef[0].race.trainability -eq 'None') 'Frame must not expose animal training and must serialize a valid training tracker'
+Assert-Static ($frameDef.race.thinkTreeMain -eq 'ZF_FrameIdle') 'Frame must not inherit autonomous AI'
+Assert-Static ($frameDef.race.trainability -eq 'None') 'Frame must not expose animal training and must serialize a valid training tracker'
 $frameThinkTree = @($frame.Defs.ThinkTreeDef) | Where-Object defName -EQ 'ZF_FrameIdle'
 Assert-Static ($frameThinkTree.thinkRoot.GetAttribute('Class') -eq 'ThinkNode_Priority') 'Frame think tree must prioritize explicit queued jobs'
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[0].GetAttribute('Class') -eq 'ThinkNode_QueuedJob') 'Frame think tree must consume ordinary player-order jobs before idling'
@@ -60,7 +62,7 @@ Assert-Static ($hostileNodes[0].GetAttribute('Class') -eq 'ThinkNode_Duty' -and
     $hostileNodes[1].GetAttribute('Class') -eq 'ZenithFrame.JobGiver_FramePilotAbility' -and
     $hostileNodes[2].GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile raid Frames must consume Lord duty then pilot ability AI before the tactical combat fallback'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_FrameIdleJob').driverClass -eq 'ZenithFrame.JobDriver_FrameIdle') 'Frame inert idle JobDef is missing or miswired'
-Assert-Static ($frame.Defs.ThingDef[0].race.fleshType -eq 'ZF_FrameMechanical') 'Frame must use its own mechanical flesh type, not Biotech mechanoid classification'
+Assert-Static ($frameDef.race.fleshType -eq 'ZF_FrameMechanical') 'Frame must use its own mechanical flesh type, not Biotech mechanoid classification'
 $frameFlesh = $fleshTypes.Defs.FleshTypeDef | Where-Object defName -EQ 'ZF_FrameMechanical'
 Assert-Static ($frameFlesh.corpseCategory -eq 'CorpsesMechanoid') 'Frame flesh type requires a valid mechanical corpse category'
 Assert-Static ($frameFlesh.damageEffecter -eq 'Damage_HitMechanoid') 'Frame flesh type requires a valid mechanical damage effecter'
@@ -130,13 +132,13 @@ Assert-Static ($code -match 'gizmo is Command_Ability' -and $code -match 'abilit
 Assert-Static ($abilityCode -notmatch 'Scribe_|cooldownEndTick|FrameAbilityManager|FrameAbilityTracker|FrameCooldownManager') 'Frame abilities must use vanilla tracker cooldown and serialization state'
 Assert-Static ($code -notmatch '(Cockpit\.Pilot|\bpilot)\.abilities\.(GainAbility|abilities\.Add)|frame\.abilities\s*=\s*pilot\.abilities') 'Frame abilities must never be copied or granted to the cockpit pilot'
 Assert-Static ($code -match 'Frame\.SetFaction\(Faction\.OfPlayer\)' -and $code -notmatch 'ThingMaker\.MakeThing\([^\r\n]*ZF_DebugFrame') 'Hacking must convert the existing Frame through the normal faction API'
-Assert-Static (@($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
+Assert-Static (@($frameDef.comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameHacking').Count -eq 1) 'Debug Frame requires exactly one hacking component'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_HackFrame').driverClass -eq 'ZenithFrame.JobDriver_HackFrame') 'Hack Frame JobDef is missing or miswired'
 Assert-Static ($code -match 'Patch_FloatMenuUtility_GetMeleeAttackAction_Frame' -and $code -match 'Patch_PawnAttackGizmoUtility_CanOrderPlayerPawn_Frame') 'Vanilla melee-control bridge is incomplete'
 Assert-Static ($code -match 'job\.verbToUse\s*=\s*verb' -and $code -match 'job\.playerForced\s*=\s*true') 'Manual ranged order must bind its selected verb and player-forced intent'
-Assert-Static ($frame.Defs.ThingDef[0].tools.li.id -eq 'ZF_FrameStrike') 'Debug Frame requires a real melee verb for normal pawn attack semantics'
+Assert-Static ($frameDef.tools.li.id -eq 'ZF_FrameStrike') 'Debug Frame requires a real melee verb for normal pawn attack semantics'
 Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(Pawn\),\s*nameof\(Pawn\.IsPlayerControlled') 'Frame must not globally impersonate vanilla player-controlled pawn categories'
-$frameCompClasses = @($frame.Defs.ThingDef[0].comps.li | ForEach-Object { $_.GetAttribute('Class') })
+$frameCompClasses = @($frameDef.comps.li | ForEach-Object { $_.GetAttribute('Class') })
 Assert-Static ($frameCompClasses -contains 'ZenithFrame.CompProperties_FrameRecovery') 'Frame must include its focused recovery component'
 Assert-Static ($code -match 'IsRecoverablyDisabled\s*=>' -and $code -match 'Frame\.Downed' -and $code -match '!Frame\.Dead' -and $code -match '!Frame\.Destroyed') 'Recoverable state must derive from actual living downed Frame health'
 Assert-Static ($code -notmatch 'isDisabled\s*[;=]') 'Recovery must not persist a second disabled-state boolean'
@@ -145,7 +147,7 @@ Assert-Static ($recoveryCode -notmatch 'SetFaction\s*\(') 'Recovery must not con
 Assert-Static ($recoveryCode -notmatch 'PawnGenerator|ThingMaker\.MakeThing') 'Recovery must not construct or replace the existing Frame Pawn'
 $loadoutCode = Get-Content "$repo/Source/ZenithFrame/FrameLoadout.cs" -Raw
 $controlCode = Get-Content "$repo/Source/ZenithFrame/FrameControls.cs" -Raw
-$loadoutComp = @($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLoadout')
+$loadoutComp = @($frameDef.comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLoadout')
 Assert-Static ($loadoutComp.Count -eq 1 -and $loadoutComp.weaponCapacity -eq '1' -and $loadoutComp.utilityCapacity -eq '1' -and $loadoutComp.powerCapacity -eq '1') 'Debug Frame must define one explicit slot for every canonical addon category'
 Assert-Static ($loadoutComp.defaultWeapon -eq 'ZF_DebugRifle' -and $loadoutComp.defaultPower -eq 'ZF_DebugReactor' -and !$loadoutComp.defaultUtility) 'Definition defaults must provide Weapon and Power once while Utility starts empty'
 Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -in @('ZF_DebugRifle','ZF_DebugHeavyRifle') -and $_.modExtensions.li.category -eq 'Weapon' }).Count -eq 2) 'Both development weapons require explicit Frame Weapon metadata'
@@ -167,7 +169,7 @@ Assert-Static ($loadoutCode -notmatch 'override void CompTick|battery|recharge|f
 Assert-Static ($loadoutCode -match 'PrepareForFrameDestruction' -and $loadoutCode -match 'Frame\.Spawned.*TryDrop' -and $loadoutCode -match 'exact\.Destroy\(\)') 'Destruction requires explicit spawned salvage and off-map destruction policies'
 Assert-Static ($loadoutCode -notmatch 'InstalledUtilityDef|InstalledPowerDef|utilityActive|powerActive') 'Installed addon identity and active state must not be serialized as parallel fake truth'
 $uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
-Assert-Static ($frame.Defs.ThingDef[0].inspectorTabs.li -eq 'ZenithFrame.ITab_Frame' -and $uiCode -match 'class ITab_Frame : ITab') 'Frame UI must use a native inspect tab attached to the Frame definition'
+Assert-Static ($frameDef.inspectorTabs.li -eq 'ZenithFrame.ITab_Frame' -and $uiCode -match 'class ITab_Frame : ITab') 'Frame UI must use a native inspect tab attached to the Frame definition'
 Assert-Static ($uiCode -match 'class FrameUiSnapshot' -and $uiCode -match 'Pilot = frame\?\.Cockpit\?\.Pilot' -and $uiCode -match 'Weapon = loadout\?\.InstalledWeapon' -and $uiCode -match 'Utility = loadout\?\.InstalledUtility' -and $uiCode -match 'Power = loadout\?\.InstalledPower') 'Frame UI presentation must read exact cockpit and physical loadout objects'
 Assert-Static ($uiCode -match 'AvailableAddonPower' -and $uiCode -match 'RequiredAddonPower' -and $uiCode -match 'IsUtilityPowered') 'Frame UI power display must derive from the live static addon budget'
 Assert-Static ($uiCode -match 'summaryHealth.*SummaryHealthPercent' -and $uiCode -match 'IsRecoverablyDisabled' -and $uiCode -match 'IsHackableDisabledChassis') 'Frame UI condition recovery and hacking state must derive from existing authoritative components'
@@ -184,7 +186,7 @@ $pilotHealthCode = Get-Content "$repo/Source/ZenithFrame/FramePilotHealth.cs" -R
 [xml]$bodyDefs = Get-Content "$repo/Mod/Defs/FrameBodies.xml" -Raw
 $body = @($bodyDefs.Defs.BodyDef | Where-Object defName -EQ 'ZF_HumanoidFrameBody')
 $bodyPartRecords = @($body.SelectNodes('.//corePart | .//parts/li'))
-Assert-Static ($frame.Defs.ThingDef[0].race.body -eq 'ZF_HumanoidFrameBody' -and $frame.Defs.ThingDef[0].race.body -ne 'Lancer') 'Debug Frame must use the original Zenith body instead of Lancer'
+Assert-Static ($frameDef.race.body -eq 'ZF_HumanoidFrameBody' -and $frameDef.race.body -ne 'Lancer') 'Debug Frame must use the original Zenith body instead of Lancer'
 Assert-Static ($body.Count -eq 1 -and $bodyPartRecords.Count -eq 25) 'Zenith humanoid body must contain exactly 25 mechanical body records'
 Assert-Static (@($body.SelectNodes('.//li[def="ZF_FrameCore" and depth="Inside"]')).Count -eq 1 -and @($body.SelectNodes('.//li[def="ZF_FrameCockpit" and depth="Inside"]')).Count -eq 1) 'Core and Cockpit must be internal Frame body parts'
 Assert-Static ($bodyDefs.Defs.BodyPartDef[0].GetAttribute('Name') -eq 'ZF_FramePartBase' -and $bodyDefs.Defs.BodyPartDef[0].bleedRate -eq '0' -and
@@ -201,6 +203,29 @@ Assert-Static ($recoveryCode -notmatch 'RestorePart\(') 'Frame recovery must nev
 Assert-Static ($code -notmatch '\b(FrameHP|PilotHP)\b|Scribe_Values\.Look\(ref\s+(isDisabled|isDestroyed|headDestroyed|legsDestroyed)') 'No parallel HP or serialized derived damage-state truth is allowed'
 $uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
 Assert-Static ($uiCode -match 'FrameMoving' -and $uiCode -match 'FrameManipulation' -and $uiCode -match 'FrameSight' -and $uiCode -match 'PilotHealth' -and $uiCode -match 'PilotConsciousness' -and $uiCode -match 'PilotBleedRate') 'Frame UI snapshot must expose live chassis capacities and pilot vitals'
+$serviceCode = Get-Content "$repo/Source/ZenithFrame/FrameService.cs" -Raw
+$hackingCode = Get-Content "$repo/Source/ZenithFrame/FrameHacking.cs" -Raw
+$boardingCode = Get-Content "$repo/Source/ZenithFrame/Boarding.cs" -Raw
+$productionCode = (Get-ChildItem "$repo/Source/ZenithFrame" -Filter '*.cs' | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+$releaseContent = (Get-ChildItem "$repo/Mod" -File -Recurse | ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }) -join "`n"
+$dockDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_FrameDockingBay')[0]
+Assert-Static ($hackingCode -notmatch 'WorkTicks' -and $hackingCode -match 'hackProgress' -and $hackingCode -match 'StatDefOf\.HackingSpeed') 'Production hacking must use persistent HackingSpeed progress without the old fixed WorkTicks path'
+Assert-Static ($hackingCode -match 'SkillDefOf\.Intellectual' -and $hackingCode -match 'EffecterDefOf\.Hacking' -and $hackingCode -match 'Hacking_Started' -and $hackingCode -match 'Hacking_Completed') 'Frame hacking must use Core-safe Intellectual XP and verified vanilla hacking feedback'
+Assert-Static ($productionCode -notmatch 'Odyssey' -and $releaseContent -notmatch 'ludeon\.rimworld\.odyssey|Odyssey') 'Core production package must not depend on or copy Odyssey content'
+Assert-Static ($serviceCode -match 'GetMissingPartsCommonAncestors' -and $serviceCode -match 'material\.stackCount.*materialCount' -and $serviceCode -match 'material\.Destroy\(\).*RestorePart|material\.stackCount -= materialCount;\s*Frame\.health\.RestorePart') 'Missing-part restoration must consume exact physical material at successful reconstruction completion'
+Assert-Static ($serviceCode -match 'ZF_FrameTorso.*ZF_FrameCore|IsRecoverablePart' -or $bodyCode -match 'IsRecoverablePart.*ZF_FrameTorso.*ZF_FrameCore') 'Torso and Core must remain excluded from living-chassis reconstruction'
+Assert-Static ($uiCode -match 'QueueInstall\(category, candidate\)' -and $uiCode -match 'QueueRemove\(category\)' -and $uiCode -notmatch 'TryInstallWeapon|TryInstallUtility|TryInstallPower') 'Frame UI must queue work against exact Things instead of teleporting modules'
+Assert-Static ($serviceCode -match 'Scribe_References\.Look\(ref pendingModule' -and $serviceCode -notmatch 'pendingModuleDef|GetNamed\(.*pending') 'Service requests must persist exact module references without DefName substitution'
+Assert-Static ($serviceCode -match 'TryInstallWeapon' -and $serviceCode -match 'TryInstallUtility' -and $serviceCode -match 'TryInstallPower' -and $serviceCode -notmatch 'AddEquipment\(') 'Service must delegate Weapon Utility and Power ownership to the existing typed loadout API'
+Assert-Static ($serviceCode -notmatch 'Scribe_Values\.Look\(ref\s+isDocked|(?:private|public|protected)\s+bool\s+isDocked\s*[;=]' -and $serviceCode -match 'DockingBayFor\(FramePawn frame\)') 'Docking must remain position-derived without a saved isDocked flag'
+Assert-Static ($dockDef.thingClass -eq 'Building' -and $dockDef.passability -eq 'Standable' -and $dockDef.size -eq '(3,3)' -and $serviceCode -notmatch 'ThingOwner<FramePawn>|DeSpawn.*Frame') 'Docking Bay must be a standable building and never a Frame container'
+Assert-Static ($serviceCode -notmatch 'CanOperate\s*=' -and $productionCode -match 'IsServiceLocked') 'Service lock must gate controls without mutating CanOperate truth'
+Assert-Static ($serviceCode -match 'Frame\.Faction == Faction\.OfPlayer' -and $serviceCode -match 'HomeAreaAllows') 'Automatic Construction service must remain player-owned and Home Area aware'
+Assert-Static ($productionCode -notmatch 'Coventech|System\.Reflection|BindingFlags|GetMethod\(') 'Production service slice must contain no Coventech or reflection hacks'
+Assert-Static ($productionCode -notmatch 'catch\s*(\([^)]*\))?\s*\{\s*\}') 'Production code must not swallow exceptions'
+Assert-Static ($productionCode -notmatch 'IFrameSlotProvider|RegisterSlot|ThirdParty|GenericFrameService') 'Service architecture must stay Zenith-specific instead of becoming a generic third-party slot framework'
+$boardingDuration = [int]$frameDef.modExtensions.li.Where({$_.GetAttribute('Class') -eq 'ZenithFrame.FrameServiceExtension'}).normalBoardingTicks
+Assert-Static ($boardingDuration -eq 300 -and $serviceCode -match 'dockingSpeedMultiplier = 5f' -and $boardingCode -match 'DockingBayUtility\.BoardingTicks') 'Timed boarding and x5 derived docking acceleration must remain definition-driven'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"

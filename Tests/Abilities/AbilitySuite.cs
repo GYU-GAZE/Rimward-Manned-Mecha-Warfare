@@ -58,6 +58,7 @@ namespace ZenithFrame.AbilityTests
         private Precept_Role ideologyRole;
         private int roleAbilityId;
         private int roleCooldown;
+        private Pawn serviceWorker;
         private readonly List<string> passed = new List<string>();
 
         public AbilitySuite(Game game) { }
@@ -93,6 +94,7 @@ namespace ZenithFrame.AbilityTests
             Scribe_References.Look(ref ideologyRole, "abilityTestIdeologyRole");
             Scribe_Values.Look(ref roleAbilityId, "abilityTestRoleAbilityId");
             Scribe_Values.Look(ref roleCooldown, "abilityTestRoleCooldown");
+            Scribe_References.Look(ref serviceWorker, "abilityTestServiceWorker");
         }
 
         public override void GameComponentUpdate()
@@ -141,6 +143,8 @@ namespace ZenithFrame.AbilityTests
                 pilot.abilities.GainAbility(SelfDef);
                 pilot.abilities.GainAbility(TargetDef);
                 pilot.abilities.GainAbility(LocationDef);
+                serviceWorker = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer), frame.Position + IntVec3.West, map);
+                serviceWorker.skills.GetSkill(SkillDefOf.Construction).Level = 0;
                 if (ModsConfig.IdeologyActive)
                 {
                     Ideo ideo = Faction.OfPlayer.ideos.PrimaryIdeo;
@@ -175,33 +179,34 @@ namespace ZenithFrame.AbilityTests
                 Check(commands.Count(c => c.Ability == self) == 1 && commands.Count(c => c.Ability == aimed) == 1,
                     "Frame forwards each original pilot Command_Ability exactly once");
                 Check(commands.Any(c => c.Ability.def.defName == "ZF_DebugFrameOverdrive"), "Frame-owned Overdrive stays independently visible");
-                if (ModsConfig.IdeologyActive)
-                {
-                    Check(ideologyRole.IsAssigned(pilot), "real Ideology Precept_Role is assigned to the exact pilot");
-                    Ability roleAbility = pilot.abilities.AllAbilitiesForReading.Single(a => a.def.defName == "CombatCommand");
-                    roleAbilityId = roleAbility.Id;
-                    Check(roleAbility.pawn == pilot && commands.Count(c => c.Ability == roleAbility) == 1,
-                        "real Ideology role Ability belongs to pilot and appears exactly once through embarked Frame");
-                    roleAbility.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
-                    Check(frame.CurJob?.ability == roleAbility && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) && roleAbility.verb.Caster == frame,
-                        "Ideology role Ability uses Frame spatial host while pilot remains logical owner and self target");
-                    Next(7, 1200);
-                    return;
-                }
-                if (HasVEF)
-                {
-                    Check(VEF<bool>("HasExactCommand", frame, pilot), "Frame forwards the exact original VEF Command_Ability once");
-                    Check(VEF<bool>("UsesFrameHost", frame, pilot), "VEF ability keeps pilot ownership while using the exact Frame host");
-                    if (HasVPE)
-                    {
-                        Check(VEF<bool>("HasExactVPECommand", frame, pilot), "Frame forwards the exact VPE Command_Ability_Psycast once");
-                        Check(VEF<bool>("VPEUsesFrameHost", frame, pilot), "VPE psycast keeps pilot ownership while using the exact Frame host");
-                    }
-                }
-                self.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
-                Check(frame.CurJob?.ability == self && ReferenceEquals(frame.CurJob.targetA.Thing, frame) && ReferenceEquals(frame.CurJob.targetC.Thing, pilot),
-                    "self cast keeps pilot as logical target while the spawned Frame runs the vanilla job");
-                Next(1, 1200);
+                frame.SetDrafted(false);
+                Check(frame.Service.QueueRemove(FrameAddonCategory.Weapon),
+                    "ability matrix fixture queues a real physical service request");
+                Job serviceJob = new WorkGiver_ServiceFrameModule().JobOnThing(serviceWorker, frame, true);
+                Check(serviceJob != null && serviceWorker.jobs.TryTakeOrderedJob(serviceJob),
+                    "ability matrix fixture starts the real Construction service job");
+                Next(8, 1200);
+            }
+            else if (step == 8 && frame.Service.IsServiceLocked)
+            {
+                Ability self = pilot.abilities.GetAbility(SelfDef);
+                Ability aimed = pilot.abilities.GetAbility(TargetDef);
+                List<Command_Ability> lockedCommands = frame.GetGizmos().OfType<Command_Ability>().ToList();
+                Check(!frame.Cockpit.CanTakePlayerOrders && lockedCommands.All(command => command.Ability.pawn != pilot),
+                    "active service lock hides every forwarded vanilla pilot ability and blocks Frame orders");
+                Ability lockedOverdrive = frame.abilities.AllAbilitiesForReading.Single(ability => ability.def.defName == "ZF_DebugFrameOverdrive");
+                Check(!lockedOverdrive.CanCast.Accepted, "active service lock blocks the machine-owned Frame ability without moving its ownership");
+                if (HasVEF) Check(!VEF<bool>("HasExactCommand", frame, pilot),
+                    "active service lock hides the exact forwarded VEF pilot ability");
+                if (HasVPE) Check(!VEF<bool>("HasExactVPECommand", frame, pilot),
+                    "active service lock hides the exact forwarded VPE psycast");
+                serviceWorker.jobs.StopAll();
+                frame.Service.EndService(serviceWorker);
+                frame.Service.ClearPendingOrder();
+                serviceWorker.Destroy();
+                Check(!frame.Service.IsServiceLocked && frame.SetDrafted(true) && self.Id == selfAbilityId && aimed.Id == targetAbilityId,
+                    "ending service restores operation with unchanged pilot ability instances");
+                BeginInitialCast();
             }
             else if (step == 7 && pilot.health.hediffSet.HasHediff(DefDatabase<HediffDef>.GetNamed("CombatCommand")))
             {
@@ -298,6 +303,39 @@ namespace ZenithFrame.AbilityTests
                 vpeEntropy = pilot.psychicEntropy.EntropyValue;
                 SaveNext(1);
             }
+        }
+
+        private void BeginInitialCast()
+        {
+            Ability self = pilot.abilities.GetAbility(SelfDef);
+            List<Command_Ability> commands = frame.GetGizmos().OfType<Command_Ability>().ToList();
+            if (ModsConfig.IdeologyActive)
+            {
+                Check(ideologyRole.IsAssigned(pilot), "real Ideology Precept_Role is assigned to the exact pilot");
+                Ability roleAbility = pilot.abilities.AllAbilitiesForReading.Single(a => a.def.defName == "CombatCommand");
+                roleAbilityId = roleAbility.Id;
+                Check(roleAbility.pawn == pilot && commands.Count(c => c.Ability == roleAbility) == 1,
+                    "real Ideology role Ability belongs to pilot and appears exactly once through embarked Frame");
+                roleAbility.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
+                Check(frame.CurJob?.ability == roleAbility && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) && roleAbility.verb.Caster == frame,
+                    "Ideology role Ability uses Frame spatial host while pilot remains logical owner and self target");
+                Next(7, 1200);
+                return;
+            }
+            if (HasVEF)
+            {
+                Check(VEF<bool>("HasExactCommand", frame, pilot), "Frame forwards the exact original VEF Command_Ability once");
+                Check(VEF<bool>("UsesFrameHost", frame, pilot), "VEF ability keeps pilot ownership while using the exact Frame host");
+                if (HasVPE)
+                {
+                    Check(VEF<bool>("HasExactVPECommand", frame, pilot), "Frame forwards the exact VPE Command_Ability_Psycast once");
+                    Check(VEF<bool>("VPEUsesFrameHost", frame, pilot), "VPE psycast keeps pilot ownership while using the exact Frame host");
+                }
+            }
+            self.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
+            Check(frame.CurJob?.ability == self && ReferenceEquals(frame.CurJob.targetA.Thing, frame) && ReferenceEquals(frame.CurJob.targetC.Thing, pilot),
+                "self cast keeps pilot as logical target while the spawned Frame runs the vanilla job");
+            Next(1, 1200);
         }
 
         private void ReloadSwapAndEjection()
