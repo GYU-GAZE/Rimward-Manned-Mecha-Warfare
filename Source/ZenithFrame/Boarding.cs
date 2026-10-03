@@ -11,6 +11,7 @@ namespace ZenithFrame
         public static JobDef ZF_FrameIdleJob;
         public static JobDef ZF_BoardFrame;
         public static JobDef ZF_HackFrame;
+        public static JobDef ZF_FramePilotSelfTend;
 
         static ZenithJobDefOf() { DefOfHelper.EnsureInitializedInCtor(typeof(ZenithJobDefOf)); }
     }

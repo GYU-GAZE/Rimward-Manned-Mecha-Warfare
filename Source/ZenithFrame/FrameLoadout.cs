@@ -292,6 +292,8 @@ namespace ZenithFrame
         private static void Postfix(Pawn ___pawn, ThingWithComps __state)
         {
             if (___pawn is FramePawn frame && __state != null && !ReferenceEquals(frame.Loadout?.InstalledWeapon, __state)) frame.Loadout?.RememberDroppedWeapon(__state);
+            if (___pawn?.holdingOwner?.Owner is CompPilotableMech cockpit && ReferenceEquals(cockpit.Pilot, ___pawn))
+                cockpit.EmergencyEject();
         }
     }
 }

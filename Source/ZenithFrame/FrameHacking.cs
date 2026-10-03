@@ -17,7 +17,8 @@ namespace ZenithFrame
         public FramePawn Frame => (FramePawn)parent;
 
         public bool IsHackableDisabledChassis =>
-            Frame.Recovery?.IsRecoverablyDisabled == true &&
+            Frame.Spawned && !Frame.Dead && !Frame.Destroyed &&
+            Frame.Cockpit != null && !Frame.Cockpit.HasPilot &&
             Frame.Faction != Faction.OfPlayer &&
             (Frame.Faction == null || Frame.Faction.HostileTo(Faction.OfPlayer));
 
@@ -50,7 +51,7 @@ namespace ZenithFrame
             Frame.SetFaction(Faction.OfPlayer);
             Frame.Cockpit.StopFrame();
             return Frame.Faction == Faction.OfPlayer &&
-                Frame.Downed && !Frame.Cockpit.HasPilot && !Frame.Drafted;
+                !Frame.Cockpit.HasPilot && !Frame.Drafted;
         }
     }
 

@@ -3,6 +3,7 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 using Verse.AI.Group;
+using System.Linq;
 
 namespace ZenithFrame
 {
@@ -189,7 +190,7 @@ namespace ZenithFrame
             if (lord != null)
             {
                 if (Frame.GetLord() == lord) lord.RemovePawn(Frame);
-                if (pilot?.Spawned == true && pilot.Map == lord.Map && pilot.Faction == Frame.Faction && lord.CanAddPawn(pilot))
+                if (pilot?.Spawned == true && !pilot.Downed && !pilot.Dead && pilot.Map == lord.Map && pilot.Faction == Frame.Faction && lord.CanAddPawn(pilot))
                     lord.AddPawn(pilot);
             }
             operationalLord = null;
@@ -198,11 +199,55 @@ namespace ZenithFrame
         public override void CompTick()
         {
             base.CompTick();
+            Pawn exactPilot = Pilot;
+            if (exactPilot != null && !exactPilot.Dead)
+            {
+                exactPilot.health.HealthTick();
+                if (!exactPilot.Dead)
+                    exactPilot.health.HealthTickInterval(1);
+            }
             Lord currentLord = Frame.GetLord();
             bool preservingExplicitExitControl = operationalLord?.LordJob is LordJob_ExitMapBest &&
                 currentLord != operationalLord;
             if (HasPilot && currentLord != null && !preservingExplicitExitControl)
                 operationalLord = currentLord;
+        }
+
+        public override IEnumerable<Gizmo> CompGetGizmosExtra()
+        {
+            if (!(Frame is FramePawn frame) || frame.Faction != Faction.OfPlayer ||
+                !frame.Spawned || !CanTakePlayerOrders || Pilot?.health?.HasHediffsNeedingTend() != true)
+                yield break;
+
+            Pawn exactPilot = Pilot;
+            Medicine medicine = exactPilot.inventory?.innerContainer.OfType<Medicine>()
+                .Where(item => !item.Destroyed && item.stackCount > 0)
+                .OrderByDescending(item => item.def.GetStatValueAbstract(StatDefOf.MedicalPotency))
+                .FirstOrDefault();
+            var command = new Command_Action
+            {
+                defaultLabel = "Pilot self-tend",
+                defaultDesc = medicine == null
+                    ? "The contained pilot tends their real wounds without medicine."
+                    : "The contained pilot tends their real wounds using " + medicine.LabelCap + " from their own inventory.",
+                icon = TexCommand.Install,
+                action = () => StartPilotSelfTend(frame, exactPilot, medicine)
+            };
+            yield return command;
+        }
+
+        private static void StartPilotSelfTend(FramePawn frame, Pawn exactPilot, Medicine medicine)
+        {
+            if (!ReferenceEquals(frame.Cockpit?.Pilot, exactPilot) || !frame.Cockpit.CanTakePlayerOrders ||
+                exactPilot.health?.HasHediffsNeedingTend() != true ||
+                (medicine != null && (medicine.Destroyed || exactPilot.inventory?.innerContainer.Contains(medicine) != true)))
+                return;
+            frame.Cockpit.StopFrame();
+            Job job = JobMaker.MakeJob(ZenithJobDefOf.ZF_FramePilotSelfTend, frame);
+            job.targetC = exactPilot;
+            if (medicine != null) job.targetB = medicine;
+            job.playerForced = true;
+            frame.jobs.TryTakeOrderedJob(job);
         }
 
         public override void Notify_Downed() { EmergencyEject(); }

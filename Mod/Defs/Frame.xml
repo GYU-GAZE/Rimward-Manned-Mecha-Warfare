@@ -5,6 +5,7 @@
     <label>debug Frame</label>
     <description>Experimental humanoid pilotable Frame. Requires one colonist pilot. Board by selecting the pilot and right-clicking the Frame; once piloted, control it like a drafted pawn. Placeholder lancer art.</description>
     <thingClass>ZenithFrame.FramePawn</thingClass>
+    <modExtensions><li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li></modExtensions>
     <inspectorTabs><li>ZenithFrame.ITab_Frame</li></inspectorTabs>
     <statBases>
       <MoveSpeed>4.7</MoveSpeed><MarketValue>1000</MarketValue>
@@ -80,6 +81,7 @@
   <JobDef><defName>ZF_BoardFrame</defName><driverClass>ZenithFrame.JobDriver_BoardFrame</driverClass><reportString>Boarding TargetA.</reportString></JobDef>
   <JobDef><defName>ZF_FrameIdleJob</defName><driverClass>ZenithFrame.JobDriver_FrameIdle</driverClass><reportString>Inactive.</reportString></JobDef>
   <JobDef><defName>ZF_HackFrame</defName><driverClass>ZenithFrame.JobDriver_HackFrame</driverClass><reportString>Hacking TargetA.</reportString></JobDef>
+  <JobDef><defName>ZF_FramePilotSelfTend</defName><driverClass>ZenithFrame.JobDriver_FramePilotSelfTend</driverClass><reportString>Pilot self-tending inside TargetA.</reportString></JobDef>
   <ThingDef ParentName="BaseWeapon">
     <techLevel>Industrial</techLevel><defName>ZF_DebugRifle</defName><label>Frame debug rifle</label><description>Development weapon for manually targeted sustained attack orders.</description>
     <graphicData><texPath>Things/Item/Equipment/WeaponRanged/AssaultRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
