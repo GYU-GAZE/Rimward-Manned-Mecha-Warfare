@@ -144,16 +144,26 @@ Assert-Static ($recoveryCode -notmatch 'PawnGenerator|ThingMaker\.MakeThing') 'R
 $loadoutCode = Get-Content "$repo/Source/ZenithFrame/FrameLoadout.cs" -Raw
 $controlCode = Get-Content "$repo/Source/ZenithFrame/FrameControls.cs" -Raw
 $loadoutComp = @($frame.Defs.ThingDef[0].comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLoadout')
-Assert-Static ($loadoutComp.Count -eq 1 -and $loadoutComp.weaponCapacity -eq '1' -and $loadoutComp.defaultWeapon -eq 'ZF_DebugRifle') 'Debug Frame must define one Weapon capacity and its development default locally'
+Assert-Static ($loadoutComp.Count -eq 1 -and $loadoutComp.weaponCapacity -eq '1' -and $loadoutComp.utilityCapacity -eq '1' -and $loadoutComp.powerCapacity -eq '1') 'Debug Frame must define one explicit slot for every canonical addon category'
+Assert-Static ($loadoutComp.defaultWeapon -eq 'ZF_DebugRifle' -and $loadoutComp.defaultPower -eq 'ZF_DebugReactor' -and !$loadoutComp.defaultUtility) 'Definition defaults must provide Weapon and Power once while Utility starts empty'
 Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -in @('ZF_DebugRifle','ZF_DebugHeavyRifle') -and $_.modExtensions.li.category -eq 'Weapon' }).Count -eq 2) 'Both development weapons require explicit Frame Weapon metadata'
+Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -eq 'ZF_DebugMobilityBooster' -and $_.modExtensions.li.category -eq 'Utility' -and $_.modExtensions.li.powerDraw -eq '2' -and $_.modExtensions.li.moveSpeedOffset -eq '1' }).Count -eq 1) 'Mobility Booster requires deterministic Utility metadata'
+Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -eq 'ZF_DebugReactor' -and $_.modExtensions.li.category -eq 'Power' -and $_.modExtensions.li.powerOutput -eq '2' }).Count -eq 1) 'Debug Reactor requires two static addon power points'
+Assert-Static (@($frame.Defs.ThingDef | Where-Object { $_.defName -eq 'ZF_DebugWeakPowerCell' -and $_.modExtensions.li.category -eq 'Power' -and $_.modExtensions.li.powerOutput -eq '1' }).Count -eq 1) 'Weak Power Cell requires one static addon power point'
 Assert-Static ($controlCode -notmatch 'ZF_DebugRifle|ThingMaker\.MakeThing') 'Frame SpawnSetup must not hardcode or manufacture its default weapon'
 Assert-Static ($recoveryCode -notmatch 'ZF_DebugRifle|ReclaimDroppedDebugWeapon|GenRadial|ThingMaker\.MakeThing') 'Recovery must reclaim only the generic exact remembered weapon reference'
 Assert-Static ($loadoutCode -match 'mindState\?\.droppedWeapon' -and $loadoutCode -match 'rememberedDroppedWeapon' -and $loadoutCode -match 'Patch_PawnHealthTracker_MakeDowned_FrameWeapon') 'Loadout recovery must prefer vanilla remembered primary and narrowly retain the exact Frame drop reference'
-Assert-Static ([regex]::Matches($loadoutCode, 'Scribe_References\.Look').Count -eq 1 -and $loadoutCode -notmatch 'Scribe_Deep\.Look|ThingOwner') 'Loadout may shallow-scribe one dropped-weapon reference but must never duplicate equipment ownership'
+Assert-Static ([regex]::Matches($loadoutCode, 'Scribe_References\.Look').Count -eq 1 -and [regex]::Matches($loadoutCode, 'Scribe_Deep\.Look').Count -eq 2) 'Loadout must shallow-scribe only the dropped Weapon and deep-scribe exactly one Utility and one Power owner'
+Assert-Static ($loadoutCode -match 'ThingOwner<Thing> utilities' -and $loadoutCode -match 'ThingOwner<Thing> powerSources' -and $loadoutCode -match 'class CompFrameLoadout : ThingComp, IThingHolder') 'Utility and Power require separate physical ThingOwner ownership with Verse traversal'
+Assert-Static ($loadoutCode -match 'GetDirectlyHeldThings\(\) => utilities' -and $loadoutCode -match 'children\.Add\(powerHolder\)') 'Both nested addon owners must participate in IThingHolder traversal'
 Assert-Static ($loadoutCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(') 'Frame loadout must use no reflection'
-Assert-Static ($loadoutCode -match 'GetModExtension<FrameAddonExtension>' -and $loadoutCode -match 'category != FrameAddonCategory\.Weapon') 'Ordinary weapons and non-Weapon addon categories must be rejected explicitly'
-Assert-Static ($loadoutCode -match 'defaultLoadoutInitialized' -and $loadoutCode -match 'if \(respawningAfterLoad \|\| InstalledWeapon != null') 'Default loadout initialization must persist once and never recreate an intentionally removed weapon'
-Assert-Static ($loadoutCode -notmatch 'utilityCapacity|powerCapacity|energy|PowerConsumption|RadarBonus') 'Utility and Power gameplay must remain deferred'
+Assert-Static ($loadoutCode -match 'GetModExtension<FrameAddonExtension>' -and $loadoutCode -match 'Extension\(item\)\?\.category != category') 'Every slot must reject ordinary Things and mismatched addon categories explicitly'
+Assert-Static ($loadoutCode -match 'weaponDefaultInitialized' -and $loadoutCode -match 'utilityDefaultInitialized' -and $loadoutCode -match 'powerDefaultInitialized') 'Every category default requires independent once-only initialization state'
+Assert-Static ($loadoutCode -match 'AvailableAddonPower' -and $loadoutCode -match 'RequiredAddonPower' -and $loadoutCode -match 'IsUtilityPowered') 'Static derived addon power API is incomplete'
+Assert-Static ($loadoutCode -match 'override float GetStatOffset\(StatDef stat\)' -and $loadoutCode -match 'StatDefOf\.MoveSpeed' -and $code -notmatch 'HarmonyPatch\(typeof\((Thing|Pawn)\).*GetStatValue') 'Powered Utility must use a local stat hook without global stat lookup patches'
+Assert-Static ($loadoutCode -notmatch 'override void CompTick|battery|recharge|fuel|temperature|heat') 'Static addon power must not introduce a tick simulation fuel heat or recharge system'
+Assert-Static ($loadoutCode -match 'PrepareForFrameDestruction' -and $loadoutCode -match 'Frame\.Spawned.*TryDrop' -and $loadoutCode -match 'exact\.Destroy\(\)') 'Destruction requires explicit spawned salvage and off-map destruction policies'
+Assert-Static ($loadoutCode -notmatch 'InstalledUtilityDef|InstalledPowerDef|utilityActive|powerActive') 'Installed addon identity and active state must not be serialized as parallel fake truth'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"

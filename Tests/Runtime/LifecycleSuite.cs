@@ -66,6 +66,11 @@ namespace ZenithFrame.Tests
         private string loadoutFrameId;
         private string loadoutPilotId;
         private string worldWeaponId;
+        private Thing loadoutUtility;
+        private Thing loadoutPower;
+        private string loadoutUtilityId;
+        private string loadoutPowerId;
+        private float loadoutBaseMoveSpeed;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -108,6 +113,11 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref loadoutFrameId, "testLoadoutFrameId");
             Scribe_Values.Look(ref loadoutPilotId, "testLoadoutPilotId");
             Scribe_Values.Look(ref worldWeaponId, "testWorldWeaponId");
+            Scribe_References.Look(ref loadoutUtility, "testLoadoutUtility");
+            Scribe_References.Look(ref loadoutPower, "testLoadoutPower");
+            Scribe_Values.Look(ref loadoutUtilityId, "testLoadoutUtilityId");
+            Scribe_Values.Look(ref loadoutPowerId, "testLoadoutPowerId");
+            Scribe_Values.Look(ref loadoutBaseMoveSpeed, "testLoadoutBaseMoveSpeed");
         }
         private void Check(bool condition, string name)
         {
@@ -167,7 +177,11 @@ namespace ZenithFrame.Tests
                 else if (phase == 20) FrameLoadoutStart();
                 else if (phase == 21) FrameLoadoutInstalledLoadAndDown();
                 else if (phase == 22) FrameLoadoutRecoveryCaptureAndWorld();
-                else FrameLoadoutFinalLoadAndDestruction();
+                else if (phase == 23) FrameLoadoutFinalLoadAndDestruction();
+                else if (phase == 24) FramePowerUtilityStart();
+                else if (phase == 25) FramePowerUtilityUnpoweredLoad();
+                else if (phase == 26) FramePowerUtilityPoweredLifecycle();
+                else FramePowerUtilityWorldAndDestruction();
             }
             catch (Exception e)
             {
@@ -2148,6 +2162,150 @@ namespace ZenithFrame.Tests
                 "ordinary Frame destruction creates no duplicate or ownerless modular weapon Thing");
             Check(pilot.Spawned && !hostileFrame.Cockpit.HasPilot,
                 "Frame destruction still ejects the exact pilot independently from loadout outcome");
+            SaveNext(24);
+        }
+
+        private void FramePowerUtilityStart()
+        {
+            if (step != 0) return;
+            Map map = Find.CurrentMap;
+            IntVec3 center = map.Center;
+            ClearTestArea(CellRect.CenteredOn(center, 35), map);
+            frame = SpawnFrame(center);
+            loadoutFrameId = frame.GetUniqueLoadID();
+            CompFrameLoadout loadout = frame.Loadout;
+            Check(loadout.Props.weaponCapacity == 1 && loadout.Props.utilityCapacity == 1 && loadout.Props.powerCapacity == 1,
+                "definition-driven loadout exposes exactly one Weapon Utility and Power slot");
+            Check(loadout.InstalledWeapon?.def.defName == "ZF_DebugRifle" && loadout.InstalledUtility == null &&
+                loadout.InstalledPower?.def.defName == "ZF_DebugReactor",
+                "fresh Frame initializes one default Weapon and Reactor while Utility defaults empty");
+            Check(loadout.AvailableAddonPower == 2 && loadout.RequiredAddonPower == 0 && !loadout.IsUtilityPowered,
+                "default Reactor exposes two static addon power points without inventing an active Utility");
+
+            Thing defaultPower = loadout.InstalledPower;
+            string defaultPowerId = defaultPower.GetUniqueLoadID();
+            Check(loadout.TryRemovePower(out Thing removedPower) && ReferenceEquals(removedPower, defaultPower) &&
+                removedPower.GetUniqueLoadID() == defaultPowerId && removedPower.Spawned,
+                "removing default Power returns the exact physical Thing to the map");
+            removedPower.Destroy();
+
+            loadoutUtility = GenSpawn.Spawn(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster")), center + IntVec3.North, map);
+            loadoutUtilityId = loadoutUtility.GetUniqueLoadID();
+            loadoutBaseMoveSpeed = frame.GetStatValue(StatDefOf.MoveSpeed);
+            Check(loadout.TryInstallUtility(loadoutUtility) && ReferenceEquals(loadout.InstalledUtility, loadoutUtility) &&
+                !loadoutUtility.Spawned && loadoutUtility.holdingOwner != null,
+                "exact map Utility transfers into its dedicated Frame loadout owner");
+            Check(loadout.RequiredAddonPower == 2 && loadout.AvailableAddonPower == 0 && !loadout.IsUtilityPowered &&
+                Approximately(frame.GetStatValue(StatDefOf.MoveSpeed), loadoutBaseMoveSpeed),
+                "Mobility Booster remains physically installed but inactive without Power");
+
+            Thing secondUtility = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"));
+            Thing wrongPower = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugWeakPowerCell"));
+            Thing ordinary = ThingMaker.MakeThing(ThingDefOf.Steel);
+            Check(!loadout.TryInstallUtility(secondUtility) && !loadout.CanInstallUtility(wrongPower, out _) &&
+                !loadout.CanInstallPower(loadoutUtility, out _) && !loadout.CanInstallPower(ordinary, out _),
+                "capacity category mismatches and ordinary unmarked Things are rejected without ownership mutation");
+            secondUtility.Destroy(); wrongPower.Destroy(); ordinary.Destroy();
+            SaveNext(25);
+        }
+
+        private void FramePowerUtilityUnpoweredLoad()
+        {
+            if (step != 0) return;
+            CompFrameLoadout loadout = frame.Loadout;
+            Check(frame.GetUniqueLoadID() == loadoutFrameId && loadoutUtility.GetUniqueLoadID() == loadoutUtilityId &&
+                ReferenceEquals(loadout.InstalledUtility, loadoutUtility) && loadout.InstalledPower == null,
+                "fresh-process load preserves exact unpowered Utility and does not respawn removed default Power");
+            Check(!loadout.IsUtilityPowered && Approximately(frame.GetStatValue(StatDefOf.MoveSpeed), loadoutBaseMoveSpeed),
+                "loaded unpowered Utility recomputes inactive effect without serialized active state");
+            loadoutPower = GenSpawn.Spawn(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugWeakPowerCell")), frame.Position + IntVec3.East, frame.Map);
+            loadoutPowerId = loadoutPower.GetUniqueLoadID();
+            Check(loadout.TryInstallPower(loadoutPower) && loadout.AvailableAddonPower == 1 &&
+                loadout.RequiredAddonPower == 2 && !loadout.IsUtilityPowered,
+                "exact weak Power installs while insufficient configuration remains allowed and inactive");
+            Thing rejectedReactor = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugReactor"));
+            Check(!loadout.TryInstallPower(rejectedReactor),
+                "occupied single Power slot rejects a second source without ejecting the current item");
+            rejectedReactor.Destroy();
+            SaveNext(26);
+        }
+
+        private void FramePowerUtilityPoweredLifecycle()
+        {
+            if (step != 0) return;
+            CompFrameLoadout loadout = frame.Loadout;
+            Check(loadoutUtility.GetUniqueLoadID() == loadoutUtilityId && loadoutPower.GetUniqueLoadID() == loadoutPowerId &&
+                ReferenceEquals(loadout.InstalledUtility, loadoutUtility) && ReferenceEquals(loadout.InstalledPower, loadoutPower) &&
+                !loadout.IsUtilityPowered,
+                "fresh-process load preserves exact Utility weak-cell identities and insufficient budget");
+            Check(loadout.TryRemovePower(out Thing weak) && ReferenceEquals(weak, loadoutPower),
+                "Power removal returns the exact weak cell without touching installed Utility");
+            weak.Destroy();
+            loadoutPower = GenSpawn.Spawn(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugReactor")), frame.Position + IntVec3.East, frame.Map);
+            loadoutPowerId = loadoutPower.GetUniqueLoadID();
+            Check(loadout.TryInstallPower(loadoutPower) && loadout.IsUtilityPowered && loadout.AvailableAddonPower == 2 &&
+                Approximately(frame.GetStatValue(StatDefOf.MoveSpeed), loadoutBaseMoveSpeed + 1f),
+                "Reactor immediately activates Mobility Booster through local stat offset");
+
+            pilot = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), frame.Position + IntVec3.West, frame.Map);
+            pilotId = pilot.GetUniqueLoadID();
+            Check(frame.Cockpit.TryBoard(pilot) && frame.SetDrafted(true), "powered loadout accepts normal pilot operation");
+            float shooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            Check(loadout.IsUtilityPowered && Approximately(frame.GetStatValue(StatDefOf.ShootingAccuracyPawn), shooting),
+                "powered machine Utility coexists with pilot operation without changing Shooting bridge");
+            Check(frame.GetGizmos().OfType<Command_VerbTarget>().Any() && Overdrive(frame) != null,
+                "Weapon controls and Frame Overdrive remain independent from addon power budget");
+            Check(frame.Cockpit.TryDisembark() && loadout.IsUtilityPowered && !frame.CanTakeOrder,
+                "powered Utility remains machine state while empty Frame stays absolutely inert");
+            Pawn replacement = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), frame.Position + IntVec3.West, frame.Map);
+            Check(frame.Cockpit.TryBoard(replacement) && ReferenceEquals(loadout.InstalledUtility, loadoutUtility) &&
+                ReferenceEquals(loadout.InstalledPower, loadoutPower),
+                "pilot replacement preserves exact machine Utility and Power ownership");
+
+            DownByMissingLegs(frame);
+            Check(frame.Downed && loadout.InstalledUtility == loadoutUtility && loadout.InstalledPower == loadoutPower &&
+                !loadoutUtility.Spawned && !loadoutPower.Spawned,
+                "downing ejects pilot while Utility and Power remain chassis-installed");
+            Check(frame.Recovery.TryRecover() && loadout.IsUtilityPowered,
+                "recovery preserves Utility Power and their derived active state");
+
+            worldFrame = SpawnFrame(frame.Position + IntVec3.North * 8);
+            worldPilot = GenerateCombatCapableHuman(Faction.OfPlayer);
+            GenSpawn.Spawn(worldPilot, worldFrame.Position + IntVec3.West, frame.Map);
+            worldFrame.Loadout.TryInstallUtility(ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster")));
+            Check(worldFrame.Cockpit.TryBoard(worldPilot), "world addon fixture boards its exact pilot");
+            worldFrameId = worldFrame.GetUniqueLoadID();
+            worldPilotId = worldPilot.GetUniqueLoadID();
+            loadoutUtilityId = worldFrame.Loadout.InstalledUtility.GetUniqueLoadID();
+            loadoutPowerId = worldFrame.Loadout.InstalledPower.GetUniqueLoadID();
+            worldFrame.DeSpawn(); Find.WorldPawns.PassToWorld(worldFrame); Find.WorldPawns.ForcefullyKeptPawns.Add(worldFrame);
+            SaveNext(27);
+        }
+
+        private void FramePowerUtilityWorldAndDestruction()
+        {
+            if (step != 0) return;
+            Check(worldFrame.GetUniqueLoadID() == worldFrameId && worldPilot.GetUniqueLoadID() == worldPilotId &&
+                Find.WorldPawns.Contains(worldFrame) && ReferenceEquals(worldFrame.Cockpit.Pilot, worldPilot) &&
+                worldFrame.Loadout.InstalledUtility.GetUniqueLoadID() == loadoutUtilityId &&
+                worldFrame.Loadout.InstalledPower.GetUniqueLoadID() == loadoutPowerId && worldFrame.Loadout.IsUtilityPowered,
+                "fresh-process world Frame retains exact pilot Weapon Utility Power and derived budget");
+
+            FramePawn destroyed = SpawnFrame(Find.CurrentMap.Center + IntVec3.East * 15);
+            Thing utility = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"));
+            destroyed.Loadout.TryInstallUtility(utility);
+            Thing power = destroyed.Loadout.InstalledPower;
+            string utilityId = utility.GetUniqueLoadID(); string powerId = power.GetUniqueLoadID();
+            destroyed.Destroy();
+            Check(utility.Spawned && power.Spawned && utility.GetUniqueLoadID() == utilityId && power.GetUniqueLoadID() == powerId,
+                "spawned Frame destruction drops exact Utility and Power for salvage without duplication");
+
+            Thing worldUtility = worldFrame.Loadout.InstalledUtility;
+            Thing worldPower = worldFrame.Loadout.InstalledPower;
+            worldFrame.Destroy();
+            Check(worldUtility.Destroyed && worldPower.Destroyed && !worldFrame.Cockpit.HasPilot &&
+                Current.Game.GetComponent<PilotRecovery>().GetDirectlyHeldThings().Contains(worldPilot),
+                "off-map Frame destruction deterministically destroys addons while transferring exact pilot safely");
             Finish();
         }
 
