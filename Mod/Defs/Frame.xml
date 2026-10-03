@@ -34,8 +34,13 @@
       <li Class="ZenithFrame.CompProperties_PilotableMech" />
       <li Class="ZenithFrame.CompProperties_FrameLoadout">
         <weaponCapacity>1</weaponCapacity>
+        <utilityCapacity>1</utilityCapacity>
+        <powerCapacity>1</powerCapacity>
         <defaultWeapon>ZF_DebugRifle</defaultWeapon>
+        <defaultPower>ZF_DebugReactor</defaultPower>
         <developmentWeapons><li>ZF_DebugRifle</li><li>ZF_DebugHeavyRifle</li></developmentWeapons>
+        <developmentUtilities><li>ZF_DebugMobilityBooster</li></developmentUtilities>
+        <developmentPowerSources><li>ZF_DebugReactor</li><li>ZF_DebugWeakPowerCell</li></developmentPowerSources>
       </li>
       <li Class="ZenithFrame.CompProperties_FrameRecovery" />
       <li Class="ZenithFrame.CompProperties_FrameHacking" />
@@ -93,6 +98,24 @@
       <li><verbClass>ZenithFrame.Verb_HostileFrameShot</verbClass><hasStandardCommand>false</hasStandardCommand><onlyManualCast>false</onlyManualCast><defaultProjectile>Bullet_SniperRifle</defaultProjectile><warmupTime>1.5</warmupTime><range>40</range><burstShotCount>1</burstShotCount><soundCast>Shot_SniperRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
       <li><verbClass>ZenithFrame.Verb_FrameShot</verbClass><hasStandardCommand>true</hasStandardCommand><onlyManualCast>true</onlyManualCast><defaultProjectile>Bullet_SniperRifle</defaultProjectile><warmupTime>1.5</warmupTime><range>40</range><burstShotCount>1</burstShotCount><soundCast>Shot_SniperRifle</soundCast><muzzleFlashScale>9</muzzleFlashScale></li>
     </verbs>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugMobilityBooster</defName><label>debug mobility booster</label><description>Development Frame Utility addon. Adds MoveSpeed while sufficient addon power is available.</description>
+    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/TechprofSubpersonaCore</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>6</Mass><MarketValue>100</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Utility</category><powerDraw>2</powerDraw><moveSpeedOffset>1</moveSpeedOffset></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugReactor</defName><label>debug reactor</label><description>Development Frame Power addon providing two static addon power points.</description>
+    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>10</Mass><MarketValue>100</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>2</powerOutput></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugWeakPowerCell</defName><label>debug weak power cell</label><description>Development Frame Power addon providing one static addon power point.</description>
+    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>4</Mass><MarketValue>50</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>1</powerOutput></li></modExtensions>
   </ThingDef>
 </Defs>
 

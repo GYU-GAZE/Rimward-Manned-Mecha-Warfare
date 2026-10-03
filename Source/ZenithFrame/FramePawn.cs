@@ -12,11 +12,13 @@ namespace ZenithFrame
         public override void Kill(DamageInfo? dinfo, Hediff exactCulprit = null)
         {
             Cockpit?.EmergencyEject();
+            Loadout?.PrepareForFrameDestruction();
             base.Kill(dinfo, exactCulprit);
         }
         public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
         {
             Cockpit?.EmergencyEject();
+            Loadout?.PrepareForFrameDestruction();
             base.Destroy(mode);
         }
         public override void ExitMap(bool allowedToJoinOrCreateCaravan, Rot4 exitDir)
