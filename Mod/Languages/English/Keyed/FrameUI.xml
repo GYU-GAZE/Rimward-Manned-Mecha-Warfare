@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ZF_FrameTab>Frame</ZF_FrameTab>
+  <ZF_FrameSection>FRAME</ZF_FrameSection>
+  <ZF_PilotSection>PILOT</ZF_PilotSection>
+  <ZF_LoadoutSection>LOADOUT</ZF_LoadoutSection>
+  <ZF_StatusSection>STATUS</ZF_StatusSection>
+  <ZF_FrameName>Frame</ZF_FrameName>
+  <ZF_Chassis>Chassis</ZF_Chassis>
+  <ZF_OperationalState>Operational state</ZF_OperationalState>
+  <ZF_Integrity>Integrity</ZF_Integrity>
+  <ZF_FrameHealth>Frame health</ZF_FrameHealth>
+  <ZF_FrameActionsTip>These actions operate on the selected physical chassis.</ZF_FrameActionsTip>
+  <ZF_InspectPilot>Inspect pilot</ZF_InspectPilot>
+  <ZF_AddonPower>Addon power</ZF_AddonPower>
+  <ZF_Required>required</ZF_Required>
+  <ZF_Available>available</ZF_Available>
+  <ZF_FrameAbilities>Frame abilities</ZF_FrameAbilities>
+  <ZF_PilotAbilities>Pilot abilities</ZF_PilotAbilities>
+  <ZF_Acquisition>Acquisition</ZF_Acquisition>
+  <ZF_Recoverable>Disabled chassis - recoverable</ZF_Recoverable>
+  <ZF_Hackable>Hackable</ZF_Hackable>
+  <ZF_Powered>Powered</ZF_Powered>
+  <ZF_Unpowered>UNPOWERED</ZF_Unpowered>
+  <ZF_Contained>Contained in cockpit</ZF_Contained>
+  <ZF_InformationUnavailable>Information is no longer available.</ZF_InformationUnavailable>
+  <ZF_State_Unpiloted>Unpiloted</ZF_State_Unpiloted>
+  <ZF_State_Operational>Operational</ZF_State_Operational>
+  <ZF_State_Drafted>Drafted</ZF_State_Drafted>
+  <ZF_State_HostileOperational>Hostile operational</ZF_State_HostileOperational>
+  <ZF_State_Disabled>Disabled</ZF_State_Disabled>
+  <ZF_State_Downed>Downed</ZF_State_Downed>
+  <ZF_State_Destroyed>Destroyed</ZF_State_Destroyed>
+</LanguageData>

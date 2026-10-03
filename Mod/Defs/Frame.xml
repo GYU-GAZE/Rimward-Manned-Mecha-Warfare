@@ -5,6 +5,7 @@
     <label>debug Frame</label>
     <description>Experimental humanoid pilotable Frame. Requires one colonist pilot. Board by selecting the pilot and right-clicking the Frame; once piloted, control it like a drafted pawn. Placeholder lancer art.</description>
     <thingClass>ZenithFrame.FramePawn</thingClass>
+    <inspectorTabs><li>ZenithFrame.ITab_Frame</li></inspectorTabs>
     <statBases>
       <MoveSpeed>4.7</MoveSpeed><MarketValue>1000</MarketValue>
       <ArmorRating_Sharp>0.4</ArmorRating_Sharp><ArmorRating_Blunt>0.2</ArmorRating_Blunt>
