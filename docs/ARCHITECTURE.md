@@ -144,7 +144,17 @@ Power is a static addon budget. `AvailableAddonPower` comes from the installed P
 
 The development Mobility Booster consumes two points and contributes a local `ThingComp.GetStatOffset` of +1 MoveSpeed only when powered. The debug Reactor provides two points; the weak cell provides one. Utility state belongs to the chassis and survives pilot swaps, while the existing no-pilot operation gate remains absolute.
 
-Weapon, Utility and Power defaults each have independent once-only initialization state. The debug Frame defaults to Rifle plus Reactor and no Utility. Removing the Reactor and saving never recreates it. Downing keeps Utility and Power installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction drops Utility and Power for salvage; off-map destruction destroys both exact objects after pilot safety is resolved. The final player-facing loadout UI, multiple slots and additional effects remain deferred.
+Weapon, Utility and Power defaults each have independent once-only initialization state. The debug Frame defaults to Rifle plus Reactor and no Utility. Removing the Reactor and saving never recreates it. Downing keeps Utility and Power installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction drops Utility and Power for salvage; off-map destruction destroys both exact objects after pilot safety is resolved. Multiple slots and additional effects remain deferred.
+
+## Frame information UI
+
+Every `FramePawn` exposes the native `ITab_Frame` inspect tab. The tab resolves `SelPawn` on every draw and builds a transient `FrameUiSnapshot` from the selected chassis, its cockpit, loadout, health, recovery and hacking components. It caches no selected Frame, pilot, item or presentation state, so selection changes and every lifecycle transition are visible immediately.
+
+The compact scrollable panel shows chassis name and condition, the exact contained pilot, portrait, live Shooting and Melee skills, exact Weapon/Utility/Power objects, available and required addon power, powered state and counts of existing Frame and pilot abilities. Installed item rows open vanilla info cards. The panel summarizes abilities only; casting remains in the existing vanilla, Royalty, Ideology, VEF and VPE command pipelines.
+
+`Inspect Pilot` opens a read-only dialog over the exact contained `Pawn`. It uses `CharacterCardUtility` and `HealthCardUtility`, preserving vanilla skills, passions, traits, health, ideology and Royalty presentation rules without copying state or temporarily spawning the pilot. Portraits come from `PortraitsCache` for the same Pawn object. Player-owned Frames may rename the chassis and disembark; hostile and factionless Frames remain read-only. Disembark delegates to `CompPilotableMech.TryDisembark`.
+
+Frame naming uses normal `Pawn.Name` with a `NameSingle` value and is serialized by vanilla Pawn state. It is independent of pilot identity. Condition and integrity come from real Pawn health, recoverability comes from `CompFrameRecovery`, and hackability is derived from `CompFrameHacking`; the UI adds no health, ownership, loadout or power fields.
 
 ## Weapon behavior
 
@@ -239,7 +249,7 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
 - One functional slot for each of Weapon, Utility and Power; no multiweapon support or generated enemy loadouts.
 - Static addon power affects only Utility. Chassis core power requirements, batteries, fuel, heat, charging and drain are deferred.
-- No final loadout UI; current mutation controls remain development-only.
+- The information UI displays the current physical loadout; mutation controls remain development-only.
 - No final repair economy, reload/ammunition, power system, research, chassis variants or final art.
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.

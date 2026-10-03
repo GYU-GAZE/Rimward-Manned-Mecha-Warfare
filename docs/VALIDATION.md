@@ -1,5 +1,71 @@
 # MVP validation status
 
+## Validated proper Frame UI
+
+Branch: `feat/frame-ui`
+
+Implementation commit: `68389ff`
+
+Runtime regression commit: `c9b7696`
+
+Executed 2026-10-03 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony assembly/file 2.4.1.0, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean core + optional VEF Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/UI checks | PASS, 159 checks |
+| Full lifecycle, Core + Harmony | PASS, 648 assertions, 30 successful fresh processes, 29 save/load transitions |
+| Full lifecycle, installed official DLC + Harmony | PASS, 648 assertions, 30 fresh processes, 29 save/load transitions |
+| Ability matrix A: Core only | PASS, 37 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: installed official DLC | PASS, 50 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: installed official DLC + real VEF, no VPE | PASS, 64 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: installed official DLC + real VEF + real VPE | PASS, 77 checks, 4 fresh processes, 3 save/load transitions |
+| Runtime log gates | PASS for every accepted phase, with no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll     145E7FBD103A6013E009856E10A3C9E7AD19CA8B633DE74739EF9389721C1919
+ZenithFrame.VEF.dll 41E61B5B755DF85749AE482EB3136895FD095DF8752222B892CD546018411E64
+```
+
+The native Frame inspect tab now identifies and renames the selected chassis, derives integrity and operational state from real Pawn health, shows the exact cockpit pilot and live combat skills, and reads the exact physical Weapon, Utility and Power objects plus their current static power budget. Item rows use ordinary info cards. Ability rows are summaries only and never create a second command or targeter.
+
+Contained-pilot inspection uses `PortraitsCache`, `CharacterCardUtility` and `HealthCardUtility` against the exact stored Pawn. It never spawns, despawns, copies or substitutes the pilot. Player Frames expose rename and the existing shared disembark path. Hostile and factionless Frames stay read-only while still allowing safe inspection. Save/load, pilot swaps, downing, ejection, recovery, hacking and world ownership update the transient UI snapshot without separate saved presentation state.
+
+The Core run encountered one nondeterministic timeout in the pre-existing Heavy Rifle hit assertion: the Frame remained in a valid `AttackStatic` job and fired without damaging the target before the 3600-tick deadline. Re-running phase 20 from the unchanged saved input passed every assertion and its log gate. The UI phases 27 through 29 passed on their first execution in both Core and DLC configurations.
+
+### Proper Frame UI manual QA checklist
+
+1. Spawn a Debug Frame and select it
+2. Open the Frame tab and confirm chassis, No Pilot, Weapon, Utility and Power
+3. Rename the Frame and confirm its map label changes
+4. Board a colonist and reopen the tab
+5. Confirm the portrait and exact pilot name
+6. Open Inspect Pilot and read bio, skills, traits and health
+7. Confirm Shooting and Melee match that pilot
+8. Cast Frame Overdrive and confirm there is still one cast command
+9. Use a pilot psycast or Ideology role ability and confirm targeting still works
+10. Install the Mobility Booster through the existing Dev control
+11. Confirm the Utility appears as Powered with two required and two available power
+12. Remove the Reactor and confirm the same Utility becomes UNPOWERED immediately
+13. Install the weak cell and confirm one available point remains insufficient
+14. Reinstall the Reactor and confirm Powered returns
+15. Remove the Weapon and confirm None appears immediately
+16. Install the Heavy Rifle and open its normal info card
+17. Down the Frame and confirm No Pilot, Disabled and Recoverable
+18. Recover and reboard, then confirm the panel updates without a reload
+19. Spawn a hostile piloted Frame and inspect its contained hostile pilot
+20. Confirm the hostile panel exposes no rename or disembark control
+21. Start the development mixed raid and inspect its occupied Frame during combat
+22. Save and load with a custom Frame name, pilot and configured loadout
+23. Confirm the same name, pilot, items and status after loading
+24. Repeat at normal UI scale and one larger supported UI scale
+25. Use deliberately long Frame, pilot and item labels and confirm clipping, tooltips and scrolling remain usable
+
+Player-facing installation work, workshops, hauling, repair economy, multi-slot loadouts, batteries, heat, ammo, additional chassis, research and final balance remain deferred.
+
 ## Validated physical Utility and Power loadout
 
 Branch: `feat/frame-power-utility`

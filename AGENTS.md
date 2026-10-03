@@ -25,6 +25,9 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - Utility and Power are physical Things in separate `CompFrameLoadout` ThingOwners; Weapon remains exclusively in `Pawn_EquipmentTracker`, and all three owners must participate in Verse ownership traversal without duplicate serialization
 - addon power is a static derived budget: Power provides capacity, Utility consumes it, and insufficient power disables only the Utility effect; core Frame operation, Frame abilities and pilot abilities do not require or consume addon power
 - Utility active state is never serialized; derive it from the exact installed Utility, exact installed Power and their `FrameAddonExtension` metadata
+- Frame UI reads the exact selected `FramePawn`, cockpit pilot and physical loadout objects on demand; never cache or serialize copied presentation state
+- contained-pilot UI must use the real Pawn without temporary spawn/despawn, and hostile or factionless Frame inspection stays read-only
+- ability controls remain in their existing command pipelines; the Frame information tab may summarize them but must never recreate cast commands or targeters
 
 ### Frames are NOT Biotech mechs
 

@@ -201,7 +201,7 @@ The purpose is to allow meaningful specialization without turning mech configura
 
 ### Current physical loadout foundation
 
-The debug Frame has exactly one functional slot for each durable category: `Weapon`, `Utility` and `Power`. Multi-slot support and the final loadout UI are deferred.
+The debug Frame has exactly one functional slot for each durable category: `Weapon`, `Utility` and `Power`. Multi-slot support and player-facing installation gameplay are deferred. The Frame inspect tab now displays the exact installed objects and their derived power state.
 
 Installed weapons are physical RimWorld Things. The Frame's normal equipment tracker is their sole authoritative owner, while `CompFrameLoadout` owns capacity, explicit category eligibility and safe mutation. A compatible item must opt in through `FrameAddonExtension` as `Weapon`; being an ordinary equippable RimWorld weapon is insufficient.
 
@@ -616,7 +616,7 @@ Suggested order:
 15. Pilot abilities / psycasts
 16. Physical single-Weapon loadout foundation (implemented)
 17. Power / utility add-ons
-18. Proper UI
+18. Proper UI (implemented)
 19. Additional chassis/content
 20. Progression/research
 21. Balance
@@ -756,6 +756,8 @@ Likely useful information:
 Avoid recreating Coventech's very large slot-heavy interface.
 
 Do not spend custom UI space recreating normal Pawn controls. Drafting, movement and ordinary attack orders belong to normal Pawn interaction semantics.
+
+The implemented Frame inspect tab is compact and data-driven. It identifies and renames the chassis, shows real health-derived condition, reads the exact cockpit pilot and physical Weapon/Utility/Power objects, and exposes derived addon power without saving display copies. Pilot inspection reuses vanilla character and health drawers on the contained Pawn without temporary spawning. Hostile and factionless Frames use the same panel read-only. Existing command bars remain authoritative for combat, Frame abilities, pilot abilities and psycasts.
 
 ---
 
