@@ -1,5 +1,81 @@
 # MVP validation status
 
+## Validated physical Utility and Power loadout
+
+Branch: `feat/frame-power-utility`
+
+Implementation commit: `fe91726`
+
+Runtime ownership regression commit: `cc1b58a`
+
+Ideology role regression commit: `ba92492`
+
+Executed 2026-10-02 on RimWorld 1.6.4871 rev591 with rev590 reference assemblies, Harmony assembly/file 2.4.1.0, VEF assembly 1.1.7.0 / file 1.1.9.0 and VPE assembly/file 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean core + optional VEF Release build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source/loadout checks | PASS, 147 checks |
+| Full lifecycle, Core + Harmony | PASS, 617 assertions, 28 fresh processes, 27 save/load transitions |
+| Full lifecycle, installed official DLC + Harmony | PASS, 617 assertions, 28 fresh processes, 27 save/load transitions |
+| Ability matrix A: Core only | PASS, 37 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: installed official DLC | PASS, 50 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: installed official DLC + real VEF, no VPE | PASS, 64 checks, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: installed official DLC + real VEF + real VPE | PASS, 77 checks, 4 fresh processes, 3 save/load transitions |
+| Runtime log gates | PASS on every final run, with no exception/config/XML/reference/asset-loading errors |
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll     9BE6ABDE58944F5CB78D0A786045681DD58A66CBE58931448523576F8411CFF1
+ZenithFrame.VEF.dll 7BDD8DDC5D92B4E0018F3262D620ABCC8F30228504C6C6FD590F4EED41A6FF99
+```
+
+The debug chassis now has one physical slot for each durable category. Weapon remains exclusively owned by `Pawn_EquipmentTracker`; Utility and Power use separate deep-scribed `ThingOwner` containers exposed through `IThingHolder`. Tests preserve the exact Utility and Power object identities through install, remove, insufficient-power states, fresh-process save/load, pilot replacement, downing, recovery, world ownership and destruction. Spawned chassis destruction drops the exact internal addons for salvage; off-map destruction destroys them deterministically after pilot recovery.
+
+Addon power is a static derived budget. The Reactor supplies two points, the weak cell supplies one and the Mobility Booster consumes two. The Booster contributes +1 MoveSpeed only while the installed source meets its draw. Insufficient configurations remain physically valid, active state is never serialized and removing or reinstalling a source updates the stat immediately without recreating the Utility. Core Frame operation, weapons, Overdrive and every pilot ability pipeline remain independent from addon power.
+
+Defaults initialize independently and exactly once: Rifle plus Reactor and no Utility. Removing the Reactor, saving and loading leaves the Power slot empty. The ability matrix also assigns a real Ideology `Precept_Role`, casts its role-granted `CombatCommand` through the embarked Frame and preserves the original pilot-owned Ability, effect and cooldown through reload and disembark.
+
+### Utility and Power manual QA checklist
+
+1. Spawn a fresh debug Frame
+2. Confirm its inspect pane reports the default Rifle and Reactor
+3. Confirm the Utility slot is empty
+4. Board a pilot
+5. Verify ordinary movement and combat
+6. Install the Mobility Booster
+7. Confirm MoveSpeed increases by 1
+8. Remove the Reactor
+9. Confirm the Booster reports unpowered and MoveSpeed returns to baseline
+10. Install the weak Power Cell
+11. Confirm one available point remains insufficient for the two-point Booster
+12. Remove the weak cell and install the Reactor again
+13. Confirm the boost returns without reinstalling or recreating the Utility
+14. Remove the Utility
+15. Confirm the exact item drops near the Frame
+16. Reinstall that same Utility object
+17. Save and reload
+18. Confirm the exact Utility and Power identities remain installed
+19. Remove the Power source
+20. Save and reload again
+21. Confirm the default Reactor does not respawn
+22. Reinstall the same Reactor
+23. Replace the pilot
+24. Confirm the machine Utility state and boost remain unchanged
+25. Use Frame Overdrive
+26. Use one pilot psycast
+27. Use an Ideology role-granted ability
+28. Down the Frame
+29. Confirm the pilot ejects while Utility and Power remain installed
+30. Recover the chassis
+31. Confirm the exact loadout and powered state remain
+32. Down and hack a hostile configured Frame
+33. Confirm the captured Utility and Power remain on that exact chassis
+
+The final loadout UI, multiple slots, batteries, fuel, heat, charging, temporal drain, ammo, additional chassis, research and final balance remain deferred.
+
 ## Validated physical Frame Weapon loadout
 
 Branch: `feat/frame-loadout`

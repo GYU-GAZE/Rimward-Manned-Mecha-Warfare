@@ -128,7 +128,7 @@ Current patch points:
 
 ## Physical Frame loadout
 
-`CompFrameLoadout` owns policy and mutation for the deliberately small add-on vocabulary `Weapon`, `Utility` and `Power`. The current chassis has one Weapon slot. Only Weapon is functional in this milestone; Utility and Power exist as explicit categories for future work and have no gameplay fields or installation path yet.
+`CompFrameLoadout` owns policy and mutation for the deliberately small add-on vocabulary `Weapon`, `Utility` and `Power`. The debug chassis has one explicit slot for each category. No generalized slot array or additional category exists.
 
 An installed Weapon is a real `ThingWithComps` held only by the Frame's vanilla `Pawn_EquipmentTracker`. The loadout does not keep a second `ThingOwner`, deep-scribe a duplicate item or reconstruct equipment from `defName`. Installation and removal transfer the exact object through normal equipment/map ownership. Eligibility requires an explicit `FrameAddonExtension` whose category is `Weapon`; ordinary RimWorld weapons and test Utility/Power add-ons are rejected.
 
@@ -138,7 +138,13 @@ Every loadout mutation stops Frame operation first. Current jobs, stance, active
 
 Vanilla downing physically drops equipped weapons. A narrow Frame-only `Pawn_HealthTracker.MakeDowned` patch remembers the exact pre-downing Weapon as one shallow scribed reference because this custom nonhumanlike Pawn does not reliably retain vanilla `mindState.droppedWeapon`. Recovery may reclaim that object only while it still exists, is spawned on the same map and lies within two cells. If it was destroyed or removed, the slot remains empty; an identical nearby item is never substituted. Hacking preserves the same relation, world-owned Frames retain equipped items normally, and destruction leaves no duplicate or ownerless loadout object.
 
-The only current loadout controls are development commands plus a concise inspect line. Multiweapon support, Utility/Power behavior and the final player-facing loadout UI remain deferred.
+Utility and Power are physical Things held by two independent deep-scribed `ThingOwner<Thing>` containers inside `CompFrameLoadout`. The comp implements `IThingHolder`; a stable child holder exposes the second container so Verse traverses both owners during save/load, world ownership and map cleanup. Neither item is placed in Pawn equipment or mirrored as a DefName/ID field.
+
+Power is a static addon budget. `AvailableAddonPower` comes from the installed Power extension, `RequiredAddonPower` comes from the installed Utility extension and `IsUtilityPowered` is derived on demand. There is no charge, drain, fuel, heat, recharge or tick loop. An over-budget Utility stays physically installed but its effect is inactive. Core operation, weapons, Overdrive and pilot abilities remain independent from addon power.
+
+The development Mobility Booster consumes two points and contributes a local `ThingComp.GetStatOffset` of +1 MoveSpeed only when powered. The debug Reactor provides two points; the weak cell provides one. Utility state belongs to the chassis and survives pilot swaps, while the existing no-pilot operation gate remains absolute.
+
+Weapon, Utility and Power defaults each have independent once-only initialization state. The debug Frame defaults to Rifle plus Reactor and no Utility. Removing the Reactor and saving never recreates it. Downing keeps Utility and Power installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction drops Utility and Power for salvage; off-map destruction destroys both exact objects after pilot safety is resolved. The final player-facing loadout UI, multiple slots and additional effects remain deferred.
 
 ## Weapon behavior
 
@@ -231,8 +237,9 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
-- One functional Weapon slot with two deterministic development weapons; no multiweapon support or generated enemy loadouts.
-- No final loadout UI. Utility and Power are category vocabulary only and have no functional installation behavior.
+- One functional slot for each of Weapon, Utility and Power; no multiweapon support or generated enemy loadouts.
+- Static addon power affects only Utility. Chassis core power requirements, batteries, fuel, heat, charging and drain are deferred.
+- No final loadout UI; current mutation controls remain development-only.
 - No final repair economy, reload/ammunition, power system, research, chassis variants or final art.
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.

@@ -22,6 +22,9 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - pilot abilities and psycasts remain on the exact pilot; while embarked, the Frame may provide the spawned execution host but must never receive copied abilities, cooldowns, psychic resources, VEF `CompAbilities` or VPE state
 - installed Frame add-ons are physical Things; the vanilla equipment tracker is the sole owner of the installed Weapon, and removal, downing, recovery, hacking, world transfer and destruction must preserve exact item identity without DefName replacement, duplicate ownership or silent fabrication
 - loadout category eligibility is explicit through `FrameAddonExtension`; ordinary weapons and Utility/Power add-ons must never enter the Weapon slot merely because they have compatible RimWorld equipment metadata
+- Utility and Power are physical Things in separate `CompFrameLoadout` ThingOwners; Weapon remains exclusively in `Pawn_EquipmentTracker`, and all three owners must participate in Verse ownership traversal without duplicate serialization
+- addon power is a static derived budget: Power provides capacity, Utility consumes it, and insufficient power disables only the Utility effect; core Frame operation, Frame abilities and pilot abilities do not require or consume addon power
+- Utility active state is never serialized; derive it from the exact installed Utility, exact installed Power and their `FrameAddonExtension` metadata
 
 ### Frames are NOT Biotech mechs
 

@@ -199,15 +199,17 @@ A heavier chassis may have more.
 
 The purpose is to allow meaningful specialization without turning mech configuration into inventory-management hell.
 
-### Current physical Weapon-slot foundation
+### Current physical loadout foundation
 
-The first implemented slice has exactly one functional Weapon slot on the debug Frame. `Weapon`, `Utility` and `Power` are the durable category vocabulary, but Utility and Power deliberately have no functional behavior yet. Multiweapon support and the final loadout UI are deferred.
+The debug Frame has exactly one functional slot for each durable category: `Weapon`, `Utility` and `Power`. Multi-slot support and the final loadout UI are deferred.
 
 Installed weapons are physical RimWorld Things. The Frame's normal equipment tracker is their sole authoritative owner, while `CompFrameLoadout` owns capacity, explicit category eligibility and safe mutation. A compatible item must opt in through `FrameAddonExtension` as `Weapon`; being an ordinary equippable RimWorld weapon is insufficient.
 
 The default weapon is definition-driven and initialized once. Removing, losing or destroying it never causes a replacement to appear on respawn, recovery or reload. Installation, removal, downing, recovery, hacking, world transfer and destruction preserve the exact object identity. Recovery reclaims only the remembered weapon that vanilla actually dropped near the chassis; it never searches by definition or steals an identical neighbor.
 
-Development-only commands expose the mutation API for validation. Player-facing configuration, costs, work, facilities, multiple slots and production content remain later work.
+Utility and Power use separate physical ThingOwners inside the Frame loadout. Power provides a static capacity budget and Utility consumes it. Insufficient power is a valid installed configuration whose Utility effect remains inactive. Power never replaces the pilot and currently powers neither the chassis core nor abilities.
+
+The first Utility is a +1 MoveSpeed Mobility Booster drawing two points. The Reactor provides two points and the weak cell one. These are deterministic development values without batteries, fuel, heat, recharge or temporal drain. Development-only commands expose the real mutation APIs. Player-facing configuration, costs, work, facilities, multiple slots and production content remain later work.
 
 ---
 
