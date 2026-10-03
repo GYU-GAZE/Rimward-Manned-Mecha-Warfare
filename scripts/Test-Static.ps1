@@ -22,6 +22,8 @@ foreach ($file in Get-ChildItem "$repo/Mod/Defs" -Filter '*.xml' -Recurse) {
     Assert-Static ($doc.DocumentElement.Name -eq 'Defs') "Invalid root: $file"
     foreach ($node in $doc.Defs.ChildNodes) {
         if ($node.NodeType -ne 'Element') { continue }
+        if ($node.GetAttribute('Name')) { $parents[$node.GetAttribute('Name')] = $true }
+        if ($node.GetAttribute('Abstract') -eq 'True') { continue }
         $key = $node.LocalName + ':' + $node.defName
         Assert-Static (![string]::IsNullOrWhiteSpace($node.defName)) "Unnamed def: $file"
         Assert-Static (!$modNames.ContainsKey($key)) "Duplicate typed def: $key"
@@ -177,6 +179,28 @@ Assert-Static ($uiCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(|Cove
 Assert-Static ($uiCode -notmatch 'GainAbility|GiveAbility|StartAbilityJob|QueueCastingJob|GetGizmos\(') 'Frame UI must display ability summaries without recreating commands or entering targeting'
 Assert-Static ($uiCode -match 'IsReadOnly = frame\?\.Faction != Faction\.OfPlayer' -and $uiCode -match 'CanRename = .*Faction == Faction\.OfPlayer' -and $uiCode -match 'CanDisembark = .*Faction == Faction\.OfPlayer') 'Hostile and factionless Frame UI must remain read-only'
 Assert-Static ($uiCode -match 'Text\.WordWrap = false' -and $uiCode -match 'TooltipHandler\.TipRegion' -and $uiCode -match 'BeginScrollView') 'Frame UI must clip long labels with tooltips and remain scrollable at constrained scale'
+$bodyCode = Get-Content "$repo/Source/ZenithFrame/FrameDamage.cs" -Raw
+$pilotHealthCode = Get-Content "$repo/Source/ZenithFrame/FramePilotHealth.cs" -Raw
+[xml]$bodyDefs = Get-Content "$repo/Mod/Defs/FrameBodies.xml" -Raw
+$body = @($bodyDefs.Defs.BodyDef | Where-Object defName -EQ 'ZF_HumanoidFrameBody')
+$bodyPartRecords = @($body.SelectNodes('.//corePart | .//parts/li'))
+Assert-Static ($frame.Defs.ThingDef[0].race.body -eq 'ZF_HumanoidFrameBody' -and $frame.Defs.ThingDef[0].race.body -ne 'Lancer') 'Debug Frame must use the original Zenith body instead of Lancer'
+Assert-Static ($body.Count -eq 1 -and $bodyPartRecords.Count -eq 25) 'Zenith humanoid body must contain exactly 25 mechanical body records'
+Assert-Static (@($body.SelectNodes('.//li[def="ZF_FrameCore" and depth="Inside"]')).Count -eq 1 -and @($body.SelectNodes('.//li[def="ZF_FrameCockpit" and depth="Inside"]')).Count -eq 1) 'Core and Cockpit must be internal Frame body parts'
+Assert-Static ($bodyDefs.Defs.BodyPartDef[0].GetAttribute('Name') -eq 'ZF_FramePartBase' -and $bodyDefs.Defs.BodyPartDef[0].bleedRate -eq '0' -and
+    @($bodyDefs.Defs.BodyPartDef | Where-Object { $_.GetAttribute('Abstract') -ne 'True' -and $_.GetAttribute('ParentName') -eq 'ZF_FramePartBase' }).Count -eq 13) 'Every concrete Frame body part must inherit zero-bleed mechanical metadata'
+Assert-Static ($bodyCode -match 'class FrameDamageRules' -and $bodyCode -match 'ZF_FrameTorso' -and $bodyCode -match 'ZF_FrameCore' -and $bodyCode -match 'ZF_FrameHeadAssembly' -and $bodyCode -match 'ZF_FrameCockpit') 'Frame damage semantics must remain centralized around explicit structural parts'
+Assert-Static ($bodyCode -match 'ShouldBeDeadFromLethalDamageThreshold' -and $bodyCode -match 'ShouldBeDeadFromRequiredCapacity' -and $bodyCode -match 'ShouldBeDowned' -and $bodyCode -match '___pawn is FramePawn') 'Frame-only health guards are incomplete or insufficiently gated'
+Assert-Static ($bodyCode -match 'HarmonyPatch\(typeof\(Thing\), nameof\(Thing\.TakeDamage\)\)' -and $bodyCode -match '__result\?\.hediffs' -and $bodyCode -match 'ReferenceEquals\(injury\.Part, __state\.Cockpit\)' -and $bodyCode -match '__state\.Pilot\.TakeDamage') 'Cockpit trauma must derive from the resolved exact Cockpit injury and damage the exact pilot normally'
+Assert-Static ($bodyCode -notmatch 'Rand\.|Chance\(|ZF_DebugRifle|ZF_DebugHeavyRifle' -and $bodyCode -match 'pilotTraumaFraction') 'Pilot trauma must be definition-driven without random chance or weapon DefName gates'
+Assert-Static ($bodyCode -match 'Patch_Pawn_Kill_ContainedFramePilot' -and $bodyCode -match 'cockpit\.EmergencyEject\(\)') 'Contained pilot death must detach before vanilla corpse creation'
+Assert-Static ($coreCode -match 'exactPilot\.health\.HealthTick\(\)' -and $coreCode -match 'exactPilot\.health\.HealthTickInterval\(1\)' -and $coreCode -notmatch '\bPilot\?*\.DoTick\(|\bpilot\.DoTick\(') 'Contained pilot must receive per-tick and interval health simulation and never full Pawn.DoTick'
+Assert-Static ($pilotHealthCode -match 'MedicalTendSpeed' -and $pilotHealthCode -match 'SkillDefOf\.Medicine' -and $pilotHealthCode -match 'TendUtility\.DoTend\(ExactPilot, ExactPilot, Medicine\)') 'Embarked self-tend must use exact pilot speed skill XP and normal TendUtility'
+Assert-Static ($code -match 'inventory\?\.innerContainer\.OfType<Medicine>' -and $pilotHealthCode -notmatch 'FindBestMedicine|listerThings|StoreUtility') 'Embarked self-tend may select only exact medicine in the pilot inventory'
+Assert-Static ($recoveryCode -notmatch 'RestorePart\(') 'Frame recovery must never reconstruct missing mechanical parts'
+Assert-Static ($code -notmatch '\b(FrameHP|PilotHP)\b|Scribe_Values\.Look\(ref\s+(isDisabled|isDestroyed|headDestroyed|legsDestroyed)') 'No parallel HP or serialized derived damage-state truth is allowed'
+$uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
+Assert-Static ($uiCode -match 'FrameMoving' -and $uiCode -match 'FrameManipulation' -and $uiCode -match 'FrameSight' -and $uiCode -match 'PilotHealth' -and $uiCode -match 'PilotConsciousness' -and $uiCode -match 'PilotBleedRate') 'Frame UI snapshot must expose live chassis capacities and pilot vitals'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 Write-Host "PASS: $checks XML/static/package checks"

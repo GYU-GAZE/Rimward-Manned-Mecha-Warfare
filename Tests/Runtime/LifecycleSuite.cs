@@ -71,6 +71,10 @@ namespace ZenithFrame.Tests
         private string loadoutUtilityId;
         private string loadoutPowerId;
         private float loadoutBaseMoveSpeed;
+        private float damageBloodLossBefore;
+        private float damageMedicineXpBefore;
+        private int damageMedicineCountBefore;
+        private string damageMedicineId;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -118,6 +122,10 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref loadoutUtilityId, "testLoadoutUtilityId");
             Scribe_Values.Look(ref loadoutPowerId, "testLoadoutPowerId");
             Scribe_Values.Look(ref loadoutBaseMoveSpeed, "testLoadoutBaseMoveSpeed");
+            Scribe_Values.Look(ref damageBloodLossBefore, "testDamageBloodLossBefore");
+            Scribe_Values.Look(ref damageMedicineXpBefore, "testDamageMedicineXpBefore");
+            Scribe_Values.Look(ref damageMedicineCountBefore, "testDamageMedicineCountBefore");
+            Scribe_Values.Look(ref damageMedicineId, "testDamageMedicineId");
         }
         private void Check(bool condition, string name)
         {
@@ -183,7 +191,9 @@ namespace ZenithFrame.Tests
                 else if (phase == 26) FramePowerUtilityPoweredLifecycle();
                 else if (phase == 27) FramePowerUtilityWorldAndDestruction();
                 else if (phase == 28) FrameUiLifecycle();
-                else FrameUiWorldLoad();
+                else if (phase == 29) FrameUiWorldLoad();
+                else if (phase == 30) FrameDamageLoadAndStartTend();
+                else FrameDamageTendLoadAndFinish();
             }
             catch (Exception e)
             {
@@ -577,11 +587,18 @@ namespace ZenithFrame.Tests
                     Check(!boardOptions.Any(option => option.Label.Contains("Board Frame")), "pilot right-click offers no boarding action for disabled chassis");
 
                     FramePawn sameFrame = frame;
-                    Check(frame.Recovery.TryRecover(), "development recovery restores disabled chassis");
+                    int missingBefore = frame.health.hediffSet.GetMissingPartsCommonAncestors().Count();
+                    Check(!frame.Recovery.TryRecover(), "development recovery refuses to reconstruct destroyed mechanical parts");
+                    Check(frame.health.hediffSet.GetMissingPartsCommonAncestors().Count() == missingBefore,
+                        "failed recovery preserves every exact missing mechanical part");
+                    foreach (Hediff_MissingPart missing in frame.health.hediffSet.GetMissingPartsCommonAncestors().ToList())
+                        frame.health.RestorePart(missing.Part);
+                    Check(DownByRepairableLegInjuries(frame), "test service fixture creates damage-only mechanical disablement");
+                    Check(frame.Recovery.TryRecover(), "development recovery clears repairable injuries without reconstructing parts");
                     Check(ReferenceEquals(frame, sameFrame) && frame.GetUniqueLoadID() == frameId, "recovery preserves exact Frame object and load identity");
                     Check(!frame.Downed && !frame.Dead && !frame.Destroyed, "recovered Frame is mobile and alive");
                     Check(!frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "recovered Frame remains unpiloted, undrafted and inactive");
-                    Check(frame.health.hediffSet.GetMissingPartsCommonAncestors().Any(), "development recovery stops before full-healing unrelated remaining chassis loss");
+                    Check(!frame.health.hediffSet.GetMissingPartsCommonAncestors().Any(), "test service reconstruction leaves no hidden duplicate missing-part state");
                     Check(frame.equipment.Primary?.def.defName == "ZF_DebugRifle", "recovery reclaims the existing debug weapon dropped at disablement");
 
                     var recoverBoardOptions = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, frame.DrawPos, out var _);
@@ -665,7 +682,7 @@ namespace ZenithFrame.Tests
                 Check(!frame.Cockpit.HasPilot && pilot.Spawned, "Frame is empty before ordinary-damage disablement");
                 Check(DownByOrdinaryDamage(frame), "ordinary applied chassis damage can create recoverable downing");
                 Check(frame.Recovery.IsRecoverablyDisabled && !frame.CanTakeOrder, "empty damage-downed Frame is recoverable and inactive");
-                Check(frame.Recovery.TryRecover(), "second disable/recover cycle succeeds");
+                Check(RecoverForLegacyLifecycle(frame), "second disable/recover cycle succeeds after test service reconstruction when required");
                 Check(frame.GetUniqueLoadID() == frameId && !frame.Downed && !frame.Cockpit.HasPilot, "second recovery preserves identity without creating a pilot");
 
                 DownByMissingLegs(frame);
@@ -683,8 +700,8 @@ namespace ZenithFrame.Tests
                 OnGui(() =>
                 {
                     FramePawn operationalHostile = SpawnFrame(pilot.Position + IntVec3.East * 3, Faction.OfAncientsHostile);
-                    Check(!operationalHostile.Hacking.CanHack(pilot, false), "operational hostile Frame is not hackable");
-                    Check(!HasHackOption(pilot, operationalHostile), "Hack Frame is absent for an operational hostile chassis");
+                    Check(operationalHostile.Hacking.CanHack(pilot, false), "empty healthy hostile Frame is hackable after pilot loss");
+                    Check(HasHackOption(pilot, operationalHostile), "Hack Frame appears for an empty healthy hostile chassis");
                     operationalHostile.Destroy();
 
                     FramePawn playerDisabled = SpawnFrame(pilot.Position + IntVec3.North * 3);
@@ -774,7 +791,11 @@ namespace ZenithFrame.Tests
                 Check(frame.Faction == Faction.OfPlayer && frame.Downed && frame.Recovery.IsRecoverablyDisabled, "post-hack load preserves player ownership and disabled state");
                 Check(!frame.Cockpit.HasPilot && !frame.Drafted && !frame.CanTakeOrder, "post-hack loaded Frame remains empty undrafted and inactive");
                 UniqueFrame(frame, "post-hack reload");
-                Check(frame.Recovery.TryRecover(), "hacked disabled Frame uses the existing recovery API");
+                Check(!frame.Recovery.TryRecover(), "hacked chassis cannot reconstruct missing locomotion parts through recovery");
+                foreach (Hediff_MissingPart missing in frame.health.hediffSet.GetMissingPartsCommonAncestors().ToList())
+                    frame.health.RestorePart(missing.Part);
+                Check(!frame.Downed && frame.Loadout.TryReclaimRememberedWeapon(),
+                    "test service reconstruction and exact weapon reclaim prepare hacked Frame for lifecycle regression");
                 Check(frame.GetUniqueLoadID() == frameId && !frame.Downed && !frame.Cockpit.HasPilot, "recovery preserves hacked Frame identity and empty cockpit");
                 OnGui(() =>
                 {
@@ -853,8 +874,8 @@ namespace ZenithFrame.Tests
                 OnGui(() =>
                 {
                     FramePawn operationalFactionless = SpawnFactionlessFrame(pilot.Position + IntVec3.East * 3);
-                    Check(!operationalFactionless.Hacking.CanHack(pilot, false), "operational factionless Frame is not hackable");
-                    Check(!HasHackOption(pilot, operationalFactionless), "Hack Frame is absent for an operational factionless chassis");
+                    Check(operationalFactionless.Hacking.CanHack(pilot, false), "empty healthy factionless Frame is hackable");
+                    Check(HasHackOption(pilot, operationalFactionless), "Hack Frame appears for an empty healthy factionless chassis");
                     operationalFactionless.Destroy();
 
                     Faction neutralFaction = Faction.OfAncients;
@@ -1103,7 +1124,7 @@ namespace ZenithFrame.Tests
                     "captured hostile chassis completes the normal timed hacking job");
                 Check(hostileFrame.GetUniqueLoadID() == hostileFrameId && hostileFrame.Downed && !hostileFrame.Cockpit.HasPilot,
                     "hacking preserves hostile chassis identity and leaves it disabled empty");
-                Check(hostileFrame.Recovery.TryRecover(), "captured hostile chassis enters the normal recovery API");
+                Check(RecoverForLegacyLifecycle(hostileFrame), "captured hostile chassis enters normal post-service recovery lifecycle");
                 OnGui(() =>
                 {
                     var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { pilot }, hostileFrame.DrawPos, out var _);
@@ -1258,7 +1279,7 @@ namespace ZenithFrame.Tests
                 raidPilot.stances.stunner.StunFor(5000, raidFrame);
                 Check(raidFrame.Hacking.TryHack(pilot) && raidFrame.Faction == Faction.OfPlayer && raidFrame.GetLord() == null,
                     "hacking converts the exact raid Frame and leaves no stale hostile Lord control");
-                Check(raidFrame.GetUniqueLoadID() == raidFrameId && raidFrame.Recovery.TryRecover(),
+                Check(raidFrame.GetUniqueLoadID() == raidFrameId && RecoverForLegacyLifecycle(raidFrame),
                     "hacked raid chassis preserves identity through normal recovery");
                 RelocatePawn(pilot, CellFinder.RandomClosewalkCellNear(raidFrame.Position, raidFrame.Map, 1), raidFrame.Map);
                 Check(raidFrame.Cockpit.TryBoard(pilot) && ReferenceEquals(raidFrame.Cockpit.Pilot, pilot) && raidFrame.SetDrafted(true),
@@ -1686,7 +1707,7 @@ namespace ZenithFrame.Tests
                 DownByMissingLegs(frame);
                 Check(frame.Downed && !frame.Cockpit.HasPilot && other.Spawned,
                     "player Frame downing ejects the known-skill pilot and clears the bridge");
-                Check(frame.Recovery.TryRecover(), "recovering the chassis alone succeeds without restoring old pilot skill state");
+                Check(RecoverForLegacyLifecycle(frame), "recovering the serviced chassis alone succeeds without restoring old pilot skill state");
                 Check(!frame.Cockpit.HasPilot && !frame.CanTakeOrder,
                     "recovered empty chassis has no operator skill contribution or combat control");
                 if (pilot != null && !pilot.Destroyed) pilot.Destroy();
@@ -1834,7 +1855,7 @@ namespace ZenithFrame.Tests
                 Check(frame.Downed && !frame.Cockpit.HasPilot && other.Spawned &&
                     HasOverdriveEffect(frame) && !overdrive.CanCast.Accepted,
                     "downing ejects the pilot and blocks casting without moving the active effect off the chassis");
-                Check(frame.Recovery.TryRecover() &&
+                Check(RecoverForLegacyLifecycle(frame) &&
                     frame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1 &&
                     Overdrive(frame).Id == savedAbilityId && Overdrive(frame).OnCooldown,
                     "recovery preserves intrinsic ability ownership identity and cooldown");
@@ -1875,7 +1896,7 @@ namespace ZenithFrame.Tests
                     "fresh player colonist is eligible to acquire the disabled ability-owning chassis");
                 Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.GetUniqueLoadID() == hostileFrameId,
                     "hacking converts the same ability-owning hostile chassis");
-                Check(hostileFrame.Recovery.TryRecover() &&
+                Check(RecoverForLegacyLifecycle(hostileFrame) &&
                     hostileFrame.abilities.abilities.Count(ability => ability.def == OverdriveDef) == 1,
                     "recovery preserves exactly one intrinsic ability on the captured chassis");
                 Check(hostileFrame.Cockpit.TryBoard(pilot) && !OwnsOverdrive(pilot),
@@ -2080,7 +2101,7 @@ namespace ZenithFrame.Tests
                 loadoutWeapon.GetUniqueLoadID() == loadoutWeaponId && loadoutWeapon.Spawned &&
                 ReferenceEquals(frame.Loadout.RememberedDroppedWeapon, loadoutWeapon),
                 "fresh-process downed load preserves exact dropped-weapon relationship");
-            Check(frame.Recovery.TryRecover() && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon) &&
+            Check(RecoverForLegacyLifecycle(frame) && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon) &&
                 frame.Loadout.RememberedDroppedWeapon == null,
                 "recovery reclaims only the exact surviving remembered Heavy Rifle");
 
@@ -2091,7 +2112,7 @@ namespace ZenithFrame.Tests
             unrelatedWeapon = (ThingWithComps)GenSpawn.Spawn(
                 ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle")), frame.Position, frame.Map);
             string unrelatedId = unrelatedWeapon.GetUniqueLoadID();
-            Check(frame.Recovery.TryRecover() && frame.Loadout.InstalledWeapon == null && unrelatedWeapon.Spawned &&
+            Check(RecoverForLegacyLifecycle(frame) && frame.Loadout.InstalledWeapon == null && unrelatedWeapon.Spawned &&
                 unrelatedWeapon.GetUniqueLoadID() == unrelatedId,
                 "recovery leaves chassis weaponless when exact weapon is lost and never steals an identical neighbor");
 
@@ -2128,7 +2149,7 @@ namespace ZenithFrame.Tests
                 "hostile downing drops and remembers its exact installed Heavy Rifle");
             Check(hostileFrame.Hacking.TryHack(pilot) && hostileFrame.Faction == Faction.OfPlayer,
                 "hacking converts the same disabled chassis without resetting its loadout relation");
-            Check(hostileFrame.Recovery.TryRecover() && ReferenceEquals(hostileFrame.Loadout.InstalledWeapon, capturedHeavy),
+            Check(RecoverForLegacyLifecycle(hostileFrame) && ReferenceEquals(hostileFrame.Loadout.InstalledWeapon, capturedHeavy),
                 "captured chassis recovery reclaims the exact surviving hostile weapon");
             RelocatePawn(pilot, hostileFrame.Position + IntVec3.West, hostileFrame.Map);
             Check(hostileFrame.Cockpit.TryBoard(pilot) && ReferenceEquals(hostileFrame.Cockpit.Pilot, pilot),
@@ -2268,7 +2289,7 @@ namespace ZenithFrame.Tests
             Check(frame.Downed && loadout.InstalledUtility == loadoutUtility && loadout.InstalledPower == loadoutPower &&
                 !loadoutUtility.Spawned && !loadoutPower.Spawned,
                 "downing ejects pilot while Utility and Power remain chassis-installed");
-            Check(frame.Recovery.TryRecover() && loadout.IsUtilityPowered,
+            Check(RecoverForLegacyLifecycle(frame) && loadout.IsUtilityPowered,
                 "recovery preserves Utility Power and their derived active state");
 
             worldFrame = SpawnFrame(frame.Position + IntVec3.North * 8);
@@ -2379,7 +2400,7 @@ namespace ZenithFrame.Tests
             FrameUiSnapshot disabled = FrameUiSnapshot.From(frame);
             Check(disabled.OperationalState == FrameOperationalState.Disabled && disabled.IsRecoverable && disabled.Pilot == null && pilot.Spawned,
                 "downing derives disabled recoverable No Pilot UI from real health and cockpit state");
-            Check(frame.Recovery.TryRecover() && FrameUiSnapshot.From(frame).OperationalState == FrameOperationalState.Unpiloted,
+            Check(RecoverForLegacyLifecycle(frame) && FrameUiSnapshot.From(frame).OperationalState == FrameOperationalState.Unpiloted,
                 "recovery immediately updates UI state from the same real chassis health");
 
             hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(frame.Position + IntVec3.North * 8, frame.Map);
@@ -2403,7 +2424,7 @@ namespace ZenithFrame.Tests
                 factionlessData.IsHackable && factionlessData.OperationalState == FrameOperationalState.Disabled,
                 "factionless disabled Frame UI resolves safely with derived hackable status");
 
-            Check(frame.Recovery.TryRecover() || !frame.Downed, "player UI chassis is mobile before world fixture");
+            Check(RecoverForLegacyLifecycle(frame) || !frame.Downed, "player UI chassis is mobile before world fixture");
             RelocatePawn(pilot, frame.Position + IntVec3.East, frame.Map);
             Check(frame.Cockpit.TryBoard(pilot), "player UI fixture reboards before final command audit");
             int commandCount = frame.GetGizmos().OfType<Command_Ability>().Count();
@@ -2436,7 +2457,276 @@ namespace ZenithFrame.Tests
                 "fresh-process world load keeps UI bound to exact Frame pilot Weapon and Power identities");
             Check(!worldFrame.Spawned && !worldPilot.Spawned && ReferenceEquals(worldPilot.holdingOwner?.Owner, worldFrame.Cockpit),
                 "world UI inspection data never spawns or duplicates the contained pilot");
-            Finish();
+            worldFrame.Destroy();
+            RunFrameBodyAndDamageAssertions();
+        }
+
+        private void RunFrameBodyAndDamageAssertions()
+        {
+            IntVec3 center = Find.CurrentMap.Center;
+            frame = SpawnFrame(center);
+            var parts = frame.RaceProps.body.AllParts;
+            Check(frame.RaceProps.body.defName == "ZF_HumanoidFrameBody", "debug Frame uses the Zenith humanoid mechanical BodyDef");
+            Check(parts.Count == 25, "Zenith humanoid Frame body has exactly 25 meaningful mechanical parts");
+            Check(parts.Single(part => part.def == ZenithBodyPartDefOf.ZF_FrameTorso).IsCorePart, "Torso is the BodyDef core part");
+            Check(parts.Single(part => part.def == ZenithBodyPartDefOf.ZF_FrameCore).depth == BodyPartDepth.Inside,
+                "Core is an internal Torso child");
+            Check(parts.Single(part => part.def == ZenithBodyPartDefOf.ZF_FrameCockpit).depth == BodyPartDepth.Inside,
+                "Cockpit is an internal Torso child");
+            Check(parts.Count(part => part.def.defName == "ZF_FrameOptic") == 2 && parts.Count(part => part.def.defName == "ZF_FrameSensorArray") == 1,
+                "head assembly exposes two optics and one sensor array");
+            Check(parts.Count(part => part.def.defName == "ZF_FrameArm") == 2 && parts.Count(part => part.def.defName == "ZF_FrameForearm") == 2 &&
+                parts.Count(part => part.def.defName == "ZF_FrameManipulator") == 2 && parts.Count(part => part.def.defName == "ZF_FrameDigit") == 6,
+                "body exposes granular mirrored arm forearm manipulator and digit chains");
+            Check(parts.Count(part => part.def.defName == "ZF_FrameLeg") == 2 && parts.Count(part => part.def.defName == "ZF_FrameLowerLeg") == 2 &&
+                parts.Count(part => part.def.defName == "ZF_FrameFoot") == 2, "body exposes granular mirrored leg lower-leg and foot chains");
+            Check(parts.Where(part => part.def.defName.StartsWith("ZF_Frame")).All(part => part.def.bleedRate == 0f && part.def.IsSolidInDefinition_Debug),
+                "every Zenith Frame body part is solid and has zero bleed rate");
+            FrameUiSnapshot intactUi = FrameUiSnapshot.From(frame);
+            Check(intactUi.FrameMoving > 0f && intactUi.FrameManipulation > 0f && intactUi.FrameSight > 0f,
+                "Frame UI snapshot reads real intact Moving Manipulation and Sight capacities");
+            frame.Destroy();
+
+            FramePawn digitFrame = SpawnFrame(center);
+            float manipulationBefore = digitFrame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation);
+            DestroyPart(digitFrame, Part(digitFrame, "ZF_FrameDigit"));
+            float manipulationAfterDigit = digitFrame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation);
+            Check(manipulationAfterDigit < manipulationBefore && manipulationAfterDigit > manipulationBefore * 0.75f && !digitFrame.Downed && !digitFrame.Dead,
+                "one destroyed digit causes only minor Manipulation degradation and remains operational");
+            DestroyPart(digitFrame, Part(digitFrame, "ZF_FrameManipulator"));
+            Check(digitFrame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation) < manipulationAfterDigit && !digitFrame.Downed && !digitFrame.Dead,
+                "destroyed manipulator causes larger Manipulation degradation without disabling Frame");
+            DestroyPart(digitFrame, Part(digitFrame, "ZF_FrameArm"));
+            Check(digitFrame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation) < manipulationAfterDigit && !digitFrame.Downed && !digitFrame.Dead,
+                "destroyed arm heavily degrades Manipulation without disabling Frame");
+            digitFrame.Destroy();
+
+            FramePawn manipulationFrame = SpawnFrame(center);
+            foreach (BodyPartRecord arm in manipulationFrame.RaceProps.body.AllParts.Where(part => part.def.defName == "ZF_FrameArm").ToList())
+                DestroyPart(manipulationFrame, arm);
+            Check(!manipulationFrame.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) && !manipulationFrame.Downed && !manipulationFrame.Dead,
+                "incapable Manipulation neither downs nor kills a Frame");
+            manipulationFrame.Destroy();
+
+            FramePawn movementFrame = SpawnFrame(center);
+            float movingBefore = movementFrame.health.capacities.GetLevel(PawnCapacityDefOf.Moving);
+            DestroyPart(movementFrame, Part(movementFrame, "ZF_FrameFoot"));
+            Check(movementFrame.health.capacities.GetLevel(PawnCapacityDefOf.Moving) < movingBefore && !movementFrame.Downed,
+                "destroyed foot degrades Moving without disabling Frame");
+            BodyPartRecord firstLeg = Part(movementFrame, "ZF_FrameLeg");
+            DestroyPart(movementFrame, firstLeg);
+            Check(!movementFrame.Downed && !movementFrame.Dead, "one complete leg loss leaves Frame alive and operational");
+            BodyPartRecord secondLeg = movementFrame.RaceProps.body.AllParts.First(part => part.def.defName == "ZF_FrameLeg" && !ReferenceEquals(part, firstLeg));
+            DestroyPart(movementFrame, secondLeg);
+            Check(movementFrame.Downed && !movementFrame.Dead && !movementFrame.health.capacities.CapableOf(PawnCapacityDefOf.Moving),
+                "both locomotion chains becoming incapable downs but does not kill Frame");
+
+            FramePawn sightFrame = SpawnFrame(center);
+            float sightBefore = sightFrame.health.capacities.GetLevel(PawnCapacityDefOf.Sight);
+            DestroyPart(sightFrame, Part(sightFrame, "ZF_FrameOptic"));
+            Check(sightFrame.health.capacities.GetLevel(PawnCapacityDefOf.Sight) < sightBefore && !sightFrame.Downed && !sightFrame.Dead,
+                "one optic loss degrades Sight without disabling Frame");
+            foreach (BodyPartRecord source in sightFrame.RaceProps.body.AllParts.Where(part =>
+                (part.def.defName == "ZF_FrameOptic" || part.def.defName == "ZF_FrameSensorArray") &&
+                !sightFrame.health.hediffSet.PartIsMissing(part)).ToList())
+                DestroyPart(sightFrame, source);
+            Check(!sightFrame.health.capacities.CapableOf(PawnCapacityDefOf.Sight) && !sightFrame.Downed && !sightFrame.Dead,
+                "incapable Sight alone neither downs nor kills Frame");
+            sightFrame.Destroy();
+
+            FramePawn headFrame = SpawnFrame(center);
+            DestroyPart(headFrame, Part(headFrame, "ZF_FrameHeadAssembly"));
+            Check(headFrame.Downed && !headFrame.Dead, "Head Assembly destruction disables a recoverable living chassis");
+            FramePawn cockpitFrame = SpawnFrame(center);
+            DestroyPart(cockpitFrame, Part(cockpitFrame, "ZF_FrameCockpit"));
+            Check(cockpitFrame.Downed && !cockpitFrame.Dead, "Cockpit destruction disables without structurally killing Frame");
+            FramePawn coreFrame = SpawnFrame(center);
+            DestroyPart(coreFrame, Part(coreFrame, "ZF_FrameCore"));
+            Check(coreFrame.Dead, "Core destruction kills Frame deterministically");
+            FramePawn torsoFrame = SpawnFrame(center);
+            DestroyPart(torsoFrame, Part(torsoFrame, "ZF_FrameTorso"));
+            Check(torsoFrame.Dead, "Torso destruction kills Frame deterministically");
+
+            FramePawn thresholdFrame = SpawnFrame(center);
+            foreach (BodyPartRecord part in thresholdFrame.RaceProps.body.AllParts.Where(part =>
+                part.def != ZenithBodyPartDefOf.ZF_FrameTorso && part.def != ZenithBodyPartDefOf.ZF_FrameCore &&
+                part.def != ZenithBodyPartDefOf.ZF_FrameCockpit))
+            {
+                var injury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, thresholdFrame, part);
+                injury.Severity = part.def.GetMaxHealth(thresholdFrame) * 0.45f;
+                thresholdFrame.health.AddHediff(injury, part);
+            }
+            float peripheralSeverity = thresholdFrame.health.hediffSet.hediffs.OfType<Hediff_Injury>().Sum(injury => injury.Severity);
+            Check(peripheralSeverity >= thresholdFrame.health.LethalDamageThreshold && !thresholdFrame.Dead &&
+                !FrameDamageRules.IsStructurallyDestroyed(thresholdFrame),
+                "distributed peripheral injury above vanilla lethal threshold leaves Torso and Core Frame alive; severity=" +
+                peripheralSeverity + " threshold=" + thresholdFrame.health.LethalDamageThreshold);
+            thresholdFrame.Destroy();
+
+            frame = SpawnFrame(center);
+            pilot = GenerateMedicHuman(Faction.OfPlayer);
+            pilot.apparel?.DestroyAll(DestroyMode.Vanish);
+            GenSpawn.Spawn(pilot, center + IntVec3.East, Find.CurrentMap);
+            Check(frame.Cockpit.TryBoard(pilot), "pilot-trauma fixture boards exact unarmored pilot");
+            frameId = frame.GetUniqueLoadID();
+            pilotId = pilot.GetUniqueLoadID();
+            float pilotDamageBefore = InjurySeverity(pilot);
+            FrameDamageRules.ApplyDeterministicDamage(frame, Part(frame, "ZF_FrameOptic"), 4f);
+            Check(Approximately(InjurySeverity(pilot), pilotDamageBefore) && ReferenceEquals(frame.Cockpit.Pilot, pilot),
+                "non-Cockpit Frame damage never crosses the pilot-trauma bridge");
+            FrameDamageRules.ApplyDeterministicDamage(frame, Part(frame, "ZF_FrameCockpit"), 8f);
+            Check(InjurySeverity(pilot) > pilotDamageBefore && ReferenceEquals(frame.Cockpit.Pilot, pilot),
+                "resolved Cockpit injury damages the exact contained pilot through normal Pawn damage");
+            Check(!frame.Downed && !frame.Dead && !pilot.Downed && !pilot.Dead,
+                "sub-destructive Cockpit trauma preserves conscious pilot ownership and chassis operation");
+            var bleeding = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, pilot, pilot.RaceProps.body.corePart);
+            bleeding.Severity = 6f;
+            pilot.health.AddHediff(bleeding, pilot.RaceProps.body.corePart);
+            Check(pilot.health.hediffSet.BleedRateTotal > 0f, "contained pilot carries a real bleeding injury before save");
+            damageBloodLossBefore = pilot.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss)?.Severity ?? 0f;
+            SaveNext(30);
+        }
+
+        private static BodyPartRecord Part(FramePawn targetFrame, string defName) =>
+            targetFrame.RaceProps.body.AllParts.First(part => part.def.defName == defName && !targetFrame.health.hediffSet.PartIsMissing(part));
+
+        private static void DestroyPart(FramePawn targetFrame, BodyPartRecord part)
+        {
+            if (!FrameDamageRules.ApplyDeterministicDamage(targetFrame, part, part.def.GetMaxHealth(targetFrame) + 2f))
+                throw new InvalidOperationException("Could not apply deterministic Frame damage to " + part.Label);
+        }
+
+        private void FrameDamageLoadAndStartTend()
+        {
+            if (step == 0)
+            {
+                Check(frame.GetUniqueLoadID() == frameId && pilot.GetUniqueLoadID() == pilotId &&
+                    ReferenceEquals(frame.Cockpit.Pilot, pilot),
+                    "fresh-process damage load preserves exact wounded contained pilot and Frame identities");
+                Check(pilot.health.hediffSet.BleedRateTotal > 0f && InjurySeverity(pilot) > 0f,
+                    "fresh-process damage load preserves real contained-pilot wounds and bleeding");
+                Check(!pilot.Spawned && ReferenceEquals(pilot.holdingOwner?.Owner, frame.Cockpit),
+                    "loaded wounded pilot remains owned only by the cockpit without temporary spawn");
+                inertUntil = Find.TickManager.TicksGame + 360;
+                Next(1, 1500);
+            }
+            else if (step == 1 && Find.TickManager.TicksGame >= inertUntil)
+            {
+                float bloodLoss = pilot.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss)?.Severity ?? 0f;
+                Check(bloodLoss > damageBloodLossBefore,
+                    "contained pilot health ticking advances bleeding and real BloodLoss after save/load");
+                FrameUiSnapshot ui = FrameUiSnapshot.From(frame);
+                Check(ReferenceEquals(ui.Pilot, pilot) && Approximately(ui.PilotHealth, pilot.health.summaryHealth.SummaryHealthPercent) &&
+                    Approximately(ui.PilotConsciousness, pilot.health.capacities.GetLevel(PawnCapacityDefOf.Consciousness)) &&
+                    Approximately(ui.PilotBleedRate, pilot.health.hediffSet.BleedRateTotal),
+                    "Frame UI snapshot exposes exact pilot health consciousness and bleed rate");
+
+                var medicine = (Medicine)ThingMaker.MakeThing(ThingDefOf.MedicineIndustrial);
+                medicine.stackCount = 2;
+                Check(pilot.inventory.innerContainer.TryAdd(medicine, false), "self-tend fixture stores exact medicine in contained pilot inventory");
+                damageMedicineId = medicine.GetUniqueLoadID();
+                damageMedicineCountBefore = medicine.stackCount;
+                damageMedicineXpBefore = pilot.skills.GetSkill(SkillDefOf.Medicine).XpTotalEarned;
+                Command_Action command = frame.GetGizmos().OfType<Command_Action>().Single(gizmo => gizmo.defaultLabel == "Pilot self-tend");
+                command.action();
+                Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) &&
+                    ReferenceEquals(frame.CurJob.targetB.Thing, medicine),
+                    "self-tend command starts on Frame with exact contained pilot and exact carried medicine targets");
+                Check(!frame.Drafted && !frame.pather.Moving, "self-tend command stops Frame movement and combat before treatment");
+                Next(2, 1500);
+            }
+            else if (step == 2 && frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend && frame.jobs.curDriver.ticksLeftThisToil > 0)
+            {
+                SaveNext(31);
+            }
+        }
+
+        private void FrameDamageTendLoadAndFinish()
+        {
+            Medicine medicine = pilot.inventory?.innerContainer.OfType<Medicine>()
+                .FirstOrDefault(item => item.GetUniqueLoadID() == damageMedicineId);
+            if (step == 0)
+            {
+                Check(frame.GetUniqueLoadID() == frameId && pilot.GetUniqueLoadID() == pilotId &&
+                    ReferenceEquals(frame.Cockpit.Pilot, pilot), "save/load during self-tend preserves exact Frame and pilot targets");
+                Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) &&
+                    ReferenceEquals(frame.CurJob.targetB.Thing, medicine), "self-tend job reload preserves exact pilot and medicine target identity");
+                Next(1, 2500);
+            }
+            else if (step == 1 && frame.CurJobDef != ZenithJobDefOf.ZF_FramePilotSelfTend)
+            {
+                Check(medicine == null || medicine.stackCount == damageMedicineCountBefore - 1,
+                    "completed self-tend consumes exactly one carried medicine and no map stockpile item");
+                SkillRecord medicineSkill = pilot.skills.GetSkill(SkillDefOf.Medicine);
+                Check(medicineSkill.TotallyDisabled || medicineSkill.XpTotalEarned > damageMedicineXpBefore,
+                    "embarked self-tend awards Medicine XP to the exact capable pilot");
+                Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
+                    "embarked self-tend uses normal TendUtility on the real pilot wounds");
+
+                foreach (Medicine carried in pilot.inventory.innerContainer.OfType<Medicine>().ToList()) carried.Destroy();
+                AddBleedingInjury(pilot, 3f);
+                Command_Action noMedicine = frame.GetGizmos().OfType<Command_Action>().Single(gizmo => gizmo.defaultLabel == "Pilot self-tend");
+                noMedicine.action();
+                Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend && !frame.CurJob.targetB.IsValid &&
+                    ReferenceEquals(frame.CurJob.targetC.Thing, pilot), "self-tend starts without medicine when pilot carries none");
+                Next(2, 2500);
+            }
+            else if (step == 2 && frame.CurJobDef != ZenithJobDefOf.ZF_FramePilotSelfTend)
+            {
+                Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
+                    "no-medicine self-tend completes against exact contained pilot");
+                AddBleedingInjury(pilot, 2f);
+                frame.GetGizmos().OfType<Command_Action>().Single(gizmo => gizmo.defaultLabel == "Pilot self-tend").action();
+                Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend, "interrupt fixture starts another self-tend");
+                Job move = JobMaker.MakeJob(JobDefOf.Goto, frame.Position + IntVec3.North * 2);
+                move.playerForced = true;
+                frame.jobs.TryTakeOrderedJob(move);
+                Check(frame.CurJobDef != ZenithJobDefOf.ZF_FramePilotSelfTend, "new player order interrupts embarked self-tend cleanly");
+                frame.jobs.StopAll();
+                frame.Cockpit.TryDisembark();
+
+                hostileFrame = FrameDebugActions.SpawnHostilePilotedFrame(frame.Position + IntVec3.East * 8, frame.Map);
+                hostilePilot = hostileFrame.Cockpit.Pilot;
+                hostileFrameId = hostileFrame.GetUniqueLoadID();
+                hostilePilotId = hostilePilot.GetUniqueLoadID();
+                hostilePilot.apparel?.DestroyAll(DestroyMode.Vanish);
+                AddBleedingInjury(hostilePilot, 8f);
+                HealthUtility.AdjustSeverity(hostilePilot, HediffDefOf.BloodLoss, 0.59f);
+                Check(!hostilePilot.Downed && ReferenceEquals(hostileFrame.Cockpit.Pilot, hostilePilot),
+                    "delayed-incapacity fixture begins conscious inside hostile Frame");
+                Next(3, 2500);
+            }
+            else if (step == 3 && hostilePilot.Downed)
+            {
+                Check(hostilePilot.Spawned && hostilePilot.GetUniqueLoadID() == hostilePilotId &&
+                    hostilePilot.Faction == Faction.OfAncientsHostile && !hostilePilot.Dead,
+                    "delayed BloodLoss downing immediately ejects exact hostile pilot for ordinary capture");
+                Check(!hostileFrame.Downed && !hostileFrame.Dead && !hostileFrame.Cockpit.HasPilot &&
+                    hostileFrame.GetUniqueLoadID() == hostileFrameId, "pilot-only incapacity leaves mechanically healthy chassis standing empty and inert");
+                Check(hostileFrame.Hacking.IsHackableDisabledChassis && hostileFrame.Hacking.CanHack(pilot, false),
+                    "healthy hostile Frame abandoned by downed pilot immediately enters existing hacking workflow");
+
+                FramePawn deathFrame = SpawnFrame(frame.Position + IntVec3.West * 8);
+                Pawn deathPilot = GenerateHuman(Faction.OfPlayer);
+                GenSpawn.Spawn(deathPilot, deathFrame.Position + IntVec3.East, deathFrame.Map);
+                string deathPilotId = deathPilot.GetUniqueLoadID();
+                Check(deathFrame.Cockpit.TryBoard(deathPilot), "contained-death fixture boards exact pilot");
+                deathPilot.Kill(null);
+                Check(deathPilot.Dead && deathPilot.GetUniqueLoadID() == deathPilotId && deathPilot.Corpse?.Spawned == true,
+                    "contained pilot death detaches before vanilla Kill and creates normal spawned corpse");
+                Check(!deathFrame.Cockpit.HasPilot && !deathFrame.Downed && !deathFrame.Dead,
+                    "pilot death leaves healthy Frame empty without corpse in ThingOwner Pawn cockpit");
+                Check(deathFrame.Cockpit.GetDirectlyHeldThings().Count == 0,
+                    "contained pilot death leaves no hidden corpse or duplicate cockpit content");
+                Finish();
+            }
+        }
+
+        private static void AddBleedingInjury(Pawn targetPawn, float severity)
+        {
+            var injury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, targetPawn, targetPawn.RaceProps.body.corePart);
+            injury.Severity = severity;
+            targetPawn.health.AddHediff(injury, targetPawn.RaceProps.body.corePart);
         }
 
         private static AbilityDef OverdriveDef =>
@@ -2598,6 +2888,24 @@ namespace ZenithFrame.Tests
             }
             return targetFrame.Downed && !targetFrame.Dead;
         }
+        private static bool DownByRepairableLegInjuries(FramePawn targetFrame)
+        {
+            foreach (BodyPartRecord leg in targetFrame.RaceProps.body.AllParts.Where(part => part.def.tags.Contains(BodyPartTagDefOf.MovingLimbCore)))
+            {
+                var injury = (Hediff_Injury)HediffMaker.MakeHediff(HediffDefOf.Cut, targetFrame, leg);
+                injury.Severity = leg.def.GetMaxHealth(targetFrame) - 1f;
+                targetFrame.health.AddHediff(injury, leg);
+            }
+            return targetFrame.Downed && !targetFrame.Dead && !targetFrame.health.hediffSet.GetMissingPartsCommonAncestors().Any();
+        }
+        private static bool RecoverForLegacyLifecycle(FramePawn targetFrame)
+        {
+            if (targetFrame.Recovery.TryRecover()) return true;
+            foreach (Hediff_MissingPart missing in targetFrame.health.hediffSet.GetMissingPartsCommonAncestors().ToList())
+                targetFrame.health.RestorePart(missing.Part);
+            targetFrame.Loadout?.TryReclaimRememberedWeapon();
+            return !targetFrame.Downed && !targetFrame.Dead && !targetFrame.Destroyed;
+        }
         private FramePawn SpawnFrame(IntVec3 cell, Faction faction = null) => (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction ?? Faction.OfPlayer), cell, Find.CurrentMap);
         private static FramePawn SpawnFrameOnMap(IntVec3 cell, Map map, Faction faction) =>
             (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), faction), cell, map);
@@ -2633,6 +2941,20 @@ namespace ZenithFrame.Tests
                 mustBeCapableOfViolence: true));
             pawn.relations.ClearAllRelations();
             return pawn;
+        }
+        private static Pawn GenerateMedicHuman(Faction faction)
+        {
+            for (int attempt = 0; attempt < 30; attempt++)
+            {
+                Pawn pawn = GenerateHuman(faction);
+                if (!pawn.skills.GetSkill(SkillDefOf.Medicine).TotallyDisabled)
+                {
+                    SetSkill(pawn.skills.GetSkill(SkillDefOf.Medicine), 8);
+                    return pawn;
+                }
+                pawn.Destroy();
+            }
+            throw new InvalidOperationException("Could not generate a Medicine-capable human fixture.");
         }
         private static Pawn GenerateCombatTarget(Faction faction)
         {
