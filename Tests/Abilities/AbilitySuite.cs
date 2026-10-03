@@ -55,6 +55,9 @@ namespace ZenithFrame.AbilityTests
         private float vpePsyfocus;
         private float vpeEntropy;
         private IntVec3 locationTarget;
+        private Precept_Role ideologyRole;
+        private int roleAbilityId;
+        private int roleCooldown;
         private readonly List<string> passed = new List<string>();
 
         public AbilitySuite(Game game) { }
@@ -87,6 +90,9 @@ namespace ZenithFrame.AbilityTests
             Scribe_Values.Look(ref vpeCooldown, "abilityTestVPECooldown");
             Scribe_Values.Look(ref vpePsyfocus, "abilityTestVPEPsyfocus");
             Scribe_Values.Look(ref vpeEntropy, "abilityTestVPEEntropy");
+            Scribe_References.Look(ref ideologyRole, "abilityTestIdeologyRole");
+            Scribe_Values.Look(ref roleAbilityId, "abilityTestRoleAbilityId");
+            Scribe_Values.Look(ref roleCooldown, "abilityTestRoleCooldown");
         }
 
         public override void GameComponentUpdate()
@@ -135,6 +141,21 @@ namespace ZenithFrame.AbilityTests
                 pilot.abilities.GainAbility(SelfDef);
                 pilot.abilities.GainAbility(TargetDef);
                 pilot.abilities.GainAbility(LocationDef);
+                if (ModsConfig.IdeologyActive)
+                {
+                    Ideo ideo = Faction.OfPlayer.ideos.PrimaryIdeo;
+                    pilot.ideo.SetIdeo(ideo);
+                    ideologyRole = ideo.RolesListForReading.FirstOrDefault(r => r.def.defName == "IdeoRole_Leader");
+                    if (ideologyRole == null)
+                    {
+                        ideologyRole = (Precept_Role)PreceptMaker.MakePrecept(DefDatabase<PreceptDef>.GetNamed("IdeoRole_Leader"));
+                        ideo.AddPrecept(ideologyRole);
+                    }
+                    ideologyRole.Assign(pilot, false);
+                    ideologyRole.RecacheActivity();
+                    ideologyRole.FillOrUpdateAbilities();
+                    pilot.abilities.Notify_TemporaryAbilitiesChanged();
+                }
                 if (HasVEF) Check(VEF<bool>("Give", pilot), "pilot receives one real VEF ability in the original CompAbilities");
                 if (HasVPE)
                 {
@@ -154,6 +175,19 @@ namespace ZenithFrame.AbilityTests
                 Check(commands.Count(c => c.Ability == self) == 1 && commands.Count(c => c.Ability == aimed) == 1,
                     "Frame forwards each original pilot Command_Ability exactly once");
                 Check(commands.Any(c => c.Ability.def.defName == "ZF_DebugFrameOverdrive"), "Frame-owned Overdrive stays independently visible");
+                if (ModsConfig.IdeologyActive)
+                {
+                    Check(ideologyRole.IsAssigned(pilot), "real Ideology Precept_Role is assigned to the exact pilot");
+                    Ability roleAbility = pilot.abilities.AllAbilitiesForReading.Single(a => a.def.defName == "CombatCommand");
+                    roleAbilityId = roleAbility.Id;
+                    Check(roleAbility.pawn == pilot && commands.Count(c => c.Ability == roleAbility) == 1,
+                        "real Ideology role Ability belongs to pilot and appears exactly once through embarked Frame");
+                    roleAbility.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
+                    Check(frame.CurJob?.ability == roleAbility && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) && roleAbility.verb.Caster == frame,
+                        "Ideology role Ability uses Frame spatial host while pilot remains logical owner and self target");
+                    Next(7, 1200);
+                    return;
+                }
                 if (HasVEF)
                 {
                     Check(VEF<bool>("HasExactCommand", frame, pilot), "Frame forwards the exact original VEF Command_Ability once");
@@ -164,6 +198,18 @@ namespace ZenithFrame.AbilityTests
                         Check(VEF<bool>("VPEUsesFrameHost", frame, pilot), "VPE psycast keeps pilot ownership while using the exact Frame host");
                     }
                 }
+                self.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
+                Check(frame.CurJob?.ability == self && ReferenceEquals(frame.CurJob.targetA.Thing, frame) && ReferenceEquals(frame.CurJob.targetC.Thing, pilot),
+                    "self cast keeps pilot as logical target while the spawned Frame runs the vanilla job");
+                Next(1, 1200);
+            }
+            else if (step == 7 && pilot.health.hediffSet.HasHediff(DefDatabase<HediffDef>.GetNamed("CombatCommand")))
+            {
+                Ability roleAbility = pilot.abilities.AllAbilitiesForReading.Single(a => a.Id == roleAbilityId);
+                roleCooldown = roleAbility.CooldownTicksRemaining;
+                Check(roleAbility.OnCooldown && roleCooldown > 0 && !frame.health.hediffSet.HasHediff(DefDatabase<HediffDef>.GetNamed("CombatCommand")),
+                    "Ideology role effect and cooldown remain on original pilot after Frame-hosted cast");
+                Ability self = pilot.abilities.GetAbility(SelfDef);
                 self.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
                 Check(frame.CurJob?.ability == self && ReferenceEquals(frame.CurJob.targetA.Thing, frame) && ReferenceEquals(frame.CurJob.targetC.Thing, pilot),
                     "self cast keeps pilot as logical target while the spawned Frame runs the vanilla job");
@@ -196,7 +242,7 @@ namespace ZenithFrame.AbilityTests
                 location.QueueCastingJob(locationTarget, LocalTargetInfo.Invalid);
                 Next(3, 1200);
             }
-            else if (step == 3 && CompAbilityEffect_RecordLocation.LastCell.IsValid)
+            else if (step == 3 && CompAbilityEffect_RecordLocation.LastCell.IsValid && frame.CurJob?.ability == null)
             {
                 Check(CompAbilityEffect_RecordLocation.LastCell == locationTarget && ReferenceEquals(CompAbilityEffect_RecordLocation.LastOwner, pilot),
                     "ground ability preserves its location target and original pilot owner");
@@ -209,7 +255,11 @@ namespace ZenithFrame.AbilityTests
                     desiredPsyfocus = 0.66f;
                     pilot.psychicEntropy.SetPsyfocusTarget(desiredPsyfocus);
                     psycast.QueueCastingJob(target, target);
-                    Check(frame.CurJob?.ability == psycast && !pilot.Spawned, "real Royalty Psycast enters the Frame-hosted vanilla cast job");
+                    Check(frame.CurJob?.ability == psycast && !pilot.Spawned,
+                        "real Royalty Psycast enters the Frame-hosted vanilla cast job (job=" +
+                        (frame.CurJobDef?.defName ?? "null") + ", jobAbility=" +
+                        (frame.CurJob?.ability?.def?.defName ?? "null") + ", psycast=" +
+                        (psycast?.def?.defName ?? "null") + ", canCast=" + psycast?.CanCast.Accepted + ")");
                     Next(4, 1800);
                 }
                 else if (HasVEF) StartVEFCast();
@@ -290,6 +340,12 @@ namespace ZenithFrame.AbilityTests
             }
             int remaining = aimed.CooldownTicksRemaining;
             Check(frame.Cockpit.TryDisembark(), "Pilot A disembarks with their ability state");
+            if (ModsConfig.IdeologyActive)
+            {
+                Ability roleAbility = pilot.abilities.AllAbilitiesForReading.Single(a => a.Id == roleAbilityId);
+                Check(roleAbility.pawn == pilot && ReferenceEquals(roleAbility.ConstantCaster, pilot) && roleAbility.OnCooldown,
+                    "disembark restores ordinary Pawn use of the exact role-granted Ability and pilot cooldown");
+            }
             secondPilot = frame.Map.mapPawns.FreeColonistsSpawned.FirstOrDefault(candidate => candidate != pilot);
             if (secondPilot == null) secondPilot = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer), frame.Position + IntVec3.East, frame.Map);
             else Relocate(secondPilot, frame.Position + IntVec3.East, frame.Map);
