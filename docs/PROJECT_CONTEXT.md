@@ -333,7 +333,7 @@ The first player-owned disabled-chassis vertical slice is implemented with Pawn 
 
 The current recovery operation is a Dev Mode-only technical proof: it repairs only until normal Pawn health evaluation clears downing, preserves the same Frame identity, leaves it empty/inactive and requires normal reboarding. It is not a final repair economy.
 
-Ownership conversion now begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty, downed Frame that is either hostile or factionless, complete a visible work delay and remain eligible throughout. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking duration, skill/stat scaling, costs and presentation remain provisional; identity preservation, acquisition eligibility and the disabled post-hack state are durable.
+Ownership conversion begins with an explicit **Hack Frame** job. A free player colonist must reserve and reach a living, empty Frame that is either hostile or factionless, advance persistent Intellectual-scaled progress and remain eligible throughout. The chassis may be mechanically disabled or healthy-but-abandoned. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. Completion changes the faction of that exact `FramePawn` through the normal faction API. The chassis remains disabled and must still pass through recovery and boarding. Hacking defence, costs and presentation remain provisional; persistent progress, Intellectual scaling, identity preservation, acquisition eligibility and the post-hack state are durable.
 
 The hostile-pilot and first enemy-raid vertical slices are implemented. Machine operation is faction-agnostic but requires a real same-faction functional pilot in the cockpit; player order eligibility and hostile AI eligibility are separate gates. One development action creates an isolated hostile Frame fixture. A second development-only incident creates a deterministic mixed raid containing ordinary infantry and one piloted Frame through vanilla edge arrival, immediate-attack strategy and assault Lord machinery. The contained pilot is never a parallel spawned raider.
 
@@ -968,3 +968,21 @@ prefer the second.
 The intended end result is **ZENITH FRAME: RIMWARD - Mecha Warfare**: a RimWorld mod where humanoid mechs become a major part of planetary warfare through specialized chassis, modular loadouts, enemy mech pilots, battlefield recovery and meaningful anti-mecha counterplay.
 
 Everything else is subordinate to making that loop reliable and fun.
+
+---
+
+## 22. Frame Service and Docking milestone
+
+The first garage loop is implemented on `feat/frame-service-docking` without changing `main`.
+
+- Construction repairs real mechanical injuries and gains XP; Frames do not heal structural damage naturally.
+- Recoverable common-ancestor missing parts require chassis-defined work and physical Steel, then restore through the normal health API.
+- Torso and Core remain fatal and cannot be reconstructed.
+- hostile or factionless empty Frames own persistent Intellectual-scaled hacking progress with Core-only feedback and no Odyssey dependency.
+- boarding takes 300 ticks normally and 60 ticks on the derived 3x3 Docking Bay.
+- Docked repair, reconstruction, and module service run at five times normal work speed.
+- the Frame tab queues exact stored Weapon, Utility, and Power Things for Construction service.
+- active worker-specific service locks combat and every ability path while preserving the exact pilot, body, loadout, ability instances, and cooldowns.
+- undocked removals drop exact modules nearby; docked removals and replacements queue same-worker hauling into valid nearby storage.
+
+The next milestone remains Modular Frame Anatomy / Loadout 2.0. Head, Shoulder, Offhand, module Hediffs, module abilities, generalized addon power draw, rendering, livery, real chassis content, research, and final balance are intentionally absent here.

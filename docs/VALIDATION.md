@@ -819,3 +819,47 @@ Final clean Release DLL SHA-256:
 ```
 
 The regression suite now proves that an `AssaultColony` Frame consumes its real Lord duty, naturally moves from the raid edge and damages a colony target without test-assigned jobs, target injection or direct AI calls. It also proves Fire At Will on/off behavior, explicit attack preservation, cockpit-based colonist-bar selection and the Frame-specific `LabelShort` overlay while retaining every earlier lifecycle assertion.
+
+## Validated Frame Service and Docking milestone
+
+Branch: `feat/frame-service-docking`
+
+Source base: `origin/feat/frame-body-pilot-trauma` at `76ccc2bfbc1ca4f7b233b8d3b66ec652fdcc8ced`
+
+Executed 2026-10-03 against the installed RimWorld 1.6.4871 build. `Version.txt` reports rev590 and the live runtime logs report rev591. Harmony metadata reports 2.4.2.0. The installed VEF and VPE metadata expose package IDs `OskarPotocki.VanillaFactionsExpanded.Core` and `VanillaExpanded.VPsycastsE` but no `modVersion`; the VPE 1.6 assembly reports file version 1.1.0.0.
+
+| Layer | Result |
+|---|---|
+| Clean Release Core + VEF compatibility build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source checks | PASS, 249 checks |
+| Live Core + Harmony lifecycle | PASS, 828 assertions, 38 fresh processes, 37 save/load transitions |
+| Live Core + Harmony + all installed official expansions lifecycle | PASS, 828 assertions, 38 reports, 37 save/load transitions |
+| Frame Service phases 32-37 | PASS, 90 assertions in each lifecycle profile |
+| Ability matrix A: Core + Harmony | PASS, 42 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: all installed official expansions | PASS, 55 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: expansions + VEF | PASS, 70 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: expansions + VEF + VPE | PASS, 84 assertions, 4 fresh processes, 3 save/load transitions |
+| Retained final runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+Retained profiles:
+
+- `artifacts/frame-service-final-core-b`
+- `artifacts/frame-service-final-dlc`
+- `artifacts/frame-service-abilities-a-core-final`
+- `artifacts/frame-service-abilities-b-dlc-final`
+- `artifacts/frame-service-abilities-c-vef-final`
+- `artifacts/frame-service-abilities-d-vpe-b`
+
+The DLC lifecycle profile retains the original failed `Player-37.log` for auditability. Its failure was a test-only assumption that the same worker's storage haul must be the current job immediately after module replacement; the DLC scheduler legally inserted `Wait_MaintainPosture` first. The assertion was made scheduler-neutral while still requiring the exact outgoing module to be current, queued, or already stored. `Player-37-rerun.log` and the final phase-37 report pass with no production change.
+
+The service phases prove real injury repair, missing common-ancestor reconstruction with exact Steel, save/load-safe partial work, exact `RestorePart` completion, persistent Intellectual-scaled hacking, timed boarding, derived Dock speed, exact physical Weapon/Utility/Power service, worker-specific operation locks, interruption safety, valid-storage selection, same-worker Dock hauling, and undocked physical drops. The ability matrices prove that the real Construction service lock suppresses machine-owned and pilot-forwarded vanilla, Royalty, Ideology, VEF, and VPE abilities while preserving the original ability instances, cooldowns, psyfocus, entropy, and cockpit ownership across save/load.
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll      85423977283FB85171C1F22A14FB3EB9B6E523615B813E466A4A511A9034351E
+ZenithFrame.VEF.dll  2E5F36BF6DDA72C0107DD0971E145441B76C37AB516D3D9D968443B0B5DCF01F
+```
+
+Manual gameplay QA for the garage loop is defined in `docs/FRAME_SERVICE.md`. It remains required for right-click menu wording, visual progress/effects, worker priority feel, Dock footprint readability, and normal stockpile hauling feel.

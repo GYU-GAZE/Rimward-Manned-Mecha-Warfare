@@ -49,7 +49,9 @@ The job continuously validates cockpit identity, health, and medicine ownership.
 
 ## Recovery boundary
 
-The development recovery command may remove existing injuries until the real Frame health tracker undowns the chassis, then reclaim the exact remembered Weapon. It never calls `RestorePart`. Missing-part reconstruction, material costs, Construction work, and service infrastructure belong to the Frame Service & Docking milestone.
+The development recovery command may remove existing injuries until the real Frame health tracker undowns the chassis, then reclaim the exact remembered Weapon. It never calls `RestorePart` and remains a Dev Mode fixture.
+
+Production recovery now belongs to Construction. `WorkGiver_RepairFrame` reduces real `Hediff_Injury` severity and natural healing is disabled by `InjuryHealingFactor = 0`. `WorkGiver_ReconstructFrame` selects one missing common ancestor, carries the exact chassis-defined material stack, performs saved deterministic work, consumes material only on success, and calls `Pawn_HealthTracker.RestorePart`. Torso and Core remain fatal and cannot enter reconstruction. See `FRAME_SERVICE.md`.
 
 ## Focused manual QA
 

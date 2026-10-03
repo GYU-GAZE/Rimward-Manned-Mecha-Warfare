@@ -221,7 +221,7 @@ The game-over bridge remains explicit ownership-based presence logic. It does no
 
 The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. A narrow Frame-only Harmony gate also prevents vanilla Rescue/Capture actions and autonomous rescue jobs from treating the chassis as an injured or imprisonable biological Pawn. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
 
-`TryRecover` operates on the existing `FramePawn`. It restores missing-part common ancestors one at a time, then individual injuries largest-first only if still needed, stopping as soon as RimWorld's normal health evaluation clears the downed state. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. It delegates weapon recovery to `CompFrameLoadout`, which reclaims only the exact remembered nearby item and leaves the chassis weaponless when that object is gone.
+`TryRecover` operates on the existing `FramePawn` as a Dev Mode fixture. It may clear individual repairable injuries largest-first only while needed, but refuses every missing-part reconstruction. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. It delegates weapon recovery to `CompFrameLoadout`, which reclaims only the exact remembered nearby item and leaves the chassis weaponless when that object is gone. Production recovery belongs to Construction service.
 
 Successful recovery leaves the chassis unpiloted, undrafted and inactive. A pilot must board again through the normal boarding job before Pawn-first controls become available. Dead and destroyed Frames fail recovery.
 
@@ -229,9 +229,9 @@ This is deliberately a technical development action, not the final repair econom
 
 ## Disabled hostile Frame hacking
 
-`CompFrameHacking` owns the acquisition eligibility and final ownership transition. A target must be the existing spawned, living, empty, downed Frame represented by `CompFrameRecovery.IsRecoverablyDisabled`. Its current faction must be either null or hostile to the player. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
+`CompFrameHacking` owns the acquisition eligibility, persistent progress, and final ownership transition. A target must be the existing spawned, living, empty Frame and may be mechanically disabled or healthy-but-abandoned. Its current faction must be either null or hostile to the player. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
 
-`FloatMenuOptionProvider_HackFrame` adds **Hack Frame** to that colonist's ordinary right-click flow. `JobDriver_HackFrame` reserves the target, uses normal touch-range pathing, performs a visible 180-tick delay and rechecks the complete eligibility predicate throughout the job. If any condition changes, the job becomes incompletable without changing faction.
+`FloatMenuOptionProvider_HackFrame` adds **Hack Frame** to that colonist's ordinary right-click flow. `JobDriver_HackFrame` reserves the target, uses normal touch-range pathing, and advances persistent progress owned by `CompFrameHacking`. Work scales through Core `HackingSpeed`, awards Intellectual XP, and uses the Core hacking effect and sounds. If eligibility changes, the job stops without clearing progress or changing faction. No Odyssey definition or asset is required.
 
 Successful completion calls the normal `FramePawn.SetFaction(Faction.OfPlayer)` API on the same object. It creates no replacement Frame and saves no separate hacked flag. The chassis remains downed, empty, undrafted and inactive, then proceeds through the existing recovery and boarding systems.
 
@@ -241,7 +241,7 @@ An empty or otherwise inoperable Frame receives `ZF_FrameIdleJob`, driven by a m
 
 The melee execution boundary also rejects `Pawn_MeleeVerbs.TryMeleeAttack` when the cockpit cannot operate. This covers retaliation paths invoked outside the current job driver. The invariant is faction-independent: player-owned, hostile and factionless Frames cannot move, acquire targets, attack or retaliate without a valid pilot.
 
-The 180-tick duration and absence of hacking skill, stat, resource or tool requirements are provisional MVP tuning. The same-object ownership conversion and disabled post-hack state are lifecycle constraints.
+The definition-driven hacking defence is provisional tuning. Persistent same-object progress, Intellectual scaling, the same-object ownership conversion, and disabled post-hack state are lifecycle constraints.
 
 ## Deliberate MVP boundaries
 
@@ -249,8 +249,8 @@ The 180-tick duration and absence of hacking skill, stat, resource or tool requi
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
 - One functional slot for each of Weapon, Utility and Power; no multiweapon support or generated enemy loadouts.
 - Static addon power affects only Utility. Chassis core power requirements, batteries, fuel, heat, charging and drain are deferred.
-- The information UI displays the current physical loadout; mutation controls remain development-only.
-- No final repair economy, reload/ammunition, power system, research, chassis variants or final art.
+- The information UI queues physical Weapon, Utility, and Power service against exact valid-storage items; Construction performs the mutation.
+- The first Steel-based repair/reconstruction economy and placeholder Docking Bay are implemented. Final balance, reload/ammunition, chassis core power, research, chassis variants, and final art remain deferred.
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
 - No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
@@ -270,6 +270,16 @@ Production currently uses:
 Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
 
 The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge, machine-owned Frame ability lifecycle, embarked pilot abilities and physical Frame Weapon loadout were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
+
+## Frame service and Docking Bay
+
+`CompFrameService` owns only pending order identity and worker reconciliation. The health tracker owns damage and missing parts, the worker job owns partial work, loadout owners own installed modules, and map position owns Dock state. The comp never saves parallel HP, body state, module definitions, or a docking boolean.
+
+Three Construction WorkGivers share a narrow serviceability boundary. The Frame must be a living spawned player chassis that is idle, undrafted, stationary, and not already locked. Automatic repair and reconstruction also require Home Area; direct forced work may bypass that area policy. Each JobDriver reserves the Frame and its exact physical inputs, uses live Construction speed with the live derived Dock multiplier, awards Construction XP, and releases its worker-specific lock through the normal finish path.
+
+Module requests remain specialized to the existing Weapon, Utility, and Power categories. The pending incoming object is deep-world identity by `Scribe_References`, including while it is carried across save/load. `CompletePendingOrder` delegates every owner transition to `CompFrameLoadout`, rolls back a failed replacement when possible, and never rebuilds a module from its DefName. Dock removal hands an exact spawned outgoing object to a normal same-worker storage haul when a valid nearby cell exists.
+
+See `docs/FRAME_SERVICE.md` for the durable gameplay contract and manual QA.
 
 ## Humanoid Frame body and pilot trauma
 

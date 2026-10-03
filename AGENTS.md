@@ -34,6 +34,13 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - contained pilot health advances through `Pawn_HealthTracker.HealthTick`, never a full contained `Pawn.DoTick`; Downed and Kill transitions must detach the exact pilot immediately
 - embarked self-tend runs as a Frame job but doctors and patients the exact pilot, uses only medicine in that pilot's inventory, and awards Medicine XP to that pilot
 - recovery may clear repairable injuries and reclaim the exact dropped Weapon but must never reconstruct missing mechanical body parts; material reconstruction belongs to Frame Service & Docking
+- Construction owns production Frame maintenance: ordinary injury repair costs work only, while a missing recoverable common ancestor costs chassis-defined work plus exact physical material
+- Torso and Core reconstruction is forbidden; real service uses `Pawn_HealthTracker.RestorePart` only after successful work and material consumption
+- hacking progress belongs to the physical Frame, scales through Core `HackingSpeed`, awards Intellectual XP, survives interruption/save-load, and has no Odyssey dependency
+- boarding is timed; Docking Bay position derives a fivefold boarding and service multiplier without a saved docking flag or Frame container
+- module service orders persist an exact `Thing` reference selected from valid storage; UI never installs directly or substitutes by DefName
+- active service keeps the pilot and health state intact but gates movement, combat, drafting, and all machine/pilot ability paths until the worker-specific lock ends
+- Weapon remains exclusively in Pawn equipment; Utility and Power remain in their dedicated `ThingOwner`s; removed modules stay physical and use same-worker Dock storage hauling when possible
 
 ### Frames are NOT Biotech mechs
 
