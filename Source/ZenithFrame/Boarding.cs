@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using RimWorld;
+using UnityEngine;
 using Verse;
 using Verse.AI;
 
@@ -12,6 +13,9 @@ namespace ZenithFrame
         public static JobDef ZF_BoardFrame;
         public static JobDef ZF_HackFrame;
         public static JobDef ZF_FramePilotSelfTend;
+        public static JobDef ZF_RepairFrame;
+        public static JobDef ZF_ReconstructFramePart;
+        public static JobDef ZF_ServiceFrameModule;
 
         static ZenithJobDefOf() { DefOfHelper.EnsureInitializedInCtor(typeof(ZenithJobDefOf)); }
     }
@@ -25,12 +29,15 @@ namespace ZenithFrame
             this.FailOn(() => !(job.targetA.Thing is FramePawn frame) || !frame.Cockpit.CanBoard(pawn, false));
             yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
             Toil board = ToilMaker.MakeToil("BoardFrame");
-            board.initAction = () =>
+            board.initAction = () => board.actor.jobs.curDriver.ticksLeftThisToil =
+                DockingBayUtility.BoardingTicks((FramePawn)job.targetA.Thing);
+            board.tickAction = () =>
             {
-                var cockpit = ((FramePawn)job.targetA.Thing).Cockpit;
-                if (!cockpit.TryBoard(pawn)) EndJobWith(JobCondition.Incompletable);
+                if (board.actor.jobs.curDriver.ticksLeftThisToil != 1) return;
+                if (!((FramePawn)job.targetA.Thing).Cockpit.TryBoard(pawn)) EndJobWith(JobCondition.Incompletable);
             };
-            board.defaultCompleteMode = ToilCompleteMode.Instant;
+            board.defaultCompleteMode = ToilCompleteMode.Delay;
+            board.WithProgressBarToilDelay(TargetIndex.A);
             yield return board;
         }
     }

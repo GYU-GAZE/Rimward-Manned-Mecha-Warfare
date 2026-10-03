@@ -19,7 +19,7 @@ namespace ZenithFrame
             {
                 AcceptanceReport vanilla = base.CanCast;
                 if (!vanilla.Accepted) return vanilla;
-                if (!(pawn is FramePawn frame) || frame.Cockpit?.CanOperate != true)
+                if (!(pawn is FramePawn frame) || frame.Cockpit?.CanOperate != true || frame.Service?.IsServiceLocked == true)
                     return "Frame Overdrive requires a valid operating pilot.";
                 return true;
             }

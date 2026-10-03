@@ -38,6 +38,9 @@ namespace ZenithFrame
             frame == null || IsPartDestroyed(frame, ZenithBodyPartDefOf.ZF_FrameTorso) ||
             IsPartDestroyed(frame, ZenithBodyPartDefOf.ZF_FrameCore);
 
+        public static bool IsRecoverablePart(BodyPartRecord part) => part != null &&
+            part.def != ZenithBodyPartDefOf.ZF_FrameTorso && part.def != ZenithBodyPartDefOf.ZF_FrameCore;
+
         public static bool IsMechanicallyDisabled(FramePawn frame) =>
             frame != null && (IsPartDestroyed(frame, ZenithBodyPartDefOf.ZF_FrameHeadAssembly) ||
             IsPartDestroyed(frame, ZenithBodyPartDefOf.ZF_FrameCockpit) ||

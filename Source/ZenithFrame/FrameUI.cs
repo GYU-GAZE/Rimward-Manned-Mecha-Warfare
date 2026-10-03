@@ -51,6 +51,12 @@ namespace ZenithFrame
         public bool CanInspectPilot => Pilot != null;
         public bool IsRecoverable { get; }
         public bool IsHackable { get; }
+        public bool IsDocked { get; }
+        public bool NeedsRepair { get; }
+        public bool NeedsReconstruction { get; }
+        public string PendingService { get; }
+        public string ActiveService { get; }
+        public float HackProgress { get; }
 
         private FrameUiSnapshot(FramePawn frame)
         {
@@ -81,6 +87,12 @@ namespace ZenithFrame
             CanDisembark = frame?.Spawned == true && frame.Faction == Faction.OfPlayer && Pilot != null;
             IsRecoverable = frame?.Recovery?.IsRecoverablyDisabled == true;
             IsHackable = frame?.Hacking?.IsHackableDisabledChassis == true;
+            IsDocked = DockingBayUtility.IsDocked(frame);
+            NeedsRepair = FrameRepairUtility.NextRepairableInjury(frame) != null;
+            NeedsReconstruction = FrameRepairUtility.NextReconstructablePart(frame) != null;
+            PendingService = frame?.Service?.PendingLabel;
+            ActiveService = frame?.Service?.ActiveWorker?.LabelShortCap;
+            HackProgress = frame?.Hacking?.ProgressFraction ?? 0f;
         }
 
         public static FrameUiSnapshot From(FramePawn frame) => new FrameUiSnapshot(frame);
@@ -231,10 +243,11 @@ namespace ZenithFrame
         private static void DrawLoadoutSection(FrameUiSnapshot data, float width, ref float y)
         {
             Section("ZF_LoadoutSection".Translate(), width, ref y);
-            ItemRow("Weapon".Translate(), data.Weapon, width, ref y);
-            ItemRow("Utility".Translate(), data.Utility, width, ref y,
+            ServiceItemRow("Weapon".Translate(), FrameAddonCategory.Weapon, data.Weapon, data, width, ref y);
+            ServiceItemRow("Utility".Translate(), FrameAddonCategory.Utility, data.Utility, data, width, ref y,
                 data.Utility == null ? null : UtilityLabel(data.UtilityState));
-            ItemRow("Power".Translate(), data.Power, width, ref y);
+            ServiceItemRow("Power".Translate(), FrameAddonCategory.Power, data.Power, data, width, ref y);
+            if (!data.PendingService.NullOrEmpty()) Row("Pending".Translate(), data.PendingService, width, ref y);
             y += 6f;
         }
 
@@ -245,7 +258,15 @@ namespace ZenithFrame
             Row("ZF_FrameAbilities".Translate(), data.FrameAbilityCount.ToString(), width, ref y);
             Row("ZF_PilotAbilities".Translate(), data.Pilot == null ? "-" : data.PilotAbilityCount.ToString(), width, ref y);
             if (data.IsRecoverable) Row("Status".Translate(), "ZF_Recoverable".Translate(), width, ref y);
-            if (data.IsHackable) Row("ZF_Acquisition".Translate(), "ZF_Hackable".Translate(), width, ref y);
+            Row("Docking".Translate(), data.IsDocked ? "Docked" : "Not docked", width, ref y);
+            if (!data.ActiveService.NullOrEmpty()) Row("Service".Translate(), "Being serviced by " + data.ActiveService, width, ref y);
+            if (data.NeedsReconstruction) Row("Status".Translate(), "Missing part reconstruction required", width, ref y);
+            else if (data.NeedsRepair) Row("Status".Translate(), "Needs repair", width, ref y);
+            if (data.IsHackable)
+            {
+                Row("ZF_Acquisition".Translate(), "ZF_Hackable".Translate(), width, ref y);
+                Row("Hack progress", data.HackProgress.ToStringPercent(), width, ref y);
+            }
         }
 
         private static void Section(string label, float width, ref float y)
@@ -278,6 +299,34 @@ namespace ZenithFrame
             ClippedLabel(new Rect(108f, y, width - 112f - infoWidth, 22f), value);
             if (thing != null) Widgets.InfoCardButton(width - 24f, y, thing);
             y += 26f;
+        }
+
+        private static void ServiceItemRow(string label, FrameAddonCategory category, Thing thing,
+            FrameUiSnapshot data, float width, ref float y, string suffix = null)
+        {
+            float actionWidth = data.IsReadOnly ? 0f : 76f;
+            Rect row = new Rect(0f, y, width, 27f);
+            Widgets.DrawHighlightIfMouseover(row);
+            ClippedLabel(new Rect(4f, y, 78f, 22f), label);
+            string value = thing?.LabelCap ?? "None".Translate();
+            if (!suffix.NullOrEmpty()) value += " [" + suffix + "]";
+            float infoWidth = thing == null ? 0f : 28f;
+            ClippedLabel(new Rect(86f, y, width - 90f - infoWidth - actionWidth, 22f), value);
+            if (thing != null) Widgets.InfoCardButton(width - actionWidth - 24f, y, thing);
+            if (!data.IsReadOnly)
+            {
+                string action = thing == null ? "Equip..." : "Replace...";
+                if (Widgets.ButtonText(new Rect(width - 74f, y, 74f, 24f), action))
+                {
+                    List<FloatMenuOption> options = data.Frame.Service.StoredCandidates(category)
+                        .Select(candidate => new FloatMenuOption(candidate.LabelCap, () =>
+                            data.Frame.Service.QueueInstall(category, candidate))).ToList();
+                    if (thing != null) options.Add(new FloatMenuOption("Remove", () => data.Frame.Service.QueueRemove(category)));
+                    if (options.Count == 0) options.Add(new FloatMenuOption("No compatible modules in valid storage", null));
+                    Find.WindowStack.Add(new FloatMenu(options));
+                }
+            }
+            y += 28f;
         }
 
         private static void ClippedLabel(Rect rect, string value, GameFont font = GameFont.Small)

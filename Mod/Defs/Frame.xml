@@ -5,7 +5,20 @@
     <label>debug Frame</label>
     <description>Experimental humanoid pilotable Frame. Requires one colonist pilot. Board by selecting the pilot and right-clicking the Frame; once piloted, control it like a drafted pawn. Placeholder lancer art.</description>
     <thingClass>ZenithFrame.FramePawn</thingClass>
-    <modExtensions><li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li></modExtensions>
+    <modExtensions>
+      <li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li>
+      <li Class="ZenithFrame.FrameServiceExtension">
+        <reconstructionMaterial>Steel</reconstructionMaterial>
+        <reconstructionMaterialPerPartHp>0.1</reconstructionMaterialPerPartHp>
+        <reconstructionWorkPerPartHp>30</reconstructionWorkPerPartHp>
+        <repairWorkPerDamage>60</repairWorkPerDamage>
+        <serviceWork>600</serviceWork>
+        <hackingDefence>1200</hackingDefence>
+        <normalBoardingTicks>300</normalBoardingTicks>
+        <dockingSpeedMultiplier>5</dockingSpeedMultiplier>
+        <dockingStorageRadius>12</dockingStorageRadius>
+      </li>
+    </modExtensions>
     <inspectorTabs><li>ZenithFrame.ITab_Frame</li></inspectorTabs>
     <statBases>
       <MoveSpeed>4.7</MoveSpeed><MarketValue>1000</MarketValue>
@@ -13,6 +26,7 @@
       <Flammability>0</Flammability><MeatAmount>0</MeatAmount>
       <ComfyTemperatureMin>-100</ComfyTemperatureMin><ComfyTemperatureMax>250</ComfyTemperatureMax>
       <PsychicSensitivity>0</PsychicSensitivity><ToxicResistance>1</ToxicResistance>
+      <InjuryHealingFactor>0</InjuryHealingFactor>
     </statBases>
     <race>
       <intelligence>ToolUser</intelligence><fleshType>ZF_FrameMechanical</fleshType><body>ZF_HumanoidFrameBody</body>
@@ -46,6 +60,7 @@
       </li>
       <li Class="ZenithFrame.CompProperties_FrameRecovery" />
       <li Class="ZenithFrame.CompProperties_FrameHacking" />
+      <li Class="ZenithFrame.CompProperties_FrameService" />
     </comps><butcherProducts><Steel>20</Steel></butcherProducts>
   </ThingDef>
   <PawnKindDef>
@@ -82,8 +97,39 @@
   <JobDef><defName>ZF_FrameIdleJob</defName><driverClass>ZenithFrame.JobDriver_FrameIdle</driverClass><reportString>Inactive.</reportString></JobDef>
   <JobDef><defName>ZF_HackFrame</defName><driverClass>ZenithFrame.JobDriver_HackFrame</driverClass><reportString>Hacking TargetA.</reportString></JobDef>
   <JobDef><defName>ZF_FramePilotSelfTend</defName><driverClass>ZenithFrame.JobDriver_FramePilotSelfTend</driverClass><reportString>Pilot self-tending inside TargetA.</reportString></JobDef>
+  <JobDef><defName>ZF_RepairFrame</defName><driverClass>ZenithFrame.JobDriver_RepairFrame</driverClass><reportString>Repairing TargetA.</reportString></JobDef>
+  <JobDef><defName>ZF_ReconstructFramePart</defName><driverClass>ZenithFrame.JobDriver_ReconstructFramePart</driverClass><reportString>Reconstructing TargetA.</reportString></JobDef>
+  <JobDef><defName>ZF_ServiceFrameModule</defName><driverClass>ZenithFrame.JobDriver_ServiceFrameModule</driverClass><reportString>Servicing TargetA.</reportString></JobDef>
+
+  <WorkGiverDef>
+    <defName>ZF_ReconstructFrame</defName><label>reconstruct Frame</label><giverClass>ZenithFrame.WorkGiver_ReconstructFrame</giverClass>
+    <workType>Construction</workType><priorityInType>96</priorityInType><verb>reconstruct</verb><gerund>reconstructing</gerund>
+    <requiredCapacities><li>Manipulation</li></requiredCapacities><scanThings>true</scanThings><directOrderable>true</directOrderable>
+  </WorkGiverDef>
+  <WorkGiverDef>
+    <defName>ZF_RepairFrame</defName><label>repair Frame</label><giverClass>ZenithFrame.WorkGiver_RepairFrame</giverClass>
+    <workType>Construction</workType><priorityInType>95</priorityInType><verb>repair</verb><gerund>repairing</gerund>
+    <requiredCapacities><li>Manipulation</li></requiredCapacities><scanThings>true</scanThings><directOrderable>true</directOrderable>
+  </WorkGiverDef>
+  <WorkGiverDef>
+    <defName>ZF_ServiceFrameModule</defName><label>service Frame module</label><giverClass>ZenithFrame.WorkGiver_ServiceFrameModule</giverClass>
+    <workType>Construction</workType><priorityInType>94</priorityInType><verb>service</verb><gerund>servicing</gerund>
+    <requiredCapacities><li>Manipulation</li></requiredCapacities><scanThings>true</scanThings><directOrderable>true</directOrderable>
+  </WorkGiverDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>ZF_FrameDockingBay</defName><label>Frame docking bay</label>
+    <description>A standable workshop pad that accelerates Frame boarding, structural work, reconstruction and loadout service.</description>
+    <thingClass>Building</thingClass><category>Building</category><selectable>true</selectable><altitudeLayer>BuildingOnTop</altitudeLayer>
+    <passability>Standable</passability><pathCost>4</pathCost><fillPercent>0</fillPercent><size>(3,3)</size>
+    <graphicData><texPath>Things/Building/Furniture/Bed/Bed</texPath><graphicClass>Graphic_Multi</graphicClass><drawSize>(3,3)</drawSize></graphicData>
+    <statBases><MaxHitPoints>300</MaxHitPoints><WorkToBuild>1000</WorkToBuild><Mass>50</Mass><Flammability>0.5</Flammability><Beauty>-2</Beauty></statBases>
+    <costList><Steel>100</Steel></costList><terrainAffordanceNeeded>Light</terrainAffordanceNeeded><designationCategory>Misc</designationCategory>
+    <constructEffect>ConstructMetal</constructEffect>
+  </ThingDef>
   <ThingDef ParentName="BaseWeapon">
     <techLevel>Industrial</techLevel><defName>ZF_DebugRifle</defName><label>Frame debug rifle</label><description>Development weapon for manually targeted sustained attack orders.</description>
+    <thingCategories><li>WeaponsRanged</li></thingCategories><weaponClasses><li>Ranged</li></weaponClasses>
     <graphicData><texPath>Things/Item/Equipment/WeaponRanged/AssaultRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>8</Mass><RangedWeapon_Cooldown>1.5</RangedWeapon_Cooldown><AccuracyTouch>1</AccuracyTouch><AccuracyShort>1</AccuracyShort><AccuracyMedium>1</AccuracyMedium><AccuracyLong>1</AccuracyLong></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Weapon</category></li></modExtensions>
@@ -94,6 +140,7 @@
   </ThingDef>
   <ThingDef ParentName="BaseWeapon">
     <techLevel>Industrial</techLevel><defName>ZF_DebugHeavyRifle</defName><label>Frame debug heavy rifle</label><description>Development Frame Weapon addon with a slower single long-range shot.</description>
+    <thingCategories><li>WeaponsRanged</li></thingCategories><weaponClasses><li>Ranged</li></weaponClasses>
     <graphicData><texPath>Things/Item/Equipment/WeaponRanged/SniperRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>14</Mass><RangedWeapon_Cooldown>2.5</RangedWeapon_Cooldown><AccuracyTouch>1</AccuracyTouch><AccuracyShort>1</AccuracyShort><AccuracyMedium>1</AccuracyMedium><AccuracyLong>1</AccuracyLong></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Weapon</category></li></modExtensions>
@@ -104,19 +151,19 @@
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_DebugMobilityBooster</defName><label>debug mobility booster</label><description>Development Frame Utility addon. Adds MoveSpeed while sufficient addon power is available.</description>
-    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/TechprofSubpersonaCore</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Special/SubpersonaCoreTechprof</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>6</Mass><MarketValue>100</MarketValue></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Utility</category><powerDraw>2</powerDraw><moveSpeedOffset>1</moveSpeedOffset></li></modExtensions>
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_DebugReactor</defName><label>debug reactor</label><description>Development Frame Power addon providing two static addon power points.</description>
-    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>10</Mass><MarketValue>100</MarketValue></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>2</powerOutput></li></modExtensions>
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_DebugWeakPowerCell</defName><label>debug weak power cell</label><description>Development Frame Power addon providing one static addon power point.</description>
-    <stackLimit>1</stackLimit><graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>4</Mass><MarketValue>50</MarketValue></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>1</powerOutput></li></modExtensions>
   </ThingDef>

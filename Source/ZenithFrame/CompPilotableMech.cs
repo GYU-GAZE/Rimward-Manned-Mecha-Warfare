@@ -29,9 +29,11 @@ namespace ZenithFrame
         // the cockpit because that Pawn is no longer spawned. Colonist status
         // and faction remain stable across containment and save/load.
         public bool CanTakePlayerOrders => CanOperate && Frame.Faction == Faction.OfPlayer &&
-            Pilot?.IsColonist == true && !Pilot.IsPrisoner && !Pilot.IsSlave;
+            Pilot?.IsColonist == true && !Pilot.IsPrisoner && !Pilot.IsSlave &&
+            (!(Frame is FramePawn playerFrame) || playerFrame.Service?.IsServiceLocked != true);
         public bool CanUseHostileCombatAI => CanOperate && Frame.Faction != null &&
-            Frame.Faction.HostileTo(Faction.OfPlayer);
+            Frame.Faction.HostileTo(Faction.OfPlayer) &&
+            (!(Frame is FramePawn hostileFrame) || hostileFrame.Service?.IsServiceLocked != true);
         public ThingOwner GetDirectlyHeldThings() => pilots;
         public void GetChildHolders(List<IThingHolder> children) => ThingOwnerUtility.AppendThingHoldersFromThings(children, pilots);
 
