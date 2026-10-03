@@ -2626,7 +2626,7 @@ namespace ZenithFrame.Tests
                 Check(pilot.inventory.innerContainer.TryAdd(medicine, false), "self-tend fixture stores exact medicine in contained pilot inventory");
                 damageMedicineId = medicine.GetUniqueLoadID();
                 damageMedicineCountBefore = medicine.stackCount;
-                damageMedicineXpBefore = pilot.skills.GetSkill(SkillDefOf.Medicine).XpTotalEarned;
+                damageMedicineXpBefore = pilot.skills.GetSkill(SkillDefOf.Medicine).xpSinceLastLevel;
                 Command_Action command = frame.GetGizmos().OfType<Command_Action>().Single(gizmo => gizmo.defaultLabel == "Pilot self-tend");
                 command.action();
                 Check(frame.CurJobDef == ZenithJobDefOf.ZF_FramePilotSelfTend && ReferenceEquals(frame.CurJob.targetC.Thing, pilot) &&
@@ -2658,9 +2658,10 @@ namespace ZenithFrame.Tests
                 Check(medicine == null || medicine.stackCount == damageMedicineCountBefore - 1,
                     "completed self-tend consumes exactly one carried medicine and no map stockpile item");
                 SkillRecord medicineSkill = pilot.skills.GetSkill(SkillDefOf.Medicine);
-                Check(medicineSkill.TotallyDisabled || medicineSkill.XpTotalEarned > damageMedicineXpBefore,
+                float comparableXpBefore = damageMedicineXpBefore > medicineSkill.XpRequiredForLevelUp ? 0f : damageMedicineXpBefore;
+                Check(medicineSkill.TotallyDisabled || medicineSkill.xpSinceLastLevel > comparableXpBefore,
                     "embarked self-tend awards Medicine XP to the exact capable pilot; before=" + damageMedicineXpBefore +
-                    " after=" + medicineSkill.XpTotalEarned + " disabled=" + medicineSkill.TotallyDisabled);
+                    " after=" + medicineSkill.xpSinceLastLevel + " disabled=" + medicineSkill.TotallyDisabled);
                 Check(!pilot.health.hediffSet.hediffs.Any(hediff => hediff.TendableNow()),
                     "embarked self-tend uses normal TendUtility on the real pilot wounds");
 
