@@ -890,11 +890,6 @@ The lifecycle proves explicit enum compatibility, six exact physical slot owners
 
 One Core hostile-melee phase initially timed out while vanilla AI remained in a duty node without a Lord; an unchanged isolated rerun passed the full combat/capture path. One DLC damage phase emitted a vanilla `Pawn_MindState.StartFleeingBecauseOfPawnAction` clamor exception; an unchanged rerun passed with a clean log. The service fixture's final Utility-removal assertion was corrected to accept its documented safe ground fallback when same-worker storage logistics do not complete. Failed logs remain retained for audit and are excluded from passing log claims.
 
-Final clean Release DLL SHA-256 values:
-
-```text
-ZenithFrame.dll      C150D15106ABC0751DADB4894B7454A6D044CF35FF3914C3CAB0FEC67B1526E6
-ZenithFrame.VEF.dll  7331E9CA8F0B97DCCEA9725B61B656444BAB46E61B5DE1FC7276E6D45C51917B
-```
+The SDK records the current Git commit in each assembly's informational version. Consequently the release DLL hashes are produced after the final documentation commit and are reported with the published branch rather than embedded self-referentially in this file.
 
 Focused manual gameplay QA is maintained in `docs/FRAME_MODULES.md`. Modular rendering and livery remain explicitly deferred.
