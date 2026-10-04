@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationSequence">
+    <operations>
+      <li Class="PatchOperationConditional"><xpath>Defs/StatDef[defName="ArmorRating_Sharp"]/parts</xpath><match Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Sharp"]/parts</xpath><value><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></value></match><nomatch Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Sharp"]</xpath><value><parts><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></parts></value></nomatch></li>
+      <li Class="PatchOperationConditional"><xpath>Defs/StatDef[defName="ArmorRating_Blunt"]/parts</xpath><match Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Blunt"]/parts</xpath><value><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></value></match><nomatch Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Blunt"]</xpath><value><parts><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></parts></value></nomatch></li>
+      <li Class="PatchOperationConditional"><xpath>Defs/StatDef[defName="ArmorRating_Heat"]/parts</xpath><match Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Heat"]/parts</xpath><value><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></value></match><nomatch Class="PatchOperationAdd"><xpath>Defs/StatDef[defName="ArmorRating_Heat"]</xpath><value><parts><li Class="ZenithFrame.StatPart_FrameModuleArmor" /></parts></value></nomatch></li>
+    </operations>
+  </Operation>
+</Patch>

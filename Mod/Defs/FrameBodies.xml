@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
+  <BodyPartGroupDef><defName>ZF_FrameHeadMount</defName><label>Frame head mount</label><listOrder>120</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameShoulderMount</defName><label>Frame shoulder mount</label><listOrder>121</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameOffhandMount</defName><label>Frame offhand mount</label><listOrder>122</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameShieldCoverage</defName><label>Frame shield coverage</label><listOrder>123</listOrder></BodyPartGroupDef>
+
   <BodyPartDef Name="ZF_FramePartBase" Abstract="True">
     <hitPoints>20</hitPoints>
     <bleedRate>0</bleedRate>
@@ -32,12 +37,12 @@
       <def>ZF_FrameTorso</def>
       <height>Middle</height>
       <depth>Outside</depth>
-      <groups><li>Torso</li></groups>
+      <groups><li>Torso</li><li>ZF_FrameShoulderMount</li><li>ZF_FrameShieldCoverage</li></groups>
       <parts>
         <li><def>ZF_FrameCore</def><coverage>0.10</coverage><depth>Inside</depth><groups><li>Torso</li></groups></li>
         <li><def>ZF_FrameCockpit</def><coverage>0.12</coverage><depth>Inside</depth><groups><li>Torso</li></groups></li>
         <li>
-          <def>ZF_FrameHeadAssembly</def><coverage>0.12</coverage><height>Top</height><groups><li>UpperHead</li><li>FullHead</li></groups>
+          <def>ZF_FrameHeadAssembly</def><coverage>0.12</coverage><height>Top</height><groups><li>UpperHead</li><li>FullHead</li><li>ZF_FrameHeadMount</li></groups>
           <parts>
             <li><def>ZF_FrameOptic</def><customLabel>left optic</customLabel><coverage>0.12</coverage><groups><li>Eyes</li><li>FullHead</li></groups><flipGraphic>true</flipGraphic></li>
             <li><def>ZF_FrameOptic</def><customLabel>right optic</customLabel><coverage>0.12</coverage><groups><li>Eyes</li><li>FullHead</li></groups></li>
@@ -45,9 +50,9 @@
           </parts>
         </li>
         <li>
-          <def>ZF_FrameArm</def><customLabel>left arm</customLabel><coverage>0.16</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li></groups>
-          <parts><li><def>ZF_FrameForearm</def><customLabel>left forearm</customLabel><coverage>0.55</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li></groups>
-            <parts><li><def>ZF_FrameManipulator</def><customLabel>left manipulator</customLabel><coverage>0.42</coverage><flipGraphic>true</flipGraphic><groups><li>Hands</li><li>LeftHand</li></groups>
+          <def>ZF_FrameArm</def><customLabel>left arm</customLabel><coverage>0.16</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li><li>ZF_FrameShieldCoverage</li></groups>
+          <parts><li><def>ZF_FrameForearm</def><customLabel>left forearm</customLabel><coverage>0.55</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li><li>ZF_FrameShieldCoverage</li></groups>
+            <parts><li><def>ZF_FrameManipulator</def><customLabel>left manipulator</customLabel><coverage>0.42</coverage><flipGraphic>true</flipGraphic><groups><li>Hands</li><li>LeftHand</li><li>ZF_FrameOffhandMount</li><li>ZF_FrameShieldCoverage</li></groups>
               <parts>
                 <li><def>ZF_FrameDigit</def><customLabel>left digit 1</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>LeftHand</li></groups></li>
                 <li><def>ZF_FrameDigit</def><customLabel>left digit 2</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>LeftHand</li></groups></li>

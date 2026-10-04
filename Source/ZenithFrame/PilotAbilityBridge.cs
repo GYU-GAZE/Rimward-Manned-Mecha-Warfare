@@ -352,6 +352,14 @@ namespace ZenithFrame
             Pawn pilot = frame.Cockpit.Pilot;
             if (pilot?.abilities == null || frame.CurJob?.ability != null) return null;
 
+            foreach (Ability moduleAbility in frame.Loadout.ActiveModuleAbilities())
+            {
+                if (!moduleAbility.def.aiCanUse || !moduleAbility.CanCast.Accepted) continue;
+                LocalTargetInfo self = frame;
+                if (!moduleAbility.AICanTargetNow(self)) continue;
+                return moduleAbility.GetJob(self, self);
+            }
+
             IAttackTarget attackTarget = AttackTargetFinder.BestAttackTarget(frame,
                 TargetScanFlags.NeedThreat | TargetScanFlags.NeedAutoTargetable,
                 target => target is Pawn, 0f, 65f);

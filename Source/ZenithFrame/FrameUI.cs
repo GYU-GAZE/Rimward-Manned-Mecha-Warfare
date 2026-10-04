@@ -28,6 +28,9 @@ namespace ZenithFrame
         public Pawn Pilot { get; }
         public Pawn PilotForInspection => Pilot;
         public ThingWithComps Weapon { get; }
+        public Thing Head { get; }
+        public Thing Shoulder { get; }
+        public Thing Offhand { get; }
         public Thing Utility { get; }
         public Thing Power { get; }
         public int AvailablePower { get; }
@@ -64,6 +67,9 @@ namespace ZenithFrame
             Pilot = frame?.Cockpit?.Pilot;
             CompFrameLoadout loadout = frame?.Loadout;
             Weapon = loadout?.InstalledWeapon;
+            Head = loadout?.InstalledHead;
+            Shoulder = loadout?.InstalledShoulder;
+            Offhand = loadout?.InstalledOffhand;
             Utility = loadout?.InstalledUtility;
             Power = loadout?.InstalledPower;
             AvailablePower = loadout?.AvailableAddonPower ?? 0;
@@ -80,7 +86,8 @@ namespace ZenithFrame
             PilotBleedRate = Pilot?.health?.hediffSet?.BleedRateTotal ?? 0f;
             ShootingLevel = SkillLevel(Pilot, SkillDefOf.Shooting);
             MeleeLevel = SkillLevel(Pilot, SkillDefOf.Melee);
-            FrameAbilityCount = frame?.abilities?.AllAbilitiesForReading.Count() ?? 0;
+            FrameAbilityCount = (frame?.abilities?.AllAbilitiesForReading.Count() ?? 0) +
+                (loadout?.ActiveModuleAbilities().Count() ?? 0);
             PilotAbilityCount = Pilot?.abilities?.AllAbilitiesForReading.Count() ?? 0;
             IsReadOnly = frame?.Faction != Faction.OfPlayer;
             CanRename = frame != null && !frame.Destroyed && frame.Faction == Faction.OfPlayer;
@@ -243,10 +250,16 @@ namespace ZenithFrame
         private static void DrawLoadoutSection(FrameUiSnapshot data, float width, ref float y)
         {
             Section("ZF_LoadoutSection".Translate(), width, ref y);
-            ServiceItemRow("Weapon".Translate(), FrameAddonCategory.Weapon, data.Weapon, data, width, ref y);
+            ItemRow("Chassis", data.Frame, width, ref y);
+            ServiceItemRow("Head", FrameAddonCategory.Head, data.Head, data, width, ref y, ModuleStatus(data, data.Head));
+            ServiceItemRow("Shoulder", FrameAddonCategory.Shoulder, data.Shoulder, data, width, ref y, ModuleStatus(data, data.Shoulder));
+            ServiceItemRow("Primary Weapon", FrameAddonCategory.Weapon, data.Weapon, data, width, ref y, ModuleStatus(data, data.Weapon));
+            ServiceItemRow("Offhand", FrameAddonCategory.Offhand, data.Offhand, data, width, ref y, ModuleStatus(data, data.Offhand));
             ServiceItemRow("Utility".Translate(), FrameAddonCategory.Utility, data.Utility, data, width, ref y,
-                data.Utility == null ? null : UtilityLabel(data.UtilityState));
-            ServiceItemRow("Power".Translate(), FrameAddonCategory.Power, data.Power, data, width, ref y);
+                ModuleStatus(data, data.Utility));
+            ServiceItemRow("Power".Translate(), FrameAddonCategory.Power, data.Power, data, width, ref y, ModuleStatus(data, data.Power));
+            CompFrameModuleAbility moduleAbility = data.Shoulder?.TryGetComp<CompFrameModuleAbility>();
+            if (moduleAbility?.Ability != null) Row("Shoulder ability", moduleAbility.Ability.def.LabelCap, width, ref y);
             if (!data.PendingService.NullOrEmpty()) Row("Pending".Translate(), data.PendingService, width, ref y);
             y += 6f;
         }
@@ -307,11 +320,11 @@ namespace ZenithFrame
             float actionWidth = data.IsReadOnly ? 0f : 76f;
             Rect row = new Rect(0f, y, width, 27f);
             Widgets.DrawHighlightIfMouseover(row);
-            ClippedLabel(new Rect(4f, y, 78f, 22f), label);
+            ClippedLabel(new Rect(4f, y, 106f, 22f), label);
             string value = thing?.LabelCap ?? "None".Translate();
             if (!suffix.NullOrEmpty()) value += " [" + suffix + "]";
             float infoWidth = thing == null ? 0f : 28f;
-            ClippedLabel(new Rect(86f, y, width - 90f - infoWidth - actionWidth, 22f), value);
+            ClippedLabel(new Rect(112f, y, width - 116f - infoWidth - actionWidth, 22f), value);
             if (thing != null) Widgets.InfoCardButton(width - actionWidth - 24f, y, thing);
             if (!data.IsReadOnly)
             {
@@ -343,6 +356,16 @@ namespace ZenithFrame
 
         private static string UtilityLabel(FrameUtilityState state) => state == FrameUtilityState.Powered ?
             "ZF_Powered".Translate() : state == FrameUtilityState.Unpowered ? "ZF_Unpowered".Translate() : "None".Translate();
+
+        private static string ModuleStatus(FrameUiSnapshot data, Thing module)
+        {
+            if (module == null) return null;
+            if (!data.Frame.Loadout.IsMountValid(module)) return "Installed - mount damaged";
+            FrameAddonExtension extension = CompFrameLoadout.Extension(module);
+            if ((extension?.powerDraw ?? 0) > 0)
+                return data.Frame.Loadout.IsModulePowered(module) ? "Powered" : "UNPOWERED";
+            return "Passive";
+        }
 
         private static string StateLabel(FrameOperationalState state) => ("ZF_State_" + state).Translate();
 

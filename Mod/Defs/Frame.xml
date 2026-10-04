@@ -52,11 +52,17 @@
         <weaponCapacity>1</weaponCapacity>
         <utilityCapacity>1</utilityCapacity>
         <powerCapacity>1</powerCapacity>
+        <headCapacity>1</headCapacity>
+        <shoulderCapacity>1</shoulderCapacity>
+        <offhandCapacity>1</offhandCapacity>
         <defaultWeapon>ZF_DebugRifle</defaultWeapon>
         <defaultPower>ZF_DebugReactor</defaultPower>
         <developmentWeapons><li>ZF_DebugRifle</li><li>ZF_DebugHeavyRifle</li></developmentWeapons>
         <developmentUtilities><li>ZF_DebugMobilityBooster</li></developmentUtilities>
-        <developmentPowerSources><li>ZF_DebugReactor</li><li>ZF_DebugWeakPowerCell</li></developmentPowerSources>
+        <developmentPowerSources><li>ZF_DebugReactor</li><li>ZF_DebugWeakPowerCell</li><li>ZF_DebugHighOutputReactor</li></developmentPowerSources>
+        <developmentHeads><li>ZF_DebugSensorHelmet</li></developmentHeads>
+        <developmentShoulders><li>ZF_DebugShoulderSystem</li></developmentShoulders>
+        <developmentOffhands><li>ZF_DebugBeamSwordOffhand</li><li>ZF_DebugShieldOffhand</li></developmentOffhands>
       </li>
       <li Class="ZenithFrame.CompProperties_FrameRecovery" />
       <li Class="ZenithFrame.CompProperties_FrameHacking" />
@@ -166,6 +172,37 @@
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>4</Mass><MarketValue>50</MarketValue></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>1</powerOutput></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugHighOutputReactor</defName><label>debug high-output reactor</label><description>Development Frame Power fixture providing five static addon power points for complete-loadout validation.</description>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
+    <statBases><Mass>14</Mass><MarketValue>200</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category><powerOutput>5</powerOutput></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugSensorHelmet</defName><label>debug sensor helmet</label><description>Development Head module whose powered sensor package improves the Frame's real Sight capacity.</description>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Special/SubpersonaCoreTechprof</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>5</Mass><MarketValue>120</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugShoulderSystem</defName><label>debug shoulder system</label><description>Development Shoulder module carrying its own persistent Shoulder Burst ability state.</description>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
+    <statBases><Mass>9</Mass><MarketValue>180</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li></modExtensions>
+    <comps><li Class="ZenithFrame.CompProperties_FrameModuleAbility"><ability>ZF_DebugShoulderBurst</ability></li></comps>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugBeamSwordOffhand</defName><label>debug beam sword offhand</label><description>Development Offhand module. Its mass reduces Manipulation while installed and its melee emitter functions only with sufficient addon power.</description>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Equipment/WeaponMelee/LongSword</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>7</Mass><MarketValue>150</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Offhand</category><powerDraw>1</powerDraw><installedHediff>ZF_BeamSwordInstalled</installedHediff><poweredHediff>ZF_BeamSwordPowered</poweredHediff><mountGroup>ZF_FrameOffhandMount</mountGroup></li></modExtensions>
+  </ThingDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_DebugShieldOffhand</defName><label>debug shield offhand</label><description>Development zero-draw Offhand shield. It slows the Frame and contributes armor only to its configured body regions.</description>
+    <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Equipment/WeaponMelee/Gladius</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>10</Mass><MarketValue>130</MarketValue></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Offhand</category><powerDraw>0</powerDraw><installedHediff>ZF_ShieldInstalled</installedHediff><mountGroup>ZF_FrameOffhandMount</mountGroup><armorCoverageGroup>ZF_FrameShieldCoverage</armorCoverageGroup><armorSharp>0.35</armorSharp><armorBlunt>0.25</armorBlunt><armorHeat>0.20</armorHeat></li></modExtensions>
   </ThingDef>
 </Defs>
 

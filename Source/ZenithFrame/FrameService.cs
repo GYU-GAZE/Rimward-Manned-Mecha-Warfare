@@ -169,26 +169,15 @@ namespace ZenithFrame
             return true;
         }
 
-        public Thing Installed(FrameAddonCategory category) => category == FrameAddonCategory.Weapon
-            ? Frame.Loadout?.InstalledWeapon : category == FrameAddonCategory.Utility
-                ? Frame.Loadout?.InstalledUtility : Frame.Loadout?.InstalledPower;
+        public Thing Installed(FrameAddonCategory category) => Frame.Loadout?.Installed(category);
 
-        private bool TryInstall(FrameAddonCategory category, Thing thing) => category == FrameAddonCategory.Weapon
-            ? thing is ThingWithComps weapon && Frame.Loadout.TryInstallWeapon(weapon)
-            : category == FrameAddonCategory.Utility ? Frame.Loadout.TryInstallUtility(thing) : Frame.Loadout.TryInstallPower(thing);
+        private bool TryInstall(FrameAddonCategory category, Thing thing) =>
+            Frame.Loadout?.TryInstall(category, thing) == true;
 
         private bool TryRemove(FrameAddonCategory category, out Thing removed)
         {
             removed = null;
-            if (category == FrameAddonCategory.Weapon)
-            {
-                bool result = Frame.Loadout.TryRemoveWeapon(out ThingWithComps weapon);
-                removed = weapon;
-                return result;
-            }
-            return category == FrameAddonCategory.Utility
-                ? Frame.Loadout.TryRemoveUtility(out removed)
-                : Frame.Loadout.TryRemovePower(out removed);
+            return Frame.Loadout?.TryRemove(category, out removed) == true;
         }
 
         private bool IsStoredCandidate(Thing thing, FrameAddonCategory category)
@@ -439,6 +428,7 @@ namespace ZenithFrame
                 { EndJobWith(JobCondition.Incompletable); return; }
                 if (material.stackCount == materialCount) material.Destroy(); else material.stackCount -= materialCount;
                 Frame.health.RestorePart(Part);
+                Frame.Loadout?.RefreshModuleEffects();
                 Frame.Loadout?.TryReclaimRememberedWeapon();
             };
             complete.defaultCompleteMode = ToilCompleteMode.Instant;

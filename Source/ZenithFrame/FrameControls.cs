@@ -113,6 +113,13 @@ namespace ZenithFrame
                     foreach (Command command in ability.GetGizmos())
                         yield return command;
                 }
+
+                foreach (Ability ability in Loadout.ActiveModuleAbilities())
+                {
+                    if (!ability.GizmosVisible()) continue;
+                    foreach (Command command in ability.GetGizmos())
+                        yield return command;
+                }
             }
 
             foreach (Gizmo pilotAbilityGizmo in PilotAbilityGizmos.VanillaFor(this))
