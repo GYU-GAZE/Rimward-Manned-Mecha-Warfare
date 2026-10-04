@@ -87,6 +87,22 @@ namespace ZenithFrame.Tests
         private Thing serviceOutgoingModule;
         private string serviceOutgoingModuleId;
         private Building serviceDock;
+        private Thing moduleHead;
+        private Thing moduleShoulder;
+        private Thing moduleOffhand;
+        private Thing modulePower;
+        private Thing moduleUtility;
+        private ThingWithComps moduleWeapon;
+        private string moduleHeadId;
+        private string moduleShoulderId;
+        private string moduleOffhandId;
+        private string modulePowerId;
+        private int moduleAbilityId;
+        private int moduleAbilityCooldown;
+        private float moduleBaseSight;
+        private float moduleBaseManipulation;
+        private float moduleBaseShootingAccuracy;
+        private float moduleBaseMoveSpeed;
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
@@ -150,6 +166,22 @@ namespace ZenithFrame.Tests
             Scribe_References.Look(ref serviceOutgoingModule, "testServiceOutgoingModule");
             Scribe_Values.Look(ref serviceOutgoingModuleId, "testServiceOutgoingModuleId");
             Scribe_References.Look(ref serviceDock, "testServiceDock");
+            Scribe_References.Look(ref moduleHead, "testModuleHead");
+            Scribe_References.Look(ref moduleShoulder, "testModuleShoulder");
+            Scribe_References.Look(ref moduleOffhand, "testModuleOffhand");
+            Scribe_References.Look(ref modulePower, "testModulePower");
+            Scribe_References.Look(ref moduleUtility, "testModuleUtility");
+            Scribe_References.Look(ref moduleWeapon, "testModuleWeapon");
+            Scribe_Values.Look(ref moduleHeadId, "testModuleHeadId");
+            Scribe_Values.Look(ref moduleShoulderId, "testModuleShoulderId");
+            Scribe_Values.Look(ref moduleOffhandId, "testModuleOffhandId");
+            Scribe_Values.Look(ref modulePowerId, "testModulePowerId");
+            Scribe_Values.Look(ref moduleAbilityId, "testModuleAbilityId");
+            Scribe_Values.Look(ref moduleAbilityCooldown, "testModuleAbilityCooldown");
+            Scribe_Values.Look(ref moduleBaseSight, "testModuleBaseSight");
+            Scribe_Values.Look(ref moduleBaseManipulation, "testModuleBaseManipulation");
+            Scribe_Values.Look(ref moduleBaseShootingAccuracy, "testModuleBaseShootingAccuracy");
+            Scribe_Values.Look(ref moduleBaseMoveSpeed, "testModuleBaseMoveSpeed");
         }
         private void Check(bool condition, string name)
         {
@@ -223,7 +255,14 @@ namespace ZenithFrame.Tests
                 else if (phase == 34) FrameServiceReconstructionLoadAndHack();
                 else if (phase == 35) FrameServiceHackLoadAndBoard();
                 else if (phase == 36) FrameServiceBoardLoadAndStartModule();
-                else FrameServiceModuleLoadAndFinish();
+                else if (phase == 37) FrameServiceModuleLoadAndFinish();
+                else if (phase == 38) FrameModulesStart();
+                else if (phase == 39) FrameModulesPoweredLoad();
+                else if (phase == 40) FrameModuleAbilityLoadAndStorage();
+                else if (phase == 41) FrameModuleTransferAndArmor();
+                else if (phase == 42) FrameModuleMountDamage();
+                else if (phase == 43) FrameModuleWorldHackAndSalvage();
+                else FrameModuleServiceFinish();
             }
             catch (Exception e)
             {
@@ -3176,17 +3215,412 @@ namespace ZenithFrame.Tests
                 other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
                 Next(6, 3000);
             }
-            else if (step == 6 && frame.Loadout.InstalledUtility == null && StoreUtility.IsInValidStorage(loadoutUtility))
+            else if (step == 6 && frame.Loadout.InstalledUtility == null && loadoutUtility.Spawned)
             {
-                Check(loadoutUtility.GetUniqueLoadID() == loadoutUtilityId && loadoutUtility.Spawned,
-                    "docked removal sends exact Utility through same-worker nearby storage logistics");
+                bool utilityHaulQueued = other.CurJobDef == JobDefOf.HaulToCell &&
+                    ReferenceEquals(other.CurJob?.targetA.Thing, loadoutUtility) ||
+                    Enumerable.Range(0, other.jobs.jobQueue.Count).Any(index =>
+                        other.jobs.jobQueue[index].job.def == JobDefOf.HaulToCell &&
+                        ReferenceEquals(other.jobs.jobQueue[index].job.targetA.Thing, loadoutUtility));
+                Check(loadoutUtility.GetUniqueLoadID() == loadoutUtilityId && !loadoutUtility.Destroyed,
+                    "docked removal preserves exact Utility through same-worker storage logistics or safe ground fallback; stored=" +
+                    StoreUtility.IsInValidStorage(loadoutUtility) + " queued=" + utilityHaulQueued);
 
                 Check(frame.Cockpit.TryDisembark() && pilot.Spawned, "service lifecycle returns exact pilot to map normally");
                 Unique(pilot, "service lifecycle final pilot ownership");
                 Check(frame.Spawned && !frame.Dead && frame.GetUniqueLoadID() == frameId,
                     "complete service slice preserves exact living Frame identity");
+                SaveNext(38);
+            }
+        }
+
+        private void FrameModulesStart()
+        {
+            if (step != 0) return;
+            ClearCombatNoise();
+            Check((int)FrameAddonCategory.Weapon == 0 && (int)FrameAddonCategory.Utility == 1 &&
+                (int)FrameAddonCategory.Power == 2 && (int)FrameAddonCategory.Head == 3 &&
+                (int)FrameAddonCategory.Shoulder == 4 && (int)FrameAddonCategory.Offhand == 5,
+                "modular loadout appends explicit enum values without changing serialized Weapon Utility Power values");
+
+            frame = SpawnFrame(Find.CurrentMap.Center + IntVec3.West * 11);
+            frameId = frame.GetUniqueLoadID();
+            pilot = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), frame.Position + IntVec3.East, frame.Map);
+            pilotId = pilot.GetUniqueLoadID();
+            SetCombatSkills(pilot, 12, 14);
+            Check(frame.Cockpit.TryBoard(pilot), "modular fixture boards one real pilot");
+            CompProperties_FrameLoadout props = frame.Loadout.Props;
+            Check(props.headCapacity == 1 && props.shoulderCapacity == 1 && props.offhandCapacity == 1,
+                "Debug Frame exposes exactly one Head Shoulder and Offhand capacity");
+            Check(!Enum.GetNames(typeof(FrameAddonCategory)).Contains("Chassis"),
+                "Chassis remains permanent Frame identity rather than a serialized installable category");
+
+            moduleBaseSight = frame.health.capacities.GetLevel(PawnCapacityDefOf.Sight);
+            moduleBaseManipulation = frame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation);
+            moduleBaseShootingAccuracy = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+            moduleBaseMoveSpeed = frame.GetStatValue(StatDefOf.MoveSpeed);
+            moduleHead = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugSensorHelmet"));
+            moduleShoulder = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShoulderSystem"));
+            moduleOffhand = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugBeamSwordOffhand"));
+            moduleHeadId = moduleHead.GetUniqueLoadID();
+            moduleShoulderId = moduleShoulder.GetUniqueLoadID();
+            moduleOffhandId = moduleOffhand.GetUniqueLoadID();
+            Check(frame.Loadout.TryInstallHead(moduleHead) && frame.Loadout.TryInstallShoulder(moduleShoulder) &&
+                frame.Loadout.TryInstallOffhand(moduleOffhand),
+                "exact physical Head Shoulder and Beam Sword Offhand install into three specialized owners");
+
+            Thing secondHead = ThingMaker.MakeThing(moduleHead.def);
+            Thing wrong = ThingMaker.MakeThing(moduleShoulder.def);
+            Thing ordinary = ThingMaker.MakeThing(ThingDefOf.Steel);
+            Check(!frame.Loadout.TryInstallHead(secondHead) && !frame.Loadout.CanInstallHead(wrong, out _) &&
+                !frame.Loadout.CanInstallHead(ordinary, out _),
+                "occupied capacity wrong category and ordinary unmarked Thing are rejected for new slots");
+            secondHead.Destroy(); wrong.Destroy(); ordinary.Destroy();
+
+            ThingWithComps frameRifle = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
+            ThingWithComps humanRifle = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Gun_AssaultRifle"));
+            Check(!EquipmentUtility.CanEquip(frameRifle, pilot, out string frameWeaponReason) && !frameWeaponReason.NullOrEmpty(),
+                "ordinary human cannot equip marked Zenith Frame Weapon");
+            Check(!EquipmentUtility.CanEquip(humanRifle, frame, out string humanWeaponReason) && !humanWeaponReason.NullOrEmpty(),
+                "Frame cannot equip ordinary unmarked human weapon");
+            Check(frameRifle.def.EverStorable(false), "Frame Weapon remains an ordinary storable haulable physical item");
+            humanRifle.Destroy();
+            Check(frame.Loadout.TryRemoveWeapon(out ThingWithComps defaultRifle) && frame.Loadout.TryInstallWeapon(frameRifle),
+                "complete modular fixture replaces default Primary Weapon with exact Heavy Rifle");
+            defaultRifle.Destroy();
+            moduleWeapon = frameRifle;
+            moduleUtility = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"));
+            Check(frame.Loadout.TryInstallUtility(moduleUtility),
+                "complete modular fixture installs exact Mobility Booster through canonical Utility ownership");
+
+            Check(frame.Loadout.RequiredAddonPower == 5 && frame.Loadout.AvailableAddonPower == 2 &&
+                !frame.Loadout.HasSufficientAddonPower,
+                "positive draw sums across Head Shoulder Offhand and Utility and creates one deterministic global deficit");
+            Check(frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_BeamSwordInstalled")) != null &&
+                frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_BeamSwordPowered")) == null &&
+                frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_SensorHelmetPowered")) == null,
+                "global deficit preserves passive Beam Sword mass while removing every positive-draw powered projection");
+            Check(frame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation) < moduleBaseManipulation &&
+                !HasBeamSwordVerb(frame) && !frame.Loadout.ActiveModuleAbilities().Any() &&
+                Approximately(frame.GetStatValue(StatDefOf.MoveSpeed), moduleBaseMoveSpeed),
+                "global deficit keeps passive Beam Sword mass while Beam Sword Shoulder and Mobility powered effects stay unavailable");
+            SaveNext(39);
+        }
+
+        private void FrameModulesPoweredLoad()
+        {
+            if (step == 0)
+            {
+                Check(moduleHead.GetUniqueLoadID() == moduleHeadId && moduleShoulder.GetUniqueLoadID() == moduleShoulderId &&
+                    moduleOffhand.GetUniqueLoadID() == moduleOffhandId && ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
+                    ReferenceEquals(frame.Loadout.InstalledShoulder, moduleShoulder) && ReferenceEquals(frame.Loadout.InstalledOffhand, moduleOffhand),
+                    "fresh-process load preserves exact new module identities and specialized slot ownership");
+                List<Thing> nested = ThingOwnerUtility.GetAllThingsRecursively(frame, false);
+                Check(nested.Count(thing => ReferenceEquals(thing, moduleHead)) == 1 &&
+                    nested.Count(thing => ReferenceEquals(thing, moduleShoulder)) == 1 &&
+                    nested.Count(thing => ReferenceEquals(thing, moduleOffhand)) == 1,
+                    "IThingHolder traversal enumerates each new physical module exactly once; head=" +
+                    nested.Count(thing => ReferenceEquals(thing, moduleHead)) + " shoulder=" +
+                    nested.Count(thing => ReferenceEquals(thing, moduleShoulder)) + " offhand=" +
+                    nested.Count(thing => ReferenceEquals(thing, moduleOffhand)) + " all=" +
+                    string.Join(",", nested.Select(thing => thing.GetUniqueLoadID())));
+
+                Check(frame.Loadout.TryRemovePower(out Thing oldPower), "powered modular fixture removes exact default Reactor");
+                oldPower.Destroy();
+                modulePower = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHighOutputReactor"));
+                modulePowerId = modulePower.GetUniqueLoadID();
+                Check(frame.Loadout.TryInstallPower(modulePower) && frame.Loadout.AvailableAddonPower == 5 &&
+                    frame.Loadout.RequiredAddonPower == 5 && frame.Loadout.HasSufficientAddonPower,
+                    "high-output development Reactor satisfies the generalized multi-category budget");
+                frame.Loadout.RefreshModuleEffects();
+                float poweredSight = frame.health.capacities.GetLevel(PawnCapacityDefOf.Sight);
+                float poweredShooting = frame.GetStatValue(StatDefOf.ShootingAccuracyPawn);
+                Check(poweredSight > moduleBaseSight,
+                    "powered Sensor Helmet raises the real Frame Sight capacity through a derived Hediff");
+                Check(poweredShooting > moduleBaseShootingAccuracy,
+                    "Sensor Helmet changes ShootingAccuracyPawn through the normal Sight capacity pipeline");
+                Check(pilot.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_SensorHelmetPowered")) == null,
+                    "Sensor Helmet projection never modifies the contained pilot");
+                Check(HasBeamSwordVerb(frame) && frame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation) < moduleBaseManipulation,
+                    "powered Beam Sword grants a normal HediffComp melee verb while retaining passive Manipulation cost; hediff=" +
+                    (frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_BeamSwordPowered")) != null) +
+                    " hasVerb=" + HasBeamSwordVerb(frame) + " manipulation=" +
+                    frame.health.capacities.GetLevel(PawnCapacityDefOf.Manipulation) + " baseline=" + moduleBaseManipulation +
+                    " verbs=" + string.Join(",", frame.meleeVerbs.GetUpdatedAvailableVerbsList(false)
+                        .Select(entry => entry.verb?.tool?.label ?? entry.verb?.EquipmentSource?.def?.defName ?? "null")));
+                Check(frame.GetStatValue(StatDefOf.MoveSpeed) > moduleBaseMoveSpeed,
+                    "existing Mobility Booster reactivates from the same generalized sufficient power budget");
+
+                HediffDef helmetProjection = DefDatabase<HediffDef>.GetNamed("ZF_SensorHelmetPowered");
+                HediffDef beamPassive = DefDatabase<HediffDef>.GetNamed("ZF_BeamSwordInstalled");
+                HediffDef beamPowered = DefDatabase<HediffDef>.GetNamed("ZF_BeamSwordPowered");
+                frame.Loadout.RefreshModuleEffects(); frame.Loadout.RefreshModuleEffects();
+                Check(frame.health.hediffSet.hediffs.Count(hediff => hediff.def == helmetProjection) == 1 &&
+                    frame.health.hediffSet.hediffs.Count(hediff => hediff.def == beamPassive) == 1 &&
+                    frame.health.hediffSet.hediffs.Count(hediff => hediff.def == beamPowered) == 1,
+                    "repeated projection reconciliation never duplicates Head or Offhand Hediffs");
+                frame.health.RemoveHediff(frame.health.hediffSet.GetFirstHediffOfDef(helmetProjection));
+                frame.Loadout.RefreshModuleEffects();
+                Check(frame.health.hediffSet.GetFirstHediffOfDef(helmetProjection) != null,
+                    "missing powered projection restores from the exact installed Helmet");
+                HediffDef staleShield = DefDatabase<HediffDef>.GetNamed("ZF_ShieldInstalled");
+                frame.health.AddHediff(staleShield); frame.Loadout.RefreshModuleEffects();
+                Check(frame.health.hediffSet.GetFirstHediffOfDef(staleShield) == null,
+                    "stale projection without its physical Shield is removed");
+
+                Check(frame.Loadout.TryRemovePower(out Thing interruptedPower) && ReferenceEquals(interruptedPower, modulePower),
+                    "removing Power returns the same exact high-output Reactor");
+                Check(!HasBeamSwordVerb(frame) && !frame.Loadout.ActiveModuleAbilities().Any() &&
+                    frame.health.hediffSet.GetFirstHediffOfDef(helmetProjection) == null &&
+                    Approximately(frame.GetStatValue(StatDefOf.MoveSpeed), moduleBaseMoveSpeed),
+                    "Power removal immediately disables every positive-draw effect without removing passive projections");
+                Check(frame.Loadout.TryInstallPower(interruptedPower) && HasBeamSwordVerb(frame) &&
+                    frame.Loadout.ActiveModuleAbilities().Count() == 1 && frame.GetStatValue(StatDefOf.MoveSpeed) > moduleBaseMoveSpeed,
+                    "same exact Power restoration immediately reactivates Helmet Beam Sword Shoulder and Mobility effects");
+
+                Ability_FrameModule moduleAbility = moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability;
+                Check(frame.Loadout.ActiveModuleAbilities().Single() == moduleAbility && moduleAbility.pawn == frame,
+                    "physical Shoulder deep-owns one ability rebound to current installed Frame");
+                Check(!frame.abilities.AllAbilitiesForReading.Contains(moduleAbility) &&
+                    !pilot.abilities.AllAbilitiesForReading.Contains(moduleAbility),
+                    "module ability enters neither permanent chassis tracker nor pilot tracker");
+                Check(frame.Cockpit.TryDisembark() && !moduleAbility.CanCast,
+                    "Shoulder ability cannot cast without a valid physical pilot");
+                Check(frame.Cockpit.TryBoard(pilot), "module ability fixture reboards the same exact pilot");
+                Check(frame.SetDrafted(true) && frame.GetGizmos().OfType<Command_Ability>().Count(command => command.Ability == moduleAbility) == 1,
+                    "powered Shoulder exposes exactly one normal module-owned command gizmo");
+                moduleAbilityId = moduleAbility.Id;
+                moduleAbility.QueueCastingJob(frame, LocalTargetInfo.Invalid);
+                Check(frame.CurJob?.ability == moduleAbility, "Shoulder ability casts physically through the Frame vanilla ability job");
+                Next(1, 1200);
+            }
+            else if (step == 1 && frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_ShoulderBurstEffect")) != null)
+            {
+                Ability_FrameModule moduleAbility = moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability;
+                Check(moduleAbility.OnCooldown && moduleAbility.CooldownTicksRemaining > 0,
+                    "successful Shoulder cast starts cooldown on the exact physical module ability");
+                moduleAbilityCooldown = moduleAbility.CooldownTicksRemaining;
+                SaveNext(40);
+            }
+        }
+
+        private void FrameModuleAbilityLoadAndStorage()
+        {
+            if (step != 0) return;
+            Ability_FrameModule ability = moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability;
+            Check(ability.Id == moduleAbilityId && ability.OnCooldown && ability.CooldownTicksRemaining <= moduleAbilityCooldown &&
+                ability.pawn == frame,
+                "fresh-process load restores the same module-owned Ability state cooldown and Frame binding");
+            Check(frame.Loadout.TryRemoveShoulder(out Thing exact) && ReferenceEquals(exact, moduleShoulder),
+                "Shoulder removal returns the same exact physical Thing during active cooldown");
+            Check(moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability.Id == moduleAbilityId &&
+                moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability.OnCooldown &&
+                moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability.pawn == null,
+                "removed Shoulder retains cooldown while detaching only its execution host");
+            IntVec3 storage = CellRect.CenteredOn(frame.Position, 15).Cells
+                .Where(cell => cell.InBounds(frame.Map) && cell.Walkable(frame.Map) &&
+                    frame.Map.zoneManager.ZoneAt(cell) == null &&
+                    !cell.GetThingList(frame.Map).Any(thing => thing.def.category == ThingCategory.Item))
+                .OrderByDescending(cell => cell.DistanceToSquared(frame.Position)).First();
+            var zone = new Zone_Stockpile(StorageSettingsPreset.DefaultStockpile, frame.Map.zoneManager);
+            frame.Map.zoneManager.RegisterZone(zone); zone.AddCell(storage); zone.GetStoreSettings().filter.SetAllowAll(null);
+            if (moduleShoulder.Spawned) moduleShoulder.DeSpawn();
+            GenSpawn.Spawn(moduleShoulder, storage, frame.Map);
+            Check(moduleShoulder.Spawned && moduleShoulder.Position == storage &&
+                ReferenceEquals(frame.Map.zoneManager.ZoneAt(storage), zone) && zone.GetStoreSettings().AllowedToAccept(moduleShoulder),
+                "cooling-down Shoulder remains a normal exact Thing accepted by a stockpile; spawned=" +
+                moduleShoulder.Spawned + " expected=" + storage + " actual=" + moduleShoulder.Position +
+                " zone=" + ReferenceEquals(frame.Map.zoneManager.ZoneAt(storage), zone) +
+                " allowed=" + zone.GetStoreSettings().AllowedToAccept(moduleShoulder));
+            SaveNext(41);
+        }
+
+        private void FrameModuleTransferAndArmor()
+        {
+            if (step != 0) return;
+            Ability_FrameModule storedAbility = moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability;
+            Check(storedAbility.Id == moduleAbilityId && storedAbility.OnCooldown && storedAbility.pawn == null,
+                "storage save/load preserves module Ability state without a fake Pawn owner");
+            Check(StoreUtility.IsInValidStorage(moduleShoulder),
+                "fresh-process storage rebuild recognizes the cooling-down Shoulder as valid stock");
+            hostileFrame = SpawnFrame(frame.Position + IntVec3.East * 8);
+            hostilePilot = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), hostileFrame.Position + IntVec3.East, frame.Map);
+            Check(hostileFrame.Cockpit.TryBoard(hostilePilot) && hostileFrame.Loadout.TryInstallShoulder(moduleShoulder),
+                "same exact Shoulder transfers from storage to a second Frame");
+            Ability_FrameModule transferred = moduleShoulder.TryGetComp<CompFrameModuleAbility>().Ability;
+            Check(transferred.Id == moduleAbilityId && transferred.OnCooldown && transferred.pawn == hostileFrame,
+                "module cooldown follows physical Shoulder to second Frame without reset");
+            Check(hostileFrame.Cockpit.TryDisembark(), "module transfer fixture disembarks first second-Frame pilot");
+            Pawn replacement = (Pawn)GenSpawn.Spawn(GenerateCombatCapableHuman(Faction.OfPlayer), hostileFrame.Position + IntVec3.West, frame.Map);
+            Check(hostileFrame.Cockpit.TryBoard(replacement) && transferred.Id == moduleAbilityId && transferred.pawn == hostileFrame,
+                "pilot swap leaves module ability cooldown and ownership on physical Shoulder");
+
+            Check(frame.Loadout.TryRemoveOffhand(out Thing beam) && ReferenceEquals(beam, moduleOffhand),
+                "Beam Sword removal returns exact Offhand Thing and removes its projections");
+            beam.Destroy();
+            moduleOffhand = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShieldOffhand"));
+            moduleOffhandId = moduleOffhand.GetUniqueLoadID();
+            Check(frame.Loadout.TryInstallOffhand(moduleOffhand) && frame.Loadout.IsModulePowered(moduleOffhand),
+                "zero-draw Shield installs and remains active independent of positive-draw global power");
+            BodyPartGroupDef coveredGroup = DefDatabase<BodyPartGroupDef>.GetNamed("ZF_FrameShieldCoverage");
+            BodyPartRecord covered = frame.RaceProps.body.AllParts.First(part => part.groups.Contains(coveredGroup));
+            BodyPartRecord uncovered = frame.RaceProps.body.AllParts.First(part => !part.groups.Contains(coveredGroup));
+            Check(FrameModuleArmorUtility.Contribution(frame, covered, StatDefOf.ArmorRating_Sharp) > 0f &&
+                Approximately(FrameModuleArmorUtility.Contribution(frame, uncovered, StatDefOf.ArmorRating_Sharp), 0f),
+                "Shield contributes localized armor only to stable configured BodyPartGroup regions");
+            float withShield = ArmorDamageSample(frame, covered);
+            Check(frame.Loadout.TryRemoveOffhand(out Thing removedShield) && ReferenceEquals(removedShield, moduleOffhand),
+                "Shield removal returns exact Thing before vanilla armor comparison");
+            float withoutShield = ArmorDamageSample(frame, covered);
+            Check(withShield < withoutShield,
+                "vanilla ArmorUtility roll resolves less deterministic aggregate damage with covered Shield contribution");
+            Check(frame.Loadout.TryInstallOffhand(moduleOffhand), "same exact Shield reinstalls after armor comparison");
+            SaveNext(42);
+        }
+
+        private void FrameModuleMountDamage()
+        {
+            if (step != 0) return;
+            BodyPartRecord head = frame.RaceProps.body.AllParts.Single(part => part.groups.Contains(DefDatabase<BodyPartGroupDef>.GetNamed("ZF_FrameHeadMount")));
+            frame.health.AddHediff(HediffDefOf.MissingBodyPart, head);
+            frame.Loadout.RefreshModuleEffects();
+            Check(frame.Downed && ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
+                frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_SensorHelmetPowered")) == null,
+                "destroyed Head mount downs chassis and disables projection without deleting physical Helmet");
+            frame.health.RestorePart(head); frame.Loadout.RefreshModuleEffects();
+            Check(ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
+                frame.health.hediffSet.GetFirstHediffOfDef(DefDatabase<HediffDef>.GetNamed("ZF_SensorHelmetPowered")) != null,
+                "Head reconstruction reactivates same exact powered Helmet without reinstall");
+
+            BodyPartRecord offhandMount = frame.RaceProps.body.AllParts.Single(part => part.groups.Contains(DefDatabase<BodyPartGroupDef>.GetNamed("ZF_FrameOffhandMount")));
+            frame.health.AddHediff(HediffDefOf.MissingBodyPart, offhandMount); frame.Loadout.RefreshModuleEffects();
+            Check(ReferenceEquals(frame.Loadout.InstalledOffhand, moduleOffhand) && !frame.Loadout.IsModuleActive(moduleOffhand) &&
+                FrameModuleArmorUtility.Contribution(frame, frame.RaceProps.body.corePart, StatDefOf.ArmorRating_Sharp) == 0f,
+                "destroyed offhand mount preserves exact Shield but disables passive effect and localized armor");
+            frame.health.RestorePart(offhandMount); frame.Loadout.RefreshModuleEffects();
+            Check(frame.Loadout.IsModuleActive(moduleOffhand) &&
+                FrameModuleArmorUtility.Contribution(frame, frame.RaceProps.body.corePart, StatDefOf.ArmorRating_Sharp) > 0f,
+                "offhand reconstruction restores same exact Shield effects without reinstall");
+
+            worldFrame = frame;
+            worldFrameId = frame.GetUniqueLoadID();
+            frame.DeSpawn(); Find.WorldPawns.PassToWorld(frame); Find.WorldPawns.ForcefullyKeptPawns.Add(frame);
+            SaveNext(43);
+        }
+
+        private void FrameModuleWorldHackAndSalvage()
+        {
+            if (step != 0) return;
+            Check(Find.WorldPawns.Contains(worldFrame) && worldFrame.GetUniqueLoadID() == worldFrameId &&
+                worldFrame.Loadout.InstalledHead.GetUniqueLoadID() == moduleHeadId &&
+                worldFrame.Loadout.InstalledOffhand.GetUniqueLoadID() == moduleOffhandId &&
+                worldFrame.Loadout.InstalledPower.GetUniqueLoadID() == modulePowerId,
+                "fresh-process world Frame preserves exact Head Offhand Power and nested ownership");
+            Thing worldHead = worldFrame.Loadout.InstalledHead;
+            Thing worldOffhand = worldFrame.Loadout.InstalledOffhand;
+            Thing worldPower = worldFrame.Loadout.InstalledPower;
+            worldFrame.Destroy();
+            Check(worldHead.Destroyed && worldOffhand.Destroyed && worldPower.Destroyed,
+                "off-map Frame destruction deterministically destroys nested modules with no dangling owner");
+
+            FramePawn salvage = SpawnFrame(Find.CurrentMap.Center + IntVec3.East * 12);
+            Thing salvageHead = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugSensorHelmet"));
+            Thing salvageShoulder = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShoulderSystem"));
+            Thing salvageOffhand = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShieldOffhand"));
+            Check(salvage.Loadout.TryInstallHead(salvageHead) && salvage.Loadout.TryInstallShoulder(salvageShoulder) &&
+                salvage.Loadout.TryInstallOffhand(salvageOffhand), "map salvage fixture installs all new exact modules");
+            salvage.Destroy();
+            Check(salvageHead.Spawned && salvageShoulder.Spawned && salvageOffhand.Spawned,
+                "spawned-map Frame destruction salvages exact Head Shoulder and Offhand objects");
+
+            Faction enemy = Faction.OfAncientsHostile ?? Find.FactionManager.AllFactions.First(candidate => candidate.HostileTo(Faction.OfPlayer));
+            FramePawn hacked = SpawnFrame(Find.CurrentMap.Center + IntVec3.North * 12, enemy);
+            Thing hackedHead = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugSensorHelmet"));
+            Thing hackedShoulder = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShoulderSystem"));
+            Thing hackedOffhand = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShieldOffhand"));
+            hacked.Loadout.TryInstallHead(hackedHead); hacked.Loadout.TryInstallShoulder(hackedShoulder); hacked.Loadout.TryInstallOffhand(hackedOffhand);
+            other = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer), hacked.Position + IntVec3.West, hacked.Map);
+            SetSkill(other.skills.GetSkill(SkillDefOf.Intellectual), 20);
+            Check(CompleteHackForLegacy(hacked, other) && hacked.Faction == Faction.OfPlayer &&
+                ReferenceEquals(hacked.Loadout.InstalledHead, hackedHead) &&
+                ReferenceEquals(hacked.Loadout.InstalledShoulder, hackedShoulder) &&
+                ReferenceEquals(hacked.Loadout.InstalledOffhand, hackedOffhand),
+                "hacking transfers exact configured chassis without resetting or fabricating new modules");
+
+            frame = SpawnFrame(Find.CurrentMap.Center + IntVec3.South * 12);
+            frameId = frame.GetUniqueLoadID();
+            if (frame.Loadout.TryRemoveHead(out Thing oldHead)) oldHead.Destroy();
+            moduleHead = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugSensorHelmet"));
+            moduleShoulder = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShoulderSystem"));
+            moduleOffhand = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShieldOffhand"));
+            moduleHeadId = moduleHead.GetUniqueLoadID(); moduleShoulderId = moduleShoulder.GetUniqueLoadID(); moduleOffhandId = moduleOffhand.GetUniqueLoadID();
+            IntVec3 storage = frame.Position + IntVec3.North * 5;
+            var zone = new Zone_Stockpile(StorageSettingsPreset.DefaultStockpile, frame.Map.zoneManager);
+            frame.Map.zoneManager.RegisterZone(zone);
+            foreach (IntVec3 cell in new[] { storage, storage + IntVec3.East, storage + IntVec3.East * 2 }) zone.AddCell(cell);
+            zone.GetStoreSettings().filter.SetAllowAll(null);
+            GenSpawn.Spawn(moduleHead, storage, frame.Map); GenSpawn.Spawn(moduleShoulder, storage + IntVec3.East, frame.Map); GenSpawn.Spawn(moduleOffhand, storage + IntVec3.East * 2, frame.Map);
+            other = (Pawn)GenSpawn.Spawn(GenerateHuman(Faction.OfPlayer), frame.Position + IntVec3.West, frame.Map);
+            SetSkill(other.skills.GetSkill(SkillDefOf.Construction), 20);
+            SaveNext(44);
+        }
+
+        private void FrameModuleServiceFinish()
+        {
+            if (step == 0)
+            {
+                Check(frame.Service.StoredCandidates(FrameAddonCategory.Head).Single() == moduleHead &&
+                    frame.Service.StoredCandidates(FrameAddonCategory.Shoulder).Single() == moduleShoulder &&
+                    frame.Service.StoredCandidates(FrameAddonCategory.Offhand).Single() == moduleOffhand,
+                    "service candidate discovery exposes exact new modules only from valid storage");
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Head, moduleHead), "exact stored Head service request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(1, 3000);
+            }
+            else if (step == 1 && ReferenceEquals(frame.Loadout.InstalledHead, moduleHead))
+            {
+                Check(moduleHead.GetUniqueLoadID() == moduleHeadId && !moduleHead.Spawned,
+                    "Construction service fetches and installs exact physical Head");
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Shoulder, moduleShoulder), "exact stored Shoulder service request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(2, 3000);
+            }
+            else if (step == 2 && ReferenceEquals(frame.Loadout.InstalledShoulder, moduleShoulder))
+            {
+                Check(moduleShoulder.GetUniqueLoadID() == moduleShoulderId && !moduleShoulder.Spawned,
+                    "Construction service fetches and installs exact physical Shoulder");
+                Check(frame.Service.QueueInstall(FrameAddonCategory.Offhand, moduleOffhand), "exact stored Offhand service request queues");
+                other.jobs.TryTakeOrderedJob(new WorkGiver_ServiceFrameModule().JobOnThing(other, frame, true));
+                Next(3, 3000);
+            }
+            else if (step == 3 && ReferenceEquals(frame.Loadout.InstalledOffhand, moduleOffhand))
+            {
+                Check(moduleOffhand.GetUniqueLoadID() == moduleOffhandId && !moduleOffhand.Spawned &&
+                    ThingOwnerUtility.GetAllThingsRecursively(frame, false).Count(thing =>
+                        ReferenceEquals(thing, moduleHead) || ReferenceEquals(thing, moduleShoulder) || ReferenceEquals(thing, moduleOffhand)) == 3,
+                    "Construction service installs exact Offhand with one authoritative owner per new module");
+                Check(frame.GetUniqueLoadID() == frameId && !frame.Destroyed && !frame.Dead,
+                    "complete modular lifecycle preserves exact living chassis identity");
                 Finish();
             }
+        }
+
+        private static bool HasBeamSwordVerb(FramePawn targetFrame) => targetFrame.meleeVerbs
+            .GetUpdatedAvailableVerbsList(false).Any(entry => entry.verb?.tool?.label == "beam sword");
+
+        private static float ArmorDamageSample(FramePawn targetFrame, BodyPartRecord part)
+        {
+            float total = 0f;
+            for (int seed = 1; seed <= 128; seed++)
+            {
+                DamageDef damage = DamageDefOf.Bullet;
+                bool metalArmor;
+                bool deflected;
+                Rand.PushState(seed);
+                total += ArmorUtility.GetPostArmorDamage(targetFrame, 10f, 0.4f, part, ref damage, out metalArmor, out deflected);
+                Rand.PopState();
+            }
+            return total;
         }
 
         private static float ConstructionSpeedAt(Pawn worker, int level)
