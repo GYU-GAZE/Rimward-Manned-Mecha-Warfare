@@ -13,6 +13,8 @@ The permanent body has 25 mechanical records:
 
 Every Zenith part is solid and has zero bleed rate. Vanilla capacity tags let the arm chains feed Manipulation, leg chains feed Moving, and optics and sensor feed Sight. These records affect health gameplay only and do not imply additional sprite layers.
 
+Head, Shoulder, and Offhand modules remain separate physical equipment. Their configured `BodyPartGroupDef` mount controls whether derived effects are active, but chassis damage never reduces module item HP or deletes the installed Thing. Losing Head Assembly disables a Helmet projection while retaining the exact Helmet. Losing the tagged offhand mount similarly disables Offhand projections and localized Shield armor. Normal reconstruction restores those effects from the same installed objects without reinstallation.
+
 ## Death and disable contracts
 
 `FrameDamageRules` derives state from the real body and health tracker.

@@ -8,7 +8,7 @@ It is deliberately **not** a RimWorld/Biotech controllable mech. The debug Frame
 
 - `ToolUser` intelligence so it has ordinary Pawn equipment support
 - custom non-organic `ZF_FrameMechanical` flesh type
-- a vanilla lancer body/life-stage/graphic only as temporary placeholder content
+- the custom `ZF_HumanoidFrameBody`; only the current pawn graphic remains a vanilla lancer placeholder
 - its own idle think trees instead of normal colonist work AI or mechanoid combat/work AI
 
 Because `RaceProps.IsMechanoid` is false, Mechanitor, Overseer, bandwidth, command-range and mech-control-group semantics are not the Frame control model.
@@ -128,7 +128,7 @@ Current patch points:
 
 ## Physical Frame loadout
 
-`CompFrameLoadout` owns policy and mutation for the deliberately small add-on vocabulary `Weapon`, `Utility` and `Power`. The debug chassis has one explicit slot for each category. No generalized slot array or additional category exists.
+`CompFrameLoadout` owns policy and mutation for the fixed physical vocabulary `Head`, `Shoulder`, `Weapon`, `Offhand`, `Utility`, and `Power`. The debug chassis has one explicit slot for each category. `Chassis` is the permanent `FramePawn` identity and is never an installable category. Serialized enum compatibility preserves `Weapon=0`, `Utility=1`, and `Power=2`, then appends `Head=3`, `Shoulder=4`, and `Offhand=5`.
 
 An installed Weapon is a real `ThingWithComps` held only by the Frame's vanilla `Pawn_EquipmentTracker`. The loadout does not keep a second `ThingOwner`, deep-scribe a duplicate item or reconstruct equipment from `defName`. Installation and removal transfer the exact object through normal equipment/map ownership. Eligibility requires an explicit `FrameAddonExtension` whose category is `Weapon`; ordinary RimWorld weapons and test Utility/Power add-ons are rejected.
 
@@ -144,13 +144,17 @@ Power is a static addon budget. `AvailableAddonPower` comes from the installed P
 
 The development Mobility Booster consumes two points and contributes a local `ThingComp.GetStatOffset` of +1 MoveSpeed only when powered. The debug Reactor provides two points; the weak cell provides one. Utility state belongs to the chassis and survives pilot swaps, while the existing no-pilot operation gate remains absolute.
 
-Weapon, Utility and Power defaults each have independent once-only initialization state. The debug Frame defaults to Rifle plus Reactor and no Utility. Removing the Reactor and saving never recreates it. Downing keeps Utility and Power installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction drops Utility and Power for salvage; off-map destruction destroys both exact objects after pilot safety is resolved. Multiple slots and additional effects remain deferred.
+Every physical category has independent once-only initialization state, so an intentionally empty slot remains empty across load. The debug Frame defaults to Rifle plus Reactor; Head, Shoulder, Offhand, and Utility start empty. Downing keeps all contained modules installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction attempts to salvage contained modules; off-map destruction deterministically destroys them after pilot safety is resolved.
+
+Installed modules may project passive and powered Hediffs onto the chassis. The physical Thing remains authoritative. Reconciliation removes stale projections, restores missing projections, and never uses a Hediff as ownership. A valid body-part-group mount is required for every projection. Positive-draw powered effects use one global rule: all are active when total output covers total non-Power draw, and all are inactive during a deficit. Passive and zero-draw effects remain active while their mounts exist.
+
+The Sensor Helmet proves Head-to-Sight capacity flow. The Beam Sword proves a passive Manipulation cost plus a powered `HediffComp_VerbGiver` melee tool. The Shield proves localized body-group armor through a Frame-only hit context around vanilla `ArmorUtility`; vanilla still performs the sole armor roll. The Shoulder System's exact physical Thing deep-owns its normal `Ability` object and cooldown, rebinding only its current Frame caster after load, storage, or transfer.
 
 ## Frame information UI
 
 Every `FramePawn` exposes the native `ITab_Frame` inspect tab. The tab resolves `SelPawn` on every draw and builds a transient `FrameUiSnapshot` from the selected chassis, its cockpit, loadout, health, recovery and hacking components. It caches no selected Frame, pilot, item or presentation state, so selection changes and every lifecycle transition are visible immediately.
 
-The compact scrollable panel shows chassis name and condition, the exact contained pilot, portrait, live Shooting and Melee skills, exact Weapon/Utility/Power objects, available and required addon power, powered state and counts of existing Frame and pilot abilities. Installed item rows open vanilla info cards. The panel summarizes abilities only; casting remains in the existing vanilla, Royalty, Ideology, VEF and VPE command pipelines.
+The compact scrollable panel shows chassis name and condition, the exact contained pilot, portrait, live Shooting and Melee skills, and the final order `Chassis`, `Head`, `Shoulder`, `Primary Weapon`, `Offhand`, `Utility`, `Power`. It derives available/required addon power and per-module powered, passive, or mount-damaged state from live ownership and health. Installed item rows open vanilla info cards. The panel summarizes abilities only; casting remains on real command gizmos.
 
 `Inspect Pilot` opens a read-only dialog over the exact contained `Pawn`. It uses `CharacterCardUtility` and `HealthCardUtility`, preserving vanilla skills, passions, traits, health, ideology and Royalty presentation rules without copying state or temporarily spawning the pilot. Portraits come from `PortraitsCache` for the same Pawn object. Player-owned Frames may rename the chassis and disembark; hostile and factionless Frames remain read-only. Disembark delegates to `CompPilotableMech.TryDisembark`.
 
@@ -247,9 +251,9 @@ The definition-driven hacking defence is provisional tuning. Persistent same-obj
 
 - Stored pilots are not ticked; needs, injuries and aging pause while embarked.
 - No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
-- One functional slot for each of Weapon, Utility and Power; no multiweapon support or generated enemy loadouts.
+- One functional slot for each of Head, Shoulder, Weapon, Offhand, Utility, and Power; no multiweapon support or arbitrary slot grid.
 - Static addon power affects only Utility. Chassis core power requirements, batteries, fuel, heat, charging and drain are deferred.
-- The information UI queues physical Weapon, Utility, and Power service against exact valid-storage items; Construction performs the mutation.
+- The information UI queues all six physical categories against exact valid-storage items; Construction performs the mutation.
 - The first Steel-based repair/reconstruction economy and placeholder Docking Bay are implemented. Final balance, reload/ammunition, chassis core power, research, chassis variants, and final art remain deferred.
 - No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
 - No Combat Extended, multiplayer or broad compatibility guarantee.
@@ -277,7 +281,7 @@ The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pil
 
 Three Construction WorkGivers share a narrow serviceability boundary. The Frame must be a living spawned player chassis that is idle, undrafted, stationary, and not already locked. Automatic repair and reconstruction also require Home Area; direct forced work may bypass that area policy. Each JobDriver reserves the Frame and its exact physical inputs, uses live Construction speed with the live derived Dock multiplier, awards Construction XP, and releases its worker-specific lock through the normal finish path.
 
-Module requests remain specialized to the existing Weapon, Utility, and Power categories. The pending incoming object is deep-world identity by `Scribe_References`, including while it is carried across save/load. `CompletePendingOrder` delegates every owner transition to `CompFrameLoadout`, rolls back a failed replacement when possible, and never rebuilds a module from its DefName. Dock removal hands an exact spawned outgoing object to a normal same-worker storage haul when a valid nearby cell exists.
+Module requests support the six fixed categories through the same specialized service pipeline. The pending incoming object keeps exact world identity through `Scribe_References`, including while carried across save/load. `CompletePendingOrder` delegates every owner transition to `CompFrameLoadout`, rolls back a failed replacement when possible, and never rebuilds a module from its DefName. Dock removal hands an exact spawned outgoing object to a normal same-worker storage haul when a valid nearby cell exists.
 
 See `docs/FRAME_SERVICE.md` for the durable gameplay contract and manual QA.
 

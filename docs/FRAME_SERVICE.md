@@ -24,11 +24,11 @@ Docked service work runs at five times normal speed for repair, reconstruction, 
 
 ## Physical module service
 
-The current categories remain Weapon, Utility, and Power. This milestone adds no generic slot registry and no future anatomy slots.
+The service categories are Head, Shoulder, Weapon, Offhand, Utility, and Power. Chassis remains the permanent read-only Frame identity. The vocabulary is fixed and Zenith-specific; there is no generic slot registry or arbitrary slot grid.
 
 The Frame tab builds Equip and Replace menus only from compatible stack-of-one Things in valid map storage. A ground item outside storage, a wrong-category addon, a forbidden item, or an ordinary unmarked weapon is excluded. Selecting one saves the exact `Thing` reference in `CompFrameService`; the UI performs no transfer.
 
-The dedicated Construction job reserves the idle player Frame and exact incoming module, fetches it, starts a worker-specific service lock, performs work, and delegates final ownership to `CompFrameLoadout`. Weapon enters only `Pawn_EquipmentTracker`; Utility and Power enter only their dedicated `ThingOwner`s. Replacement and removal return the exact outgoing object to the map. If the Frame is docked and a valid empty storage cell exists within the chassis radius, the same worker receives a normal `HaulToCell` job for that exact outgoing object. Otherwise it remains safely dropped near the Frame.
+The dedicated Construction job reserves the idle player Frame and exact incoming module, fetches it, starts a worker-specific service lock, performs work, and delegates final ownership to `CompFrameLoadout`. Weapon enters only `Pawn_EquipmentTracker`; Utility, Power, Head, Shoulder, and Offhand enter their dedicated `ThingOwner`s. Replacement and removal return the exact outgoing object to the map. If the Frame is docked and a valid empty storage cell exists within the chassis radius, the same worker receives a normal `HaulToCell` job for that exact outgoing object. Otherwise it remains safely dropped near the Frame.
 
 The lock is derived from the saved exact worker and that worker's real active Frame-service job. It does not set `CanOperate` false or alter the pilot. While active it blocks player orders, hostile combat AI, intrinsic Frame abilities, forwarded vanilla/Ideology abilities, VEF abilities, and VPE psycasts. Completion, interruption, invalidation, and reload reconcile or clear the lock without changing pilot ability ownership or cooldowns.
 

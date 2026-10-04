@@ -11,7 +11,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - `Frame / mecha = Pawn`
 - pilot = separate Pawn explicitly stored inside the Frame
 - chassis = machine identity and intrinsic properties
-- add-ons = limited Weapon / Utility / Power customization
+- chassis = permanent `FramePawn` identity; physical customization = one Head / Shoulder / Weapon / Offhand / Utility / Power
 - normal Frames require a pilot
 - no pilot means no Frame movement or combat, regardless of player, hostile or factionless ownership
 - preserve explicit ownership and save/load safety
@@ -40,7 +40,10 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - boarding is timed; Docking Bay position derives a fivefold boarding and service multiplier without a saved docking flag or Frame container
 - module service orders persist an exact `Thing` reference selected from valid storage; UI never installs directly or substitutes by DefName
 - active service keeps the pilot and health state intact but gates movement, combat, drafting, and all machine/pilot ability paths until the worker-specific lock ends
-- Weapon remains exclusively in Pawn equipment; Utility and Power remain in their dedicated `ThingOwner`s; removed modules stay physical and use same-worker Dock storage hauling when possible
+- Weapon remains exclusively in Pawn equipment; Utility, Power, Head, Shoulder, and Offhand remain in dedicated physical `ThingOwner`s; removed modules stay exact physical Things and use same-worker Dock storage hauling when possible
+- module Hediffs are derived projections reconciled from installed Things; passive effects need a valid structural mount and powered effects also need the global static addon budget
+- module-granted ability state belongs to the exact module Thing, never the pilot or permanent chassis tracker; rebinding changes only its current Frame caster
+- Chassis is not an addon category, modular rendering and livery are deferred, and enum values `Weapon=0`, `Utility=1`, `Power=2` are save compatibility contracts
 
 ### Frames are NOT Biotech mechs
 

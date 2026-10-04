@@ -863,3 +863,38 @@ ZenithFrame.VEF.dll  2E5F36BF6DDA72C0107DD0971E145441B76C37AB516D3D9D968443B0B5D
 ```
 
 Manual gameplay QA for the garage loop is defined in `docs/FRAME_SERVICE.md`. It remains required for right-click menu wording, visual progress/effects, worker priority feel, Dock footprint readability, and normal stockpile hauling feel.
+
+## Validated Modular Frame Anatomy / Loadout 2.0 milestone
+
+Branch: `feat/frame-modular-anatomy`
+
+Source base: exact `origin/feat/frame-service-docking` commit `5777a3a65334baac4fed194caa6a398585389efa`. `main` remained at `cc34af14c69e03194a2ee390e0375b65f911d15a` during implementation.
+
+Executed 2026-10-03 against RimWorld 1.6.4871. `Version.txt` reports rev590 and live logs report rev591. Harmony metadata reports 2.4.2.0. The installed VEF and VPE metadata expose package IDs `OskarPotocki.VanillaFactionsExpanded.Core` and `VanillaExpanded.VPsycastsE`; neither metadata file declares `modVersion`.
+
+| Layer | Result |
+|---|---|
+| Clean Release Core + VEF compatibility build | PASS, 0 warnings, 0 errors |
+| Pure eligibility policy | PASS, 144 exhaustive cases |
+| XML/static/package/source checks | PASS, 295 checks |
+| Live Core + Harmony lifecycle | PASS, 904 assertions, 45 fresh processes, 44 save/load transitions |
+| Live Core + Harmony + all installed official expansions lifecycle | PASS, 904 assertions, 45 fresh processes, 44 save/load transitions |
+| Modular anatomy phases 38-44 | PASS, 76 assertions per final lifecycle profile |
+| Ability matrix A: Core + Harmony | PASS, 42 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: all installed official expansions | PASS, 55 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: expansions + VEF | PASS, 70 assertions, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: expansions + VEF + VPE | PASS, 84 assertions, 4 fresh processes, 3 save/load transitions |
+| Retained passing runtime log gates | PASS, no exception/config/XML/reference/asset-loading errors |
+
+The lifecycle proves explicit enum compatibility, six exact physical slot owners, save/load and world traversal, full-loadout power deficit and restoration, Sight-to-shooting propagation, Beam Sword passive and powered behavior, projection reconciliation, localized Shield armor through vanilla resolution, module-owned ability cooldown across storage and transfer, body-mount loss and reconstruction, hacking, salvage, and exact Construction service for Head, Shoulder, and Offhand.
+
+One Core hostile-melee phase initially timed out while vanilla AI remained in a duty node without a Lord; an unchanged isolated rerun passed the full combat/capture path. One DLC damage phase emitted a vanilla `Pawn_MindState.StartFleeingBecauseOfPawnAction` clamor exception; an unchanged rerun passed with a clean log. The service fixture's final Utility-removal assertion was corrected to accept its documented safe ground fallback when same-worker storage logistics do not complete. Failed logs remain retained for audit and are excluded from passing log claims.
+
+Final clean Release DLL SHA-256 values:
+
+```text
+ZenithFrame.dll      C150D15106ABC0751DADB4894B7454A6D044CF35FF3914C3CAB0FEC67B1526E6
+ZenithFrame.VEF.dll  7331E9CA8F0B97DCCEA9725B61B656444BAB46E61B5DE1FC7276E6D45C51917B
+```
+
+Focused manual gameplay QA is maintained in `docs/FRAME_MODULES.md`. Modular rendering and livery remain explicitly deferred.

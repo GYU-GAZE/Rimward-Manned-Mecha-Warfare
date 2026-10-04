@@ -985,4 +985,12 @@ The first garage loop is implemented on `feat/frame-service-docking` without cha
 - active worker-specific service locks combat and every ability path while preserving the exact pilot, body, loadout, ability instances, and cooldowns.
 - undocked removals drop exact modules nearby; docked removals and replacements queue same-worker hauling into valid nearby storage.
 
-The next milestone remains Modular Frame Anatomy / Loadout 2.0. Head, Shoulder, Offhand, module Hediffs, module abilities, generalized addon power draw, rendering, livery, real chassis content, research, and final balance are intentionally absent here.
+## 23. Modular Frame Anatomy / Loadout 2.0
+
+The permanent machine vocabulary is `Chassis`, `Head`, `Shoulder`, `Primary Weapon`, `Offhand`, `Utility`, and `Power`. Chassis is the actual `FramePawn` definition and cannot be equipped or removed. The six configurable categories each have capacity one on the development chassis. Weapon stays in `Pawn_EquipmentTracker`; every other category has one dedicated physical `ThingOwner`. The old serialized enum values remain fixed and the three new categories are appended.
+
+Module effects derive from the exact installed Thing. Passive projections require the configured body-part-group mount. Powered projections additionally require the generalized global static budget to cover the sum of every positive non-Power draw. A deficit disables every positive-draw powered effect together; it does not remove modules or passive effects. Reconciliation restores missing projections and removes stale ones after load, power changes, and body reconstruction.
+
+The development Sensor Helmet changes real Frame Sight and therefore normal ShootingAccuracy calculation. The Beam Sword retains its Manipulation penalty without power and gains a normal melee verb with power. The zero-draw Shield retains its passive cost and contributes armor only to configured body groups while vanilla `ArmorUtility` owns resolution. The Shoulder System's exact Thing deep-owns its normal Ability and cooldown, so storage, save/load, pilot replacement, and transfer to another Frame preserve state.
+
+Frame weapons are ordinary haulable and storable Things, but central equipment eligibility rejects their use by ordinary Pawns and rejects unmarked human weapons on Frames. Service, hacking, world ownership, mount destruction/reconstruction, downing, and salvage preserve exact physical identities. Modular rendering, helmet and shoulder overlays, weapon sockets, color masks, and livery remain the next milestone.
