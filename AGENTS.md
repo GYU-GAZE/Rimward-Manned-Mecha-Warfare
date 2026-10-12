@@ -47,7 +47,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - Frame rendering composes chassis Torso + intrinsic Head, then optional physical Helmet (gameplay Head slot) and Shoulder; Head damage does not destroy an installed Helmet Thing
 - Body art uses one uncropped transparent 1024x1024 canvas per layer, South/Sides/North exports, one authored East-facing Sides source mirrored locally for West, one shared draw size and no per-module offsets
 - Visual presence follows exact installation and structural mount validity, never addon power; primary Weapon stays in ordinary equipment rendering; Offhand/Utility/Power body art remains deferred
-- Frame-wide livery colors belong to the physical chassis comp and feed only the four masked body layers; never copy them to pilots or modules, recolor equipped weapons, or mutate shared Graphic/Material instances
+- Frame-wide primary, secondary, and visor colors belong to the physical chassis comp; the four body layers use two-color masks and optional same-canvas visor overlays; never copy paint to pilots or modules, recolor equipped weapons, or mutate shared Graphic/Material instances
 
 ### Frames are NOT Biotech mechs
 
@@ -131,6 +131,8 @@ Available commands, selected by affected subsystem rather than run as a checklis
 dotnet run --project Tests/Policy -c Release
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Smoke
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Repair
+./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite FrameUX
+./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Livery
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
 ./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH

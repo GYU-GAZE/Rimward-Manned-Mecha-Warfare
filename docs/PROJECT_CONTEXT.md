@@ -130,7 +130,7 @@ right-click hostile target -> attack
 
 Multiple selected Frames should accept ordinary group movement and attack orders.
 
-Frame-specific gizmos are for genuinely Frame-specific actions such as Disembark, chassis abilities and future equipment functions. Do not recreate basic Pawn controls as custom `Draft Frame`, `Move` or `Fire` buttons.
+Frame-specific gizmos remain for chassis abilities. Disembark uses self right-click; six physical addon slots are controlled in the visual Frame tab. Do not recreate basic Pawn controls as custom `Draft Frame`, `Move` or `Fire` buttons.
 
 ---
 
@@ -201,7 +201,7 @@ The purpose is to allow meaningful specialization without turning mech configura
 
 ### Current physical loadout foundation
 
-The debug Frame has exactly one functional slot for each durable category: `Weapon`, `Utility` and `Power`. Multi-slot support and player-facing installation gameplay are deferred. The Frame inspect tab now displays the exact installed objects and their derived power state.
+The debug Frame has one physical slot in each of six categories: `Head`, `Shoulder`, `Weapon`, `Offhand`, `Utility`, and `Power`. The compact visual tab displays the exact installed Things and derived power state, and queues physical installation, replacement, or removal through Construction jobs. One ordered intent per category persists across save/load; no UI action directly transfers a Thing.
 
 Installed weapons are physical RimWorld Things. The Frame's normal equipment tracker is their sole authoritative owner, while `CompFrameLoadout` owns capacity, explicit category eligibility and safe mutation. A compatible item must opt in through `FrameAddonExtension` as `Weapon`; being an ordinary equippable RimWorld weapon is insufficient.
 
@@ -209,7 +209,7 @@ The default weapon is definition-driven and initialized once. Removing, losing o
 
 Utility and Power use separate physical ThingOwners inside the Frame loadout. Power provides a static capacity budget and Utility consumes it. Insufficient power is a valid installed configuration whose Utility effect remains inactive. Power never replaces the pilot and currently powers neither the chassis core nor abilities.
 
-The first Utility is a +1 MoveSpeed Mobility Booster drawing two points. The Reactor provides two points and the weak cell one. These are deterministic development values without batteries, fuel, heat, recharge or temporal drain. Development-only commands expose the real mutation APIs. Player-facing configuration, costs, work, facilities, multiple slots and production content remain later work.
+The first Utility is a +1 MoveSpeed Mobility Booster drawing two points. The Reactor provides two points and the weak cell one. These are deterministic development values without batteries, fuel, heat, recharge or temporal drain. Player-facing service is implemented; production content and broader balance remain later work.
 
 ---
 
@@ -981,7 +981,7 @@ The first garage loop is implemented on `feat/frame-service-docking` without cha
 - hostile or factionless empty Frames own persistent Intellectual-scaled hacking progress with Core-only feedback and no Odyssey dependency.
 - boarding takes 300 ticks normally and 60 ticks on the derived 3x3 Docking Bay.
 - Docked repair, reconstruction, and module service run at five times normal work speed.
-- the Frame tab queues exact stored Weapon, Utility, and Power Things for Construction service.
+- the visual Frame tab queues exact stored Things in all six physical addon categories for Construction service, up to one ordered intent per category.
 - active worker-specific service locks combat and every ability path while preserving the exact pilot, body, loadout, ability instances, and cooldowns.
 - undocked removals drop exact modules nearby; docked removals and replacements queue same-worker hauling into valid nearby storage.
 
@@ -993,4 +993,4 @@ Module effects derive from the exact installed Thing. Passive projections requir
 
 The development Sensor Helmet changes real Frame Sight and therefore normal ShootingAccuracy calculation. The Beam Sword retains its Manipulation penalty without power and gains a normal melee verb with power. The zero-draw Shield retains its passive cost and contributes armor only to configured body groups while vanilla `ArmorUtility` owns resolution. The Shoulder System's exact Thing deep-owns its normal Ability and cooldown, so storage, save/load, pilot replacement, and transfer to another Frame preserve state.
 
-Frame weapons are ordinary haulable and storable Things, but central equipment eligibility rejects their use by ordinary Pawns and rejects unmarked human weapons on Frames. Service, hacking, world ownership, mount destruction/reconstruction, downing, and salvage preserve exact physical identities. The Test Frame now composes Torso, intrinsic chassis Head, physical Helmet, and physical Shoulder through native render nodes. Weapon sockets, color masks, and livery remain future milestones; see `FRAME_RENDERING.md` and `FRAME_ART_TEMPLATE.md`.
+Frame weapons are ordinary haulable and storable Things, but central equipment eligibility rejects their use by ordinary Pawns and rejects unmarked human weapons on Frames. Service, hacking, world ownership, mount destruction/reconstruction, downing, and salvage preserve exact physical identities. The Test Frame composes Torso, intrinsic chassis Head, physical Helmet, and physical Shoulder through native render nodes. Primary/secondary masks and separate visor overlays support chassis-owned livery; see `FRAME_RENDERING.md` and `FRAME_ART_TEMPLATE.md`. Weapon sockets remain deferred.

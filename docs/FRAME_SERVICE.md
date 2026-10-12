@@ -32,6 +32,12 @@ The dedicated Construction job reserves the idle player Frame and exact incoming
 
 The lock is derived from the saved exact worker and that worker's real active Frame-service job. It does not set `CanOperate` false or alter the pilot. While active it blocks player orders, hostile combat AI, intrinsic Frame abilities, forwarded vanilla/Ideology abilities, VEF abilities, and VPE psycasts. Completion, interruption, invalidation, and reload reconcile or clear the lock without changing pilot ability ownership or cooldowns.
 
+The visual tab offers six fixed 80 px slot boxes. A click opens compatible stored Things, removal, and per-slot cancellation. `CompFrameService` persists an ordered list of at most six `FrameServiceOrder` objects, one per category. Each stores its category, kind, exact incoming `Thing`, and exact installed `Thing` expected at execution. A new pending intent for the same category replaces that intent in place; active intent must be cancelled before changing it. A stale exact reference invalidates only its own order. The WorkGiver selects the earliest valid order; one normal job completes that order and enqueues another service job for the same worker if possible. The exact outgoing module remains physical and may be hauled by that worker.
+
+Cancelling an active install ends the worker's job and clears the lock. If the worker already carries the incoming module, it is dropped safely nearby before ending the job. No installed Thing changes until the completion transaction succeeds. All other queued categories remain. Legacy saves with one pending order migrate that exact reference to the new list on load.
+
+An operational piloted player Frame accepts selected right-click movement and attack plus manual Haul, vanilla Rescue of ordinary downed Pawns, vanilla Capture of ordinary hostile downed Pawns, and self right-click Disembark. Haul uses a single explicit vanilla storage job; the Frame never joins colonist work scanning. Downed Frames remain mechanical and are excluded as biological Rescue/Capture patients.
+
 ## Manual QA
 
 1. Spawn a player Debug Frame in Home Area and injure a forearm without destroying it.

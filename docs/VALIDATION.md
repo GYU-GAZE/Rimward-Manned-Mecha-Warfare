@@ -4,6 +4,15 @@
 
 Focused affected-subsystem validation is the normal completion gate. For ordinary bugfixes and small features, run only the relevant focused phase or standalone subsystem test. Do not replay unrelated lifecycle phases. Full Core, full DLC, and ability matrices are expensive broad-regression tools, reserved for major lifecycle/architecture milestones, release validation, an explicit user request, or a concrete cross-system risk. State the reason before launching a full suite. Preserve the broad suites; their availability does not make them a routine gate.
 
+The Proper UI milestone uses one disposable FrameUX process for six-slot UI state, exact multi-order service across save/load, pending and active cancellation, invalid-order isolation, worker continuation, self right-click Disembark, and manual Haul/Rescue/Capture. The Livery suite is a separate disposable process for two Frames, three independent colors, visor overlay visibility and save/load. Use unique profile names and inspect both phase reports and logs:
+
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite FrameUX -RunName 'frame-ux-unique-name'
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Livery -RunName 'livery-unique-name'
+```
+
+The automated suite establishes identities, state and render materials. Human in-game QA still needs to judge tab spacing, portrait composition, actual visor appearance, color picker feel, and service timing. Full Core, full DLC, and ability matrices are not required for this focused milestone.
+
 The livery proof uses one disposable RimWorld process and performs its save/load in that same process:
 
 ```powershell
