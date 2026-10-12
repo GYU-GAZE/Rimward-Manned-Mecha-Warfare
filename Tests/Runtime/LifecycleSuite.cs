@@ -262,7 +262,9 @@ namespace ZenithFrame.Tests
                 else if (phase == 41) FrameModuleTransferAndArmor();
                 else if (phase == 42) FrameModuleMountDamage();
                 else if (phase == 43) FrameModuleWorldHackAndSalvage();
-                else FrameModuleServiceFinish();
+                else if (phase == 44) FrameModuleServiceFinish();
+                else if (phase == 45) FrameRenderingStart();
+                else FrameRenderingLoad();
             }
             catch (Exception e)
             {
@@ -606,7 +608,12 @@ namespace ZenithFrame.Tests
                     ? " targetDead=" + targetPawn.Dead + " targetDowned=" + targetPawn.Downed +
                       " targetInjuries=" + targetPawn.health.hediffSet.hediffs.OfType<Hediff_Injury>().Count()
                     : "");
-            return frameState + targetState;
+            string workerState = other == null ? " worker=null" :
+                " workerJob=" + (other.CurJobDef?.defName ?? "null") +
+                " workerPos=" + other.Position +
+                " carried=" + (other.carryTracker?.CarriedThing?.Label ?? "null") +
+                " serviceLocked=" + (frame?.Service?.IsServiceLocked.ToString() ?? "null");
+            return frameState + targetState + workerState;
         }
         private void RecoveryLoad()
         {
@@ -2929,7 +2936,8 @@ namespace ZenithFrame.Tests
                     "fresh-process reconstruction load preserves missing part and exact carried Steel identity");
                 Check(other.CurJobDef == ZenithJobDefOf.ZF_ReconstructFramePart && frame.Service.IsServiceLocked,
                     "active reconstruction and its service lock resume coherently after reload");
-                Next(1, 3000);
+                // Undocked reconstruction uses the worker's real ConstructionSpeed.
+                Next(1, 6000);
             }
             else if (step == 1 && !frame.health.hediffSet.PartIsMissing(arm))
             {
@@ -3055,8 +3063,11 @@ namespace ZenithFrame.Tests
                 stockpile.AddCell(stockpileCell);
                 stockpile.AddCell(stockpileCell + IntVec3.East);
                 stockpile.AddCell(stockpileCell + IntVec3.East * 2);
-                stockpile.GetStoreSettings().filter.SetAllowAll(null);
+                stockpile.GetStoreSettings().filter.SetDisallowAll();
                 stockpile.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"), true);
+                stockpile.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"), true);
+                stockpile.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"), true);
+                stockpile.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugWeakPowerCell"), true);
                 loadoutWeapon = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
                 GenSpawn.Spawn(loadoutWeapon, stockpileCell, frame.Map);
                 unrelatedWeapon = (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
@@ -3127,6 +3138,17 @@ namespace ZenithFrame.Tests
                     "fresh-process service load preserves exact carried module and reconciles active worker lock");
                 Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && Overdrive(frame).Id == savedAbilityId,
                     "service reload preserves exact cockpit pilot and machine ability ownership");
+                Zone_Stockpile storage = frame.Map.zoneManager.AllZones.OfType<Zone_Stockpile>()
+                    .Single(zone => zone.ContainsCell(frame.Position + IntVec3.North * 5));
+                storage.GetStoreSettings().filter.SetDisallowAll();
+                storage.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"), true);
+                storage.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"), true);
+                storage.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugMobilityBooster"), true);
+                storage.GetStoreSettings().filter.SetAllow(DefDatabase<ThingDef>.GetNamed("ZF_DebugWeakPowerCell"), true);
+                for (int offset = 3; offset <= 6; offset++)
+                    storage.AddCell(frame.Position + IntVec3.North * 5 + IntVec3.East * offset);
+                Check(DockingBayUtility.NearbyStorageCell(frame, serviceOutgoingModule).IsValid,
+                    "service fixture retains a free nearby storage cell for the outgoing Weapon");
                 Next(1, 3000);
             }
             else if (step == 1 && ReferenceEquals(frame.Loadout.InstalledWeapon, loadoutWeapon))
@@ -3137,8 +3159,13 @@ namespace ZenithFrame.Tests
                     "module replacement leaves pilot body skills abilities and machine cooldown owner unchanged");
                 Check(!loadoutWeapon.Spawned && ReferenceEquals(frame.equipment.Primary, loadoutWeapon),
                     "Weapon install transfers exact Thing exclusively into Pawn equipment");
-                Check(unrelatedWeapon.Spawned && !ReferenceEquals(unrelatedWeapon, frame.Loadout.InstalledWeapon),
-                    "service never substitutes an identical module from outside storage");
+                Check(!unrelatedWeapon.Destroyed &&
+                    (unrelatedWeapon.Spawned || unrelatedWeapon.ParentHolder is Pawn_CarryTracker) &&
+                    !ReferenceEquals(unrelatedWeapon, frame.Loadout.InstalledWeapon),
+                    "service never substitutes an identical module from outside storage; spawned=" +
+                    unrelatedWeapon.Spawned + " destroyed=" + unrelatedWeapon.Destroyed +
+                    " holder=" + (unrelatedWeapon.ParentHolder?.GetType().Name ?? "null") +
+                    " installedSame=" + ReferenceEquals(unrelatedWeapon, frame.Loadout.InstalledWeapon));
                 bool outgoingHaulQueued = Enumerable.Range(0, other.jobs.jobQueue.Count).Any(index =>
                     other.jobs.jobQueue[index].job.def == JobDefOf.HaulToCell &&
                     ReferenceEquals(other.jobs.jobQueue[index].job.targetA.Thing, serviceOutgoingModule));
@@ -3150,7 +3177,13 @@ namespace ZenithFrame.Tests
                     " queued=" + outgoingHaulQueued +
                     " stored=" + StoreUtility.IsInValidStorage(serviceOutgoingModule) +
                     " docked=" + DockingBayUtility.IsDocked(frame) +
-                    " storageCell=" + DockingBayUtility.NearbyStorageCell(frame, serviceOutgoingModule));
+                    " storageCell=" + DockingBayUtility.NearbyStorageCell(frame, serviceOutgoingModule) +
+                    " nearbyZones=" + string.Join(";", frame.Map.zoneManager.AllZones.OfType<Zone_Stockpile>()
+                        .SelectMany(zone => zone.Cells.Select(cell => cell + ":allow=" +
+                            zone.GetStoreSettings().AllowedToAccept(serviceOutgoingModule) + ":slot=" +
+                            (cell.GetSlotGroup(frame.Map) != null) + ":things=" +
+                            string.Join(",", cell.GetThingList(frame.Map).Where(thing => thing.def.category == ThingCategory.Item)
+                                .Select(thing => thing.def.defName))))));
                 Next(2, 1800);
             }
             else if (step == 2 && StoreUtility.IsInValidStorage(serviceOutgoingModule))
@@ -3601,8 +3634,120 @@ namespace ZenithFrame.Tests
                     "Construction service installs exact Offhand with one authoritative owner per new module");
                 Check(frame.GetUniqueLoadID() == frameId && !frame.Destroyed && !frame.Dead,
                     "complete modular lifecycle preserves exact living chassis identity");
-                Finish();
+                SaveNext(45);
             }
+        }
+
+        private static FrameRenderNode RenderNode(FramePawn targetFrame, FrameVisualPart part) =>
+            targetFrame.Drawer.renderer.renderTree.rootNode.children.OfType<FrameRenderNode>()
+                .Single(node => node.Part == part);
+
+        private void FrameRenderingStart()
+        {
+            if (step != 0) return;
+            Check(ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
+                ReferenceEquals(frame.Loadout.InstalledShoulder, moduleShoulder),
+                "rendering fixture retains exact service-installed Helmet and Shoulder");
+            frame.Drawer.renderer.EnsureGraphicsInitialized();
+            PawnRenderTree tree = frame.Drawer.renderer.renderTree;
+            Check(tree.Resolved && tree.rootNode.children.OfType<FrameRenderNode>().Count() == 4,
+                "native Frame render tree resolves exactly four composed body layers");
+            Check(tree.rootNode.children.Count(node => node.Worker is PawnRenderNodeWorker_Carried) == 1 &&
+                frame.equipment.PrimaryEq != null,
+                "normal carried/equipment node draws the one authoritative Primary Weapon");
+            FrameRenderNode torso = RenderNode(frame, FrameVisualPart.Torso);
+            FrameRenderNode head = RenderNode(frame, FrameVisualPart.Head);
+            FrameRenderNode helmet = RenderNode(frame, FrameVisualPart.Helmet);
+            FrameRenderNode shoulder = RenderNode(frame, FrameVisualPart.Shoulder);
+            foreach (Rot4 facing in Rot4.AllRotations)
+            {
+                var parms = new PawnDrawParms { pawn = frame, facing = facing, posture = PawnPosture.Standing };
+                foreach (FrameRenderNode node in new[] { torso, head, helmet, shoulder })
+                {
+                    string expected = FrameVisualRules.Source(frame, node.Part).PathFor(facing);
+                    Check(node.GraphicAt(facing)?.path == expected &&
+                        node.FlipGraphic(parms) == (facing == Rot4.West) &&
+                        node.Worker.GetFinalizedMaterial(node, parms) != null && node.GetMesh(parms) != null,
+                        node.Part + " resolves authored source and local side mirror for " + facing);
+                    Vector3 scale = node.Worker.ScaleFor(node, parms);
+                    Vector3 pivot;
+                    Vector3 offset = node.Worker.OffsetFor(node, parms, out pivot);
+                    Check(Approximately(scale.x, 2f) && Approximately(scale.z, 2f) &&
+                        offset.x == 0f && offset.z == 0f && pivot == Vector3.zero,
+                        node.Part + " shares the chassis draw size and unshifted full-canvas origin for " + facing);
+                }
+            }
+            Check(FrameVisualRules.Visible(frame, FrameVisualPart.Torso) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Shoulder),
+                "healthy configured Frame derives all four visible layers");
+            Thing exactPower = frame.Loadout.InstalledPower;
+            Check(frame.Loadout.TryRemovePower(out Thing removedPower) && ReferenceEquals(exactPower, removedPower) &&
+                !frame.Loadout.IsModulePowered(moduleHead) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Shoulder),
+                "power deficit disables effects without hiding installed physical modules");
+            Check(frame.Loadout.TryInstallPower(removedPower), "same Power Thing restores budget after visual proof");
+            Check(frame.Loadout.TryRemoveHead(out Thing removedHead) && ReferenceEquals(removedHead, moduleHead) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                !FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) && helmet.RecacheRequested,
+                "removing Helmet leaves intrinsic Head and invalidates the cached overlay");
+            frame.Drawer.renderer.EnsureGraphicsInitialized();
+            Check(frame.Loadout.TryInstallHead(removedHead) && helmet.RecacheRequested &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet),
+                "same exact Helmet restores its visual without replacing chassis Head");
+            BodyPartRecord headPart = FrameDamageRules.FindPart(frame, ZenithBodyPartDefOf.ZF_FrameHeadAssembly);
+            frame.health.AddHediff(HediffDefOf.MissingBodyPart, headPart);
+            Check(FrameVisualRules.HeadState(frame) == FrameHeadVisualState.Missing &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Torso) &&
+                !FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                !FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) && head.RecacheRequested,
+                "missing Head Assembly suppresses intrinsic Head and Helmet without deleting its Thing");
+            frame.health.RestorePart(headPart);
+            Check(FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                ReferenceEquals(frame.Loadout.InstalledHead, moduleHead),
+                "reconstructed Head restores chassis Head and same still-installed Helmet");
+            SaveNext(46);
+        }
+
+        private void FrameRenderingLoad()
+        {
+            if (step != 0) return;
+            Check(frame.GetUniqueLoadID() == frameId &&
+                ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
+                ReferenceEquals(frame.Loadout.InstalledShoulder, moduleShoulder) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Shoulder),
+                "fresh-process reload reconstructs exact four-layer composition from authoritative state");
+            frame.Drawer.renderer.EnsureGraphicsInitialized();
+            Check(RenderNode(frame, FrameVisualPart.Helmet).GraphicAt(Rot4.West)?.path ==
+                FrameVisualRules.Source(frame, FrameVisualPart.Helmet).sides,
+                "reloaded Helmet still uses the single authored Sides texture");
+            FramePawn opposite = SpawnFrame(frame.Position + IntVec3.East * 4);
+            opposite.Rotation = Rot4.West;
+            frame.Rotation = Rot4.East;
+            opposite.Drawer.renderer.EnsureGraphicsInitialized();
+            var eastParms = new PawnDrawParms { pawn = frame, facing = Rot4.East };
+            var westParms = new PawnDrawParms { pawn = opposite, facing = Rot4.West };
+            Check(!RenderNode(frame, FrameVisualPart.Torso).FlipGraphic(eastParms) &&
+                RenderNode(opposite, FrameVisualPart.Torso).FlipGraphic(westParms) &&
+                RenderNode(frame, FrameVisualPart.Torso).GraphicAt(Rot4.East)?.path ==
+                RenderNode(opposite, FrameVisualPart.Torso).GraphicAt(Rot4.West)?.path,
+                "two opposite-facing Frames share one Sides source with independent draw-local mirroring");
+            DownByMissingLegs(frame);
+            Check(frame.Downed && FrameVisualRules.Visible(frame, FrameVisualPart.Torso) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Head) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
+                FrameVisualRules.Visible(frame, FrameVisualPart.Shoulder),
+                "locomotion downing keeps structurally valid body overlays visible");
+            opposite.Kill(null);
+            Check(opposite.Dead && !FrameVisualRules.Visible(opposite, FrameVisualPart.Helmet),
+                "corpse transition has no stale physical Helmet overlay");
+            Finish();
         }
 
         private static bool HasBeamSwordVerb(FramePawn targetFrame) => targetFrame.meleeVerbs

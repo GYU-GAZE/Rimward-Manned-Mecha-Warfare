@@ -220,7 +220,7 @@ $serviceCode = Get-Content "$repo/Source/ZenithFrame/FrameService.cs" -Raw
 $hackingCode = Get-Content "$repo/Source/ZenithFrame/FrameHacking.cs" -Raw
 $boardingCode = Get-Content "$repo/Source/ZenithFrame/Boarding.cs" -Raw
 $productionCode = (Get-ChildItem "$repo/Source/ZenithFrame" -Filter '*.cs' | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
-$releaseContent = (Get-ChildItem "$repo/Mod" -File -Recurse | ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }) -join "`n"
+$releaseContent = (Get-ChildItem "$repo/Mod" -File -Recurse | Where-Object Extension -In '.xml','.txt' | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
 $dockDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_FrameDockingBay')[0]
 Assert-Static ($hackingCode -notmatch 'WorkTicks' -and $hackingCode -match 'hackProgress' -and $hackingCode -match 'StatDefOf\.HackingSpeed') 'Production hacking must use persistent HackingSpeed progress without the old fixed WorkTicks path'
 Assert-Static ($hackingCode -match 'SkillDefOf\.Intellectual' -and $hackingCode -match 'EffecterDefOf\.Hacking' -and $hackingCode -match 'Hacking_Started' -and $hackingCode -match 'Hacking_Completed') 'Frame hacking must use Core-safe Intellectual XP and verified vanilla hacking feedback'
@@ -241,4 +241,31 @@ $boardingDuration = [int]$frameDef.modExtensions.li.Where({$_.GetAttribute('Clas
 Assert-Static ($boardingDuration -eq 300 -and $serviceCode -match 'dockingSpeedMultiplier = 5f' -and $boardingCode -match 'DockingBayUtility\.BoardingTicks') 'Timed boarding and x5 derived docking acceleration must remain definition-driven'
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
+$renderCode = Get-Content "$repo/Source/ZenithFrame/FrameRendering.cs" -Raw
+$renderDef = [xml](Get-Content "$repo/Mod/Defs/FrameRendering.xml" -Raw)
+Assert-Static ($frameDef.race.renderTree -eq 'ZF_FrameModular' -and $renderDef.Defs.PawnRenderTreeDef.defName -eq 'ZF_FrameModular') 'Debug Frame must use its own native Pawn render tree'
+Assert-Static ($frame.Defs.PawnKindDef.lifeStages.li.bodyGraphicData.texPath -ne 'Things/Pawn/Mechanoid/Lancer' -and $frameDef.description -notmatch 'lancer') 'Debug Frame must not retain the visible Lancer placeholder'
+Assert-Static ($renderCode -match 'InstalledHead' -and $renderCode -match 'InstalledShoulder' -and $renderCode -match 'IsMountValid' -and $renderCode -match 'HeadState' -and $renderCode -notmatch 'IsModulePowered|HasSufficientAddonPower') 'Body overlays must follow exact physical modules and structural mounts rather than power'
+Assert-Static ($renderCode -notmatch 'Scribe_|OffsetForChassis|OffsetForHelmet|Texture2D\s*\(' -and $renderCode -match 'PawnRenderNodeWorker_Body') 'Frame rendering must remain derived, layer-based and native'
+$parts = @('Torso','Head','Helmet','Shoulder')
+$directions = @('South','Sides','North')
+$textures = "$repo/Mod/Textures/ZenithFrame/Frames/Debug/TestFrame"
+Assert-Static (@(Get-ChildItem $textures -File -Filter '*.png').Count -eq 12) 'Test Frame must contain exactly twelve authored full-canvas PNGs'
+Add-Type -AssemblyName System.Drawing
+foreach ($part in $parts) {
+    foreach ($direction in $directions) {
+        $file = Join-Path $textures "${part}_${direction}.png"
+        Assert-Static (Test-Path -LiteralPath $file) "Missing Test Frame texture: $file"
+        $bytes = [System.IO.File]::ReadAllBytes($file)
+        Assert-Static ($bytes.Length -gt 33 -and [Convert]::ToHexString($bytes[0..7]) -eq '89504E470D0A1A0A' -and $bytes[25] -eq 6) "Invalid RGBA PNG: $file"
+        $bitmap = [System.Drawing.Bitmap]::new($file)
+        try {
+            Assert-Static ($bitmap.Width -eq 1024 -and $bitmap.Height -eq 1024) "Wrong full-canvas size: $file"
+            Assert-Static ($bitmap.GetPixel(0,0).A -eq 0 -and $bitmap.GetPixel(1023,0).A -eq 0 -and $bitmap.GetPixel(0,1023).A -eq 0 -and $bitmap.GetPixel(1023,1023).A -eq 0) "Opaque PNG background: $file"
+        } finally { $bitmap.Dispose() }
+        $releaseFile = Join-Path "$repo/artifacts/ZenithFrame/Textures/ZenithFrame/Frames/Debug/TestFrame" "${part}_${direction}.png"
+        Assert-Static ((Test-Path -LiteralPath $releaseFile) -and
+            (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseFile -Algorithm SHA256).Hash) "Release texture differs from source copy: $file"
+    }
+}
 Write-Host "PASS: $checks XML/static/package checks"
