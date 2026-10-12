@@ -149,8 +149,9 @@ namespace ZenithFrame
             }
         }
 
-        public override bool FlipGraphic(PawnDrawParms parms) =>
-            base.FlipGraphic(parms) ^ FrameVisualDirection.MirrorFor(parms.facing.AsInt);
+        // GraphicMeshSet already supplies a horizontally flipped West mesh.
+        // Toggling FlipGraphic again cancels that mesh's UV mirror.
+        public override bool FlipGraphic(PawnDrawParms parms) => base.FlipGraphic(parms);
     }
 
     public sealed class FrameRenderNodeWorker : PawnRenderNodeWorker_Body

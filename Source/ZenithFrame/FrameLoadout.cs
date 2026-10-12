@@ -490,6 +490,7 @@ namespace ZenithFrame
             module?.TryGetComp<CompFrameModuleAbility>()?.Bind(IsInstalled(module) ? Frame : null);
             RebindModuleAbilities();
             RefreshModuleEffects();
+            Frame?.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
         private void CancelModuleCast(Thing module)
