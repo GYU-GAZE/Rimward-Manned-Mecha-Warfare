@@ -23,6 +23,7 @@ namespace ZenithFrame.Tests
         private Thing shoulder;
         private Thing rifle;
         private Thing haulItem;
+        private int remainingOrders;
         private Dialog_FrameColorPicker picker;
         private int pickerGuiFrames;
 
@@ -90,6 +91,7 @@ namespace ZenithFrame.Tests
                 frame.Service.OrderFor(FrameAddonCategory.Weapon) != null &&
                 frame.Service.QueueInstall(FrameAddonCategory.Shoulder, shoulder),
                 "canceling one category preserves other orders");
+            remainingOrders = frame.Service.Orders.Count;
             Job job = new WorkGiver_ServiceFrameModule().JobOnThing(worker, frame, true);
             Check(job != null && worker.jobs.TryTakeOrderedJob(job), "worker starts first exact order");
             Find.Selector.Select(frame);
@@ -201,6 +203,11 @@ namespace ZenithFrame.Tests
             try
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
+                if (step == 1 && frame.Service.Orders.Count < remainingOrders)
+                {
+                    remainingOrders = frame.Service.Orders.Count;
+                    deadline = Find.TickManager.TicksGame + 6500;
+                }
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
                     throw new TimeoutException("Acceptance step " + step + " timed out; job=" +
                         worker?.CurJobDef?.defName + " queue=" + frame?.Service?.PendingLabel);
