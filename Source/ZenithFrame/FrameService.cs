@@ -23,6 +23,24 @@ namespace ZenithFrame
 
     public enum FrameServiceOrderKind { None, Install, Remove }
 
+    public sealed class FrameServiceOrder : IExposable
+    {
+        public int id;
+        public FrameServiceOrderKind kind;
+        public FrameAddonCategory category;
+        public Thing incoming;
+        public Thing expectedInstalled;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref id, "id");
+            Scribe_Values.Look(ref kind, "kind");
+            Scribe_Values.Look(ref category, "category");
+            Scribe_References.Look(ref incoming, "incoming");
+            Scribe_References.Look(ref expectedInstalled, "expectedInstalled");
+        }
+    }
+
     public sealed class CompProperties_FrameService : CompProperties
     {
         public CompProperties_FrameService() { compClass = typeof(CompFrameService); }
@@ -30,18 +48,26 @@ namespace ZenithFrame
 
     public sealed class CompFrameService : ThingComp
     {
-        private FrameServiceOrderKind pendingKind;
-        private FrameAddonCategory pendingCategory;
-        private Thing pendingModule;
+        private List<FrameServiceOrder> orders = new List<FrameServiceOrder>();
+        private int nextOrderId = 1;
+        private int activeOrderId;
         private Pawn activeWorker;
+        private int continuationOrderId;
+        private Pawn continuationWorker;
+        private int continuationUntilTick;
+        private FrameServiceOrderKind legacyKind;
+        private FrameAddonCategory legacyCategory;
+        private Thing legacyModule;
 
         public FramePawn Frame => (FramePawn)parent;
         public FrameServiceExtension Profile => Frame.def.GetModExtension<FrameServiceExtension>();
-        public bool HasPendingOrder => pendingKind != FrameServiceOrderKind.None;
-        public FrameServiceOrderKind PendingKind => pendingKind;
-        public FrameAddonCategory PendingCategory => pendingCategory;
-        public Thing PendingModule => pendingModule;
+        public IReadOnlyList<FrameServiceOrder> Orders => orders;
+        public bool HasPendingOrder => orders.Count != 0;
+        public FrameServiceOrderKind PendingKind => orders.FirstOrDefault()?.kind ?? FrameServiceOrderKind.None;
+        public FrameAddonCategory PendingCategory => orders.FirstOrDefault()?.category ?? FrameAddonCategory.Weapon;
+        public Thing PendingModule => orders.FirstOrDefault()?.incoming;
         public Pawn ActiveWorker => IsServiceLocked ? activeWorker : null;
+        public FrameServiceOrder ActiveOrder => IsServiceLocked ? orders.FirstOrDefault(order => order.id == activeOrderId) : null;
         public bool IsServiceLocked => activeWorker != null && !activeWorker.Destroyed &&
             activeWorker.CurJob != null && IsFrameServiceJob(activeWorker.CurJob.def) &&
             ReferenceEquals(activeWorker.CurJob.targetA.Thing, Frame);
@@ -49,24 +75,65 @@ namespace ZenithFrame
         public override void PostExposeData()
         {
             base.PostExposeData();
-            Scribe_Values.Look(ref pendingKind, "frameServiceOrderKind", FrameServiceOrderKind.None);
-            Scribe_Values.Look(ref pendingCategory, "frameServiceOrderCategory", FrameAddonCategory.Weapon);
-            Scribe_References.Look(ref pendingModule, "frameServiceExactModule");
+            Scribe_Collections.Look(ref orders, "frameServiceOrders", LookMode.Deep);
+            Scribe_Values.Look(ref nextOrderId, "frameServiceNextOrderId", 1);
+            Scribe_Values.Look(ref activeOrderId, "frameServiceActiveOrderId");
             Scribe_References.Look(ref activeWorker, "frameServiceWorker");
+            Scribe_Values.Look(ref continuationOrderId, "frameServiceContinuationOrderId");
+            Scribe_References.Look(ref continuationWorker, "frameServiceContinuationWorker");
+            Scribe_Values.Look(ref continuationUntilTick, "frameServiceContinuationUntilTick");
+            // Old saves contained one order. Migrate it once without recreating Things.
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                Scribe_Values.Look(ref legacyKind, "frameServiceOrderKind", FrameServiceOrderKind.None);
+                Scribe_Values.Look(ref legacyCategory, "frameServiceOrderCategory", FrameAddonCategory.Weapon);
+            }
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
+            {
+                Scribe_References.Look(ref legacyModule, "frameServiceExactModule");
+            }
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                // Pawn jobs and carried Things finish their own load reconciliation after
-                // ThingComps.  Preserve exact references here and validate them on tick.
-                if (!HasPendingOrder) ClearPendingOrder();
+                if (orders == null) orders = new List<FrameServiceOrder>();
+                if (orders.Count == 0 && legacyKind != FrameServiceOrderKind.None)
+                    orders.Add(new FrameServiceOrder { id = nextOrderId++, kind = legacyKind,
+                        category = legacyCategory, incoming = legacyModule,
+                        expectedInstalled = Installed(legacyCategory) });
+                nextOrderId = Math.Max(nextOrderId, orders.Count == 0 ? 1 : orders.Max(order => order.id) + 1);
+                legacyKind = FrameServiceOrderKind.None;
+                legacyModule = null;
             }
         }
 
         public override void CompTick()
         {
             base.CompTick();
-            if (activeWorker != null && !IsServiceLocked) activeWorker = null;
-            if (pendingKind == FrameServiceOrderKind.Install && !PendingOrderStillValid(false)) ClearPendingOrder();
+            if (activeWorker != null && !IsServiceLocked) { activeWorker = null; activeOrderId = 0; }
+            if (continuationWorker != null && (continuationWorker.Destroyed || continuationWorker.Dead ||
+                continuationWorker.Downed || Find.TickManager.TicksGame > continuationUntilTick ||
+                !orders.Any(order => order.id == continuationOrderId))) ClearContinuation();
+            foreach (FrameServiceOrder order in orders.ToList())
+                if (!OrderStillValid(order, false)) CancelOrder(order.category);
         }
+
+        private void ClearContinuation()
+        {
+            continuationOrderId = 0;
+            continuationWorker = null;
+            continuationUntilTick = 0;
+        }
+
+        public void PreferContinuation(Pawn worker, FrameServiceOrder order)
+        {
+            if (worker == null || order == null) { ClearContinuation(); return; }
+            continuationWorker = worker;
+            continuationOrderId = order.id;
+            continuationUntilTick = Find.TickManager.TicksGame + 1200;
+        }
+
+        private bool ReservedForContinuation(FrameServiceOrder order, Pawn worker) =>
+            order != null && continuationWorker != null && !ReferenceEquals(continuationWorker, worker) &&
+            continuationOrderId == order.id && Find.TickManager.TicksGame <= continuationUntilTick;
 
         public bool CanBeServicedNow(out string reason)
         {
@@ -95,47 +162,140 @@ namespace ZenithFrame
 
         public void EndService(Pawn worker)
         {
-            if (worker == null || ReferenceEquals(activeWorker, worker)) activeWorker = null;
+            if (worker == null || ReferenceEquals(activeWorker, worker)) { activeWorker = null; activeOrderId = 0; }
+        }
+
+        public void EndModuleService(Pawn worker, int orderId)
+        {
+            if (ReferenceEquals(activeWorker, worker) && activeOrderId == orderId)
+                EndService(worker);
+        }
+
+        public FrameServiceOrder OrderFor(FrameAddonCategory category) => orders.FirstOrDefault(order => order.category == category);
+
+        private bool CanQueue(FrameAddonCategory category) => Frame.Faction == Faction.OfPlayer &&
+            Frame.Spawned && !Frame.Dead && !Frame.Destroyed &&
+            !(OrderFor(category)?.id == activeOrderId && IsServiceLocked);
+
+        private bool PutOrder(FrameServiceOrderKind kind, FrameAddonCategory category, Thing incoming)
+        {
+            if (!CanQueue(category)) return false;
+            FrameServiceOrder order = OrderFor(category);
+            if (order == null)
+            {
+                if (orders.Count >= 6) return false;
+                order = new FrameServiceOrder { id = nextOrderId++, category = category };
+                orders.Add(order);
+            }
+            order.kind = kind;
+            order.incoming = incoming;
+            order.expectedInstalled = Installed(category);
+            return true;
         }
 
         public bool QueueInstall(FrameAddonCategory category, Thing exact)
         {
-            if (!IsStoredCandidate(exact, category) || Frame.Faction != Faction.OfPlayer) return false;
-            pendingKind = FrameServiceOrderKind.Install;
-            pendingCategory = category;
-            pendingModule = exact;
-            return true;
+            return IsStoredCandidate(exact, category) && PutOrder(FrameServiceOrderKind.Install, category, exact);
         }
 
         public bool QueueRemove(FrameAddonCategory category)
         {
-            if (Frame.Faction != Faction.OfPlayer || Installed(category) == null) return false;
-            pendingKind = FrameServiceOrderKind.Remove;
-            pendingCategory = category;
-            pendingModule = null;
+            return Installed(category) != null && PutOrder(FrameServiceOrderKind.Remove, category, null);
+        }
+
+        public bool CancelOrder(FrameAddonCategory category)
+        {
+            FrameServiceOrder order = OrderFor(category);
+            if (order == null) return false;
+            if (order.id == continuationOrderId) ClearContinuation();
+            bool active = order.id == activeOrderId && IsServiceLocked;
+            orders.Remove(order);
+            if (active)
+            {
+                Pawn worker = activeWorker;
+                if (ReferenceEquals(worker.carryTracker?.CarriedThing, order.incoming))
+                    worker.carryTracker.TryDropCarriedThing(worker.Position, ThingPlaceMode.Near, out _);
+                EndService(worker);
+                worker.jobs.EndCurrentJob(JobCondition.Incompletable);
+            }
             return true;
         }
 
-        public void ClearPendingOrder()
-        {
-            pendingKind = FrameServiceOrderKind.None;
-            pendingCategory = FrameAddonCategory.Weapon;
-            pendingModule = null;
-        }
+        public void ClearPendingOrder() { if (orders.Count != 0) CancelOrder(orders[0].category); }
 
         public bool PendingOrderStillValid(bool requireReachable, Pawn worker = null)
         {
-            if (!HasPendingOrder || Frame.Dead || Frame.Destroyed || Frame.Faction != Faction.OfPlayer) return false;
-            if (pendingKind == FrameServiceOrderKind.Remove) return Installed(pendingCategory) != null;
-            bool stored = IsStoredCandidate(pendingModule, pendingCategory);
-            Pawn carrier = PendingModuleCarrier();
+            return orders.Count != 0 && OrderStillValid(orders[0], requireReachable, worker);
+        }
+
+        public bool OrderStillValid(FrameServiceOrder order, bool requireReachable, Pawn worker = null)
+        {
+            if (order == null || !orders.Contains(order) || Frame.Dead || Frame.Destroyed ||
+                Frame.Faction != Faction.OfPlayer || !ReferenceEquals(Installed(order.category), order.expectedInstalled)) return false;
+            if (order.kind == FrameServiceOrderKind.Remove) return order.expectedInstalled != null;
+            if (order.kind != FrameServiceOrderKind.Install) return false;
+            bool stored = IsStoredCandidate(order.incoming, order.category);
+            Pawn carrier = IncomingCarrier(order);
+            if (carrier == null && order.id == activeOrderId && IsServiceLocked &&
+                ReferenceEquals(activeWorker.carryTracker?.CarriedThing, order.incoming))
+                carrier = activeWorker;
             bool carried = carrier != null;
             if (!stored && !carried) return false;
             if (!requireReachable) return true;
             if (worker == null) return false;
             if (carried) return ReferenceEquals(worker, carrier);
-            return worker.CanReserveAndReach(pendingModule, PathEndMode.ClosestTouch, Danger.Some);
+            return worker.CanReserveAndReach(order.incoming, PathEndMode.ClosestTouch, Danger.Some);
         }
+
+        public FrameServiceOrder FirstAvailableOrder(Pawn worker)
+        {
+            FrameServiceOrder first = orders.FirstOrDefault(order => OrderStillValid(order, false));
+            return first != null && !ReservedForContinuation(first, worker) &&
+                OrderStillValid(first, true, worker) ? first : null;
+        }
+
+        public Job JobFor(FrameServiceOrder order)
+        {
+            if (order == null || !orders.Contains(order)) return null;
+            Job job = JobMaker.MakeJob(ZenithJobDefOf.ZF_ServiceFrameModule, Frame);
+            if (order.kind == FrameServiceOrderKind.Install) job.targetB = order.incoming;
+            if (order.expectedInstalled != null) job.targetC = order.expectedInstalled;
+            job.count = 1;
+            return job;
+        }
+
+        public FrameServiceOrder OrderForJob(Job job) => orders.FirstOrDefault(order =>
+            (order.kind == FrameServiceOrderKind.Install) == job.targetB.IsValid &&
+            ReferenceEquals(order.incoming, job.targetB.Thing) &&
+            ReferenceEquals(order.expectedInstalled, job.targetC.Thing));
+
+        public bool ClaimModuleJob(Pawn worker, Job job, out int orderId)
+        {
+            orderId = 0;
+            FrameServiceOrder order = OrderForJob(job);
+            // Verse can request pre-toil reservations again for the same
+            // running job after the first claim. That is not a new worker or
+            // a competing operation, and CanBeServicedNow would see our own
+            // lock and reject it.
+            if (order != null && ReferenceEquals(activeWorker, worker) &&
+                activeOrderId == order.id && IsServiceLocked)
+            {
+                orderId = order.id;
+                return true;
+            }
+            if (order == null || ReservedForContinuation(order, worker) ||
+                !OrderStillValid(order, false) || !CanBeServicedNow(out _)) return false;
+            activeWorker = worker;
+            activeOrderId = order.id;
+            orderId = order.id;
+            if (order.id == continuationOrderId) ClearContinuation();
+            Frame.Cockpit?.StopFrame();
+            return true;
+        }
+
+        public bool OwnsModuleJob(Pawn worker, int orderId) =>
+            ReferenceEquals(activeWorker, worker) && activeOrderId == orderId &&
+            OrderStillValid(orders.FirstOrDefault(order => order.id == orderId), false);
 
         public IEnumerable<Thing> StoredCandidates(FrameAddonCategory category)
         {
@@ -146,21 +306,22 @@ namespace ZenithFrame
                 yield return thing;
         }
 
-        public bool CompletePendingOrder(Pawn worker, out Thing outgoing)
+        public bool CompleteOrder(Pawn worker, int orderId, out Thing outgoing)
         {
             outgoing = null;
-            if (!ReferenceEquals(activeWorker, worker) || !PendingOrderStillValid(false)) return false;
-            FrameAddonCategory category = pendingCategory;
-            if (pendingKind == FrameServiceOrderKind.Remove)
+            FrameServiceOrder order = orders.FirstOrDefault(entry => entry.id == orderId);
+            if (!OwnsModuleJob(worker, orderId)) return false;
+            FrameAddonCategory category = order.category;
+            if (order.kind == FrameServiceOrderKind.Remove)
             {
                 bool removed = TryRemove(category, out outgoing);
-                if (removed) ClearPendingOrder();
+                if (removed && ReferenceEquals(outgoing, order.expectedInstalled)) orders.Remove(order);
                 return removed;
             }
 
-            Thing incoming = pendingModule;
+            Thing incoming = order.incoming;
             if (!ReferenceEquals(worker.carryTracker?.CarriedThing, incoming)) return false;
-            Thing installed = Installed(category);
+            Thing installed = order.expectedInstalled;
             if (installed != null && !TryRemove(category, out outgoing)) return false;
             if (!worker.carryTracker.TryDropCarriedThing(Frame.Position, ThingPlaceMode.Near, out Thing dropped) ||
                 !ReferenceEquals(dropped, incoming) || !TryInstall(category, incoming))
@@ -168,7 +329,7 @@ namespace ZenithFrame
                 if (outgoing != null && outgoing.Spawned) TryInstall(category, outgoing);
                 return false;
             }
-            ClearPendingOrder();
+            orders.Remove(order);
             return true;
         }
 
@@ -190,21 +351,22 @@ namespace ZenithFrame
             return StoreUtility.IsInValidStorage(thing);
         }
 
-        private Pawn PendingModuleCarrier()
+        private Pawn IncomingCarrier(FrameServiceOrder order)
         {
-            if (pendingKind != FrameServiceOrderKind.Install || pendingModule == null || !Frame.Spawned) return null;
+            if (order.kind != FrameServiceOrderKind.Install || order.incoming == null || !Frame.Spawned) return null;
             IEnumerable<Pawn> candidates = activeWorker != null
                 ? new[] { activeWorker }.Concat(Frame.Map.mapPawns.AllPawnsSpawned.Where(pawn => !ReferenceEquals(pawn, activeWorker)))
                 : Frame.Map.mapPawns.AllPawnsSpawned;
             return candidates.FirstOrDefault(worker => !worker.Destroyed &&
-                ReferenceEquals(worker.carryTracker?.CarriedThing, pendingModule) &&
+                ReferenceEquals(worker.carryTracker?.CarriedThing, order.incoming) &&
                 worker.CurJob != null && IsFrameServiceJob(worker.CurJob.def) &&
                 ReferenceEquals(worker.CurJob.targetA.Thing, Frame) &&
-                ReferenceEquals(worker.CurJob.targetB.Thing, pendingModule));
+                ReferenceEquals(worker.CurJob.targetB.Thing, order.incoming));
         }
 
-        public string PendingLabel => !HasPendingOrder ? null : pendingKind == FrameServiceOrderKind.Remove
-            ? "Remove " + pendingCategory : "Install " + (pendingModule?.LabelCap ?? "invalid module");
+        public string PendingLabel => orders.Count == 0 ? null : string.Join(", ", orders.Select(order =>
+            order.kind == FrameServiceOrderKind.Remove ? "Remove " + order.category :
+            "Install " + (order.incoming?.LabelCap ?? "invalid module")));
 
         public override string CompInspectStringExtra()
         {
@@ -327,15 +489,13 @@ namespace ZenithFrame
     public sealed class WorkGiver_ServiceFrameModule : WorkGiver_FrameServiceBase
     {
         public override bool HasJobOnThing(Pawn pawn, Thing t, bool forced = false) => t is FramePawn frame &&
-            FrameRepairUtility.BaseEligible(frame) && frame.Service.HasPendingOrder && frame.Service.PendingOrderStillValid(true, pawn) && pawn.CanReserve(frame);
+            FrameRepairUtility.BaseEligible(frame) && frame.Service.FirstAvailableOrder(pawn) != null && pawn.CanReserve(frame);
 
         public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             FramePawn frame = (FramePawn)t;
-            Job job = frame.Service.PendingKind == FrameServiceOrderKind.Install
-                ? JobMaker.MakeJob(ZenithJobDefOf.ZF_ServiceFrameModule, frame, frame.Service.PendingModule)
-                : JobMaker.MakeJob(ZenithJobDefOf.ZF_ServiceFrameModule, frame);
-            job.count = 1;
+            Job job = frame.Service.JobFor(frame.Service.FirstAvailableOrder(pawn));
+            if (job == null) return null;
             job.playerForced = forced;
             return job;
         }
@@ -446,21 +606,28 @@ namespace ZenithFrame
     {
         private float workLeft;
         private float totalWork;
+        private int orderId;
 
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref workLeft, "frameModuleServiceWorkLeft");
             Scribe_Values.Look(ref totalWork, "frameModuleServiceTotalWork");
+            Scribe_Values.Look(ref orderId, "frameModuleServiceOrderId");
         }
-        public override bool TryMakePreToilReservations(bool errorOnFailed) => base.TryMakePreToilReservations(errorOnFailed) &&
-            (!job.targetB.IsValid || pawn.Reserve(job.targetB, job, 1, 1, null, errorOnFailed));
+        public override bool TryMakePreToilReservations(bool errorOnFailed)
+        {
+            if (!base.TryMakePreToilReservations(errorOnFailed) ||
+                (job.targetB.IsValid && !pawn.Reserve(job.targetB, job, 1, 1, null, errorOnFailed))) return false;
+            if (orderId != 0 && Frame.Service.OwnsModuleJob(pawn, orderId)) return true;
+            return Frame.Service.ClaimModuleJob(pawn, job, out orderId);
+        }
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
-            RegisterServiceFinish();
+            AddFinishAction(condition => Frame?.Service?.EndModuleService(pawn, orderId));
             this.FailOnDespawnedNullOrForbidden(TargetIndex.A);
-            this.FailOn(() => Frame?.Service?.PendingOrderStillValid(job.targetB.IsValid, pawn) != true);
+            this.FailOn(() => Frame?.Service?.OwnsModuleJob(pawn, orderId) != true);
             if (job.targetB.IsValid)
             {
                 this.FailOnDestroyedNullOrForbidden(TargetIndex.B);
@@ -471,7 +638,7 @@ namespace ZenithFrame
             Toil service = ToilMaker.MakeToil("ServiceFrameModule");
             service.initAction = () =>
             {
-                if (!BeginService()) { EndJobWith(JobCondition.Incompletable); return; }
+                if (!Frame.Service.OwnsModuleJob(pawn, orderId)) { EndJobWith(JobCondition.Incompletable); return; }
                 if (totalWork <= 0f) totalWork = Frame.Service.Profile?.serviceWork ?? 600f;
                 if (workLeft <= 0f) workLeft = totalWork;
             };
@@ -483,8 +650,23 @@ namespace ZenithFrame
             Toil complete = ToilMaker.MakeToil("CompleteFrameModuleService");
             complete.initAction = () =>
             {
-                if (Frame.Service.CompletePendingOrder(pawn, out Thing outgoing))
+                if (Frame.Service.CompleteOrder(pawn, orderId, out Thing outgoing))
                 {
+                    // The completed order no longer owns the service lock. Release it
+                    // before the next queued job tries its pre-toil claim; otherwise
+                    // CanBeServicedNow rejects the same worker's continuation.
+                    Frame.Service.EndService(pawn);
+                    FrameServiceOrder nextOrder = Frame.Service.FirstAvailableOrder(pawn);
+                    Frame.Service.PreferContinuation(pawn, nextOrder);
+                    Job next = Frame.Service.JobFor(nextOrder);
+                    if (next != null)
+                    {
+                        // Pawn_JobTracker keeps manually queued continuations only
+                        // when they are ordered work, even if the first job came
+                        // from a WorkGiver.
+                        next.playerForced = true;
+                        pawn.jobs.jobQueue.EnqueueFirst(next);
+                    }
                     if (outgoing?.Spawned == true && DockingBayUtility.IsDocked(Frame))
                     {
                         IntVec3 cell = DockingBayUtility.NearbyStorageCell(Frame, outgoing);
