@@ -36,6 +36,7 @@ From the repository root:
 ./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
 dotnet run --project Tests/Policy -c Release
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithInstalledExpansions
 ```
@@ -45,6 +46,7 @@ dotnet run --project Tests/Policy -c Release
 The build produces `artifacts/ZenithFrame`. The release folder contains this mod's data and `ZenithFrame.dll`; it does not copy RimWorld assemblies, Harmony DLLs or the development test harness.
 
 Live tests use a disposable runtime/profile under ignored `artifacts` paths. They do not modify the user's normal save folder or mod configuration.
+Use `-Suite Smoke` during normal development. The 47-phase Core suite, DLC suite, and ability matrices are milestone gates; run the affected focused phases first. Phase selection and saved-input reuse are documented in `docs/VALIDATION.md`.
 
 ## Current validation status
 

@@ -11,7 +11,7 @@ using Verse.AI.Group;
 
 namespace ZenithFrame.Tests
 {
-    public sealed class LifecycleSuite : GameComponent
+    public sealed partial class LifecycleSuite : GameComponent
     {
         private int phase;
         private int step;
@@ -106,7 +106,9 @@ namespace ZenithFrame.Tests
         private Action pendingGuiAction;
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
-        private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "phase-" + phase + ".txt");
+        private bool SmokeMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "smoke-suite.txt"));
+        private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath,
+            (SmokeMode ? "smoke-phase-" : "phase-") + phase + ".txt");
         public override void ExposeData()
         {
             Scribe_Values.Look(ref phase, "testPhase");
@@ -182,6 +184,7 @@ namespace ZenithFrame.Tests
             Scribe_Values.Look(ref moduleBaseManipulation, "testModuleBaseManipulation");
             Scribe_Values.Look(ref moduleBaseShootingAccuracy, "testModuleBaseShootingAccuracy");
             Scribe_Values.Look(ref moduleBaseMoveSpeed, "testModuleBaseMoveSpeed");
+            ExposeSmokeData();
         }
         private void Check(bool condition, string name)
         {
@@ -218,7 +221,8 @@ namespace ZenithFrame.Tests
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
                     throw new TimeoutException("Phase " + phase + " step " + step + DiagnosticState());
-                if (phase == 0) BeforeSave();
+                if (SmokeMode) SmokeUpdate();
+                else if (phase == 0) BeforeSave();
                 else if (phase == 1) AfterLoad();
                 else if (phase == 2) RecoveryLoad();
                 else if (phase == 3) DisabledFrameLoad();
@@ -3348,7 +3352,7 @@ namespace ZenithFrame.Tests
                     moduleOffhand.GetUniqueLoadID() == moduleOffhandId && ReferenceEquals(frame.Loadout.InstalledHead, moduleHead) &&
                     ReferenceEquals(frame.Loadout.InstalledShoulder, moduleShoulder) && ReferenceEquals(frame.Loadout.InstalledOffhand, moduleOffhand),
                     "fresh-process load preserves exact new module identities and specialized slot ownership");
-                List<Thing> nested = ThingOwnerUtility.GetAllThingsRecursively(frame, false);
+                List<Thing> nested = ThingOwnerUtility.GetAllThingsRecursively(frame.Loadout, false);
                 Check(nested.Count(thing => ReferenceEquals(thing, moduleHead)) == 1 &&
                     nested.Count(thing => ReferenceEquals(thing, moduleShoulder)) == 1 &&
                     nested.Count(thing => ReferenceEquals(thing, moduleOffhand)) == 1,
@@ -3629,7 +3633,7 @@ namespace ZenithFrame.Tests
             else if (step == 3 && ReferenceEquals(frame.Loadout.InstalledOffhand, moduleOffhand))
             {
                 Check(moduleOffhand.GetUniqueLoadID() == moduleOffhandId && !moduleOffhand.Spawned &&
-                    ThingOwnerUtility.GetAllThingsRecursively(frame, false).Count(thing =>
+                    ThingOwnerUtility.GetAllThingsRecursively(frame.Loadout, false).Count(thing =>
                         ReferenceEquals(thing, moduleHead) || ReferenceEquals(thing, moduleShoulder) || ReferenceEquals(thing, moduleOffhand)) == 3,
                     "Construction service installs exact Offhand with one authoritative owner per new module");
                 Check(frame.GetUniqueLoadID() == frameId && !frame.Destroyed && !frame.Dead,
@@ -3666,9 +3670,10 @@ namespace ZenithFrame.Tests
                 {
                     string expected = FrameVisualRules.Source(frame, node.Part).PathFor(facing);
                     Check(node.GraphicAt(facing)?.path == expected &&
-                        node.FlipGraphic(parms) == (facing == Rot4.West) &&
-                        node.Worker.GetFinalizedMaterial(node, parms) != null && node.GetMesh(parms) != null,
-                        node.Part + " resolves authored source and local side mirror for " + facing);
+                        node.Worker.GetFinalizedMaterial(node, parms) != null &&
+                        node.GetMesh(parms) != null &&
+                        MeshPool.GetMetaData(node.GetMesh(parms)).flipped == (facing == Rot4.West),
+                        node.Part + " resolves authored source and final mesh UV mirror for " + facing);
                     Vector3 scale = node.Worker.ScaleFor(node, parms);
                     Vector3 pivot;
                     Vector3 offset = node.Worker.OffsetFor(node, parms, out pivot);
@@ -4040,7 +4045,7 @@ namespace ZenithFrame.Tests
         {
             string report = ReportPath;
             phase = nextPhase;
-            GameDataSaveLoader.SaveGame("ZenithLifecycle");
+            GameDataSaveLoader.SaveGame(SmokeMode ? "ZenithSmoke" : "ZenithLifecycle");
             File.WriteAllLines(report, passed.Concat(new[] { "PASS phase complete; saved for fresh-process reload" }));
             finished = true;
             Application.Quit(0);

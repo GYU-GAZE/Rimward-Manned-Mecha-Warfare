@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir)
+param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
@@ -58,14 +58,22 @@ foreach ($expansion in Get-ChildItem "$runtime/Data" -Directory | Where-Object N
 $profile = Join-Path $repo "artifacts/$RunName"
 if (Test-Path $profile) { throw "Use a new RunName; profile already exists: $profile" }
 New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Null
+if ($Suite -eq 'Smoke') { Set-Content "$profile/smoke-suite.txt" 'manual-qa-regressions' }
 @'
 <ModsConfigData><version>1.6.4871</version><activeMods><li>brrainz.harmony</li><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
 '@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-foreach ($phase in 0..46) {
-    if ($phase -gt 0) { Copy-Item "$profile/Saves/ZenithLifecycle.rws" "$profile/Saves/Autostart.rws" -Force }
+if ($Suite -eq 'Smoke') { $lastPhase = 2; $saveName = 'ZenithSmoke'; $reportPrefix = 'smoke-phase-' }
+else { $lastPhase = 46; $saveName = 'ZenithLifecycle'; $reportPrefix = 'phase-' }
+if ($EndPhase -eq -1) { $EndPhase = $lastPhase }
+if ($StartPhase -lt 0 -or $EndPhase -gt $lastPhase -or $StartPhase -gt $EndPhase) { throw 'Invalid phase range for selected suite' }
+if ($StartPhase -gt 0 -and !(Test-Path -LiteralPath $SeedSave -PathType Leaf)) { throw 'A saved input from the preceding phase is required with -SeedSave' }
+$phases = $StartPhase..$EndPhase
+foreach ($phase in $phases) {
+    if ($phase -eq $StartPhase -and $StartPhase -gt 0) { Copy-Item -LiteralPath $SeedSave "$profile/Saves/Autostart.rws" -Force }
+    elseif ($phase -gt 0) { Copy-Item "$profile/Saves/$saveName.rws" "$profile/Saves/Autostart.rws" -Force }
     # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
     # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.
     # A minimized window keeps a real Unity window/event loop without interrupting
@@ -83,14 +91,17 @@ foreach ($phase in 0..46) {
     }
     $process.WaitForExit()
     Write-Host "Phase $phase process exit: $($process.ExitCode)"
-    $report = "$profile/phase-$phase.txt"
+    $report = "$profile/$reportPrefix$phase.txt"
     if (!(Test-Path $report)) { throw "Runtime exited without a report; inspect $profile/Player-$phase.log" }
     Get-Content $report
     if ((Get-Content $report -Raw) -match '(?m)^FAIL ' -or $process.ExitCode -ne 0) { throw "Phase $phase failed" }
     $runtimeErrors = Select-String -Path "$profile/Player-$phase.log" -Pattern 'Exception|Config error|Could not resolve|XML error|Error while|Error in|Could not execute|Could not load asset bundle'
     if ($runtimeErrors) { throw "Runtime log contains errors: $($runtimeErrors.Line -join [Environment]::NewLine)" }
+    if ($Suite -eq 'Smoke' -and $phase -lt $lastPhase) {
+        Copy-Item "$profile/Saves/$saveName.rws" "$profile/Saves/SeedForPhase-$($phase + 1).rws" -Force
+    }
 }
-Write-Host "PASS live lifecycle suite: $profile"
+Write-Host "PASS live $Suite phases $StartPhase..$EndPhase : $profile"
 
 
 

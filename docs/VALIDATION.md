@@ -1,5 +1,24 @@
 # MVP validation status
 
+## Focused development workflow (manual-QA stabilization)
+
+Use the focused live suite during implementation. It runs three fresh RimWorld processes, with related assertions grouped inside each process. The full 47-phase Core and DLC suites remain available for milestone or release validation; ability matrices remain available for changes to abilities or VEF/VPE integration. Do not run those expensive suites as the default edit/build loop. A Core-only change does not require Full DLC by default.
+
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke
+```
+
+The named smoke phases are `0` (rendering, boarding, two-colonist colony state), `1` (embarked save/load, disembark, emergency ejection, repair, start module installation), and `2` (mid-service save/load, installation completion, removal). To run one phase, use `-StartPhase N -EndPhase N`. Phases 1 and 2 require `-SeedSave` pointing to the preceding phase's saved input. Successful smoke runs keep `SeedForPhase-1.rws` and `SeedForPhase-2.rws` in their disposable `Saves` folder so any one phase can be repeated without rerunning earlier phases. For example:
+
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke -StartPhase 0 -EndPhase 0
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke -StartPhase 1 -EndPhase 1 -SeedSave 'artifacts/<previous-smoke-profile>/Saves/SeedForPhase-1.rws'
+```
+
+Use a unique `-RunName` per attempt. A phase report and `Player-N.log` in its disposable profile are the evidence. Re-run a failed focused phase with its unchanged saved input before attributing a one-off scheduler or AI timeout to production code. Full Core is `-Suite Core` or the default invocation. `-WithInstalledExpansions` adds installed official DLC for an actual DLC-sensitive path.
+
+The smoke suite checks final mesh UV orientation, authored side material, stationary module mutation, pilot load-ID uniqueness in map/world/ColonistBar tracking, the two-colonist Man in Black and game-over case, boarding duration, repair mechanics and active work feedback, and real module-service work across fresh-process save/load. Human QA still has to judge the visible sprite, effect, sound, and on-screen bars.
+
 ## Validated Frame body, damage and pilot trauma
 
 Branch: `feat/frame-body-pilot-trauma`

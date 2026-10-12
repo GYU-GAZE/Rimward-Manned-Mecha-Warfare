@@ -120,12 +120,15 @@ Preserve working lifecycle code while changing the control layer.
 
 Compilation is not completion.
 
+During implementation, run the named focused smoke phases for the affected subsystem first. The full Core, full DLC, and ability matrices are milestone or release gates, not the default inner loop. Run DLC or ability matrices only when the changed path warrants them. Keep all existing suites available; see `docs/VALIDATION.md` for focused phase selection.
+
 Run, where available:
 
 ```powershell
 ./scripts/Build.ps1 -RimWorldDir PATH -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir PATH
 dotnet run --project Tests/Policy -c Release
+./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Smoke
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
 ./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH
