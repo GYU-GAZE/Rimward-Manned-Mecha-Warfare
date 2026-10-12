@@ -102,9 +102,6 @@ namespace ZenithFrame
                 if (!(gizmo is Command_Ability)) yield return gizmo;
 
             if (Faction != Faction.OfPlayer || !Spawned || !Cockpit.HasPilot) yield break;
-            yield return new Command_Action { defaultLabel = "Disembark", defaultDesc = "Safely return the pilot to the map.", icon = TexCommand.Install,
-                action = () => { if (!Cockpit.TryDisembark()) Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false); } };
-
             if (Cockpit.CanTakePlayerOrders && abilities != null)
             {
                 foreach (Ability ability in abilities.AllAbilitiesForReading)

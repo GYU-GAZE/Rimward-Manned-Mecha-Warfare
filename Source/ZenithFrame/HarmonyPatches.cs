@@ -123,9 +123,8 @@ namespace ZenithFrame
     }
 
     // CanTakeOrder is intentionally broader than the set of actions a Frame
-    // should receive. Keep the ordinary Pawn move/attack providers, but do not
-    // accidentally turn a Frame into a worker that can equip, haul, tend, open,
-    // rescue, trade, or perform other colonist right-click jobs.
+    // should receive. Rescue/capture use their exact vanilla providers; manual
+    // hauling and self-disembark use narrow Frame-only providers.
     [HarmonyPatch(typeof(FloatMenuOptionProvider), nameof(FloatMenuOptionProvider.SelectedPawnValid))]
     internal static class Patch_FloatMenuOptionProvider_SelectedPawnValid_Frame
     {
@@ -134,11 +133,15 @@ namespace ZenithFrame
             if (!(pawn is FramePawn))
                 return;
 
-            bool ordinaryCombatProvider =
+            bool allowed =
                 __instance is FloatMenuOptionProvider_DraftedMove ||
-                __instance is FloatMenuOptionProvider_DraftedAttack;
+                __instance is FloatMenuOptionProvider_DraftedAttack ||
+                __instance is FloatMenuOptionProvider_RescuePawn ||
+                __instance is FloatMenuOptionProvider_CapturePawn ||
+                __instance is FloatMenuOptionProvider_FrameHaul ||
+                __instance is FloatMenuOptionProvider_FrameDisembark;
 
-            __result = __result && ordinaryCombatProvider;
+            __result = __result && allowed;
         }
     }
 
