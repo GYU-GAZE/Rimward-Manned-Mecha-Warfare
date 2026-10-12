@@ -107,8 +107,9 @@ namespace ZenithFrame.Tests
         private readonly List<string> passed = new List<string>();
         public LifecycleSuite(Game game) { }
         private bool SmokeMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "smoke-suite.txt"));
+        private bool RepairMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "repair-suite.txt"));
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath,
-            (SmokeMode ? "smoke-phase-" : "phase-") + phase + ".txt");
+            (RepairMode ? "repair-phase-" : SmokeMode ? "smoke-phase-" : "phase-") + phase + ".txt");
         public override void ExposeData()
         {
             Scribe_Values.Look(ref phase, "testPhase");
@@ -221,6 +222,7 @@ namespace ZenithFrame.Tests
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
                     throw new TimeoutException("Phase " + phase + " step " + step + DiagnosticState());
+                if (RepairMode) return;
                 if (SmokeMode) SmokeUpdate();
                 else if (phase == 0) BeforeSave();
                 else if (phase == 1) AfterLoad();

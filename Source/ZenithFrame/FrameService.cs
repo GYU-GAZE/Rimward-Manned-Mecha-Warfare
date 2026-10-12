@@ -76,7 +76,10 @@ namespace ZenithFrame
             else if (Frame.Drafted) reason = "Drafted Frames cannot be serviced.";
             else if (Frame.pather?.Moving == true) reason = "Moving Frames cannot be serviced.";
             else if (Frame.stances?.FullBodyBusy == true) reason = "Busy Frames cannot be serviced.";
-            else if (Frame.CurJob != null && Frame.CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob)
+            // Vanilla may replace our idle job with a passive wait while the Frame is downed.
+            else if (Frame.CurJob != null && Frame.CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob &&
+                !(Frame.Downed && (Frame.CurJob.def == JobDefOf.Wait_MaintainPosture ||
+                    Frame.CurJob.def == JobDefOf.Wait_Downed)))
                 reason = "Frame must be idle before service begins.";
             else if (IsServiceLocked) reason = "Frame is already being serviced.";
             return reason == null;

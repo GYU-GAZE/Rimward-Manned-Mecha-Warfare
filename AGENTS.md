@@ -120,15 +120,16 @@ Preserve working lifecycle code while changing the control layer.
 
 Compilation is not completion.
 
-During implementation, run the named focused smoke phases for the affected subsystem first. The full Core, full DLC, and ability matrices are milestone or release gates, not the default inner loop. Run DLC or ability matrices only when the changed path warrants them. Keep all existing suites available; see `docs/VALIDATION.md` for focused phase selection.
+Focused affected-subsystem validation is the normal task completion gate. For a small bugfix or feature, run only the relevant focused phase or standalone subsystem test; do not replay unrelated historical phases. A full Core, full DLC, or ability-matrix run requires an explicit reason before launch: a major lifecycle/architecture milestone, release validation, direct user request, or a concrete broad cross-system regression risk. A successful build alone is not enough. Preserve all broad suites for those justified occasions; see `docs/VALIDATION.md` for focused selection.
 
-Run, where available:
+Available commands, selected by affected subsystem rather than run as a checklist:
 
 ```powershell
 ./scripts/Build.ps1 -RimWorldDir PATH -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir PATH
 dotnet run --project Tests/Policy -c Release
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Smoke
+./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Repair
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
 ./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH
@@ -137,6 +138,6 @@ dotnet run --project Tests/Policy -c Release
 ./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -VEFDir VEF_PATH -VPEDir VPE_PATH
 ```
 
-A manually discovered bug should become an automated regression test when practical.
+A manually discovered behavioral bug should become a focused automated regression test when practical. A pure data/content edit does not need a new automated test unless it meaningfully protects behavior.
 
 Do not claim the current branch is validated until its own build/live suite has actually run. Historical results from `feat/mvp-pilot-lifecycle` do not validate later control/Harmony changes.

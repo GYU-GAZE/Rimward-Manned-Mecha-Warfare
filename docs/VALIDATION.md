@@ -2,7 +2,15 @@
 
 ## Focused development workflow (manual-QA stabilization)
 
-Use the focused live suite during implementation. It runs three fresh RimWorld processes, with related assertions grouped inside each process. The full 47-phase Core and DLC suites remain available for milestone or release validation; ability matrices remain available for changes to abilities or VEF/VPE integration. Do not run those expensive suites as the default edit/build loop. A Core-only change does not require Full DLC by default.
+Focused affected-subsystem validation is the normal completion gate. For ordinary bugfixes and small features, run only the relevant focused phase or standalone subsystem test. Do not replay unrelated lifecycle phases. Full Core, full DLC, and ability matrices are expensive broad-regression tools, reserved for major lifecycle/architecture milestones, release validation, an explicit user request, or a concrete cross-system risk. State the reason before launching a full suite. Preserve the broad suites; their availability does not make them a routine gate.
+
+The standalone repair regression uses one fresh RimWorld process and repeats player-forced WorkGiver repairs of a Frame downed by repairable leg injuries while Helmet, Shoulder, and shield Offhand are installed. It checks that the worker keeps the job and service lock as the Frame stands up and as individual injuries finish, then verifies an explicit interruption separately:
+
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Repair
+```
+
+The three-phase smoke suite below is for changes that affect its rendering, boarding, ownership, repair, and module-service paths together. Select only a relevant phase for narrower changes.
 
 ```powershell
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke
