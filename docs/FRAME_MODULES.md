@@ -4,7 +4,7 @@
 
 The machine is displayed as `Chassis`, `Head`, `Shoulder`, `Primary Weapon`, `Offhand`, `Utility`, and `Power`. Chassis is the `FramePawn` itself and is read-only. The development chassis provides one slot for each of the other six categories. `Weapon=0`, `Utility=1`, and `Power=2` remain save-compatible enum values; `Head=3`, `Shoulder=4`, and `Offhand=5` are appended.
 
-Weapon is owned only by the normal equipment tracker. Utility, Power, Head, Shoulder, and Offhand each use a dedicated `ThingOwner`. `FramePawn` explicitly includes the cockpit and loadout in its `IThingHolder` traversal, so maps, world pawns, save/load, cleanup, hacking, and destruction see every nested object exactly once. Empty slots have independent initialized state and are valid persistent configurations.
+Weapon is owned only by the normal equipment tracker. Utility, Power, Head, Shoulder, and Offhand each use a dedicated `ThingOwner`. Vanilla `ThingOwnerUtility.AppendThingHoldersFromThings` already includes the cockpit and loadout comps when a map or world owner traverses the Frame. `FramePawn` must not add those comps again in `GetChildHolders`: doing so counted the same embarked pilot twice in `MapPawns.AllPawnsUnspawned` and the ColonistBar. Direct inspection of module ownership starts from `frame.Loadout`. Empty slots have independent initialized state and are valid persistent configurations.
 
 ## Effects and mounts
 

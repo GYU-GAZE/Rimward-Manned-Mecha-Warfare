@@ -1,22 +1,18 @@
-using System.Collections.Generic;
 using Verse;
 using UnityEngine;
 
 namespace ZenithFrame
 {
-    public sealed partial class FramePawn : Pawn, IThingHolder
+    // Map/world ThingOwner traversal already visits every IThingHolder comp on a
+    // ThingWithComps. Adding the same comps in Pawn.GetChildHolders visits the
+    // contained pilot twice in MapPawns and the ColonistBar.
+    public sealed partial class FramePawn : Pawn
     {
         public CompPilotableMech Cockpit => GetComp<CompPilotableMech>();
         public CompFrameLoadout Loadout => GetComp<CompFrameLoadout>();
         public CompFrameRecovery Recovery => GetComp<CompFrameRecovery>();
         public CompFrameHacking Hacking => GetComp<CompFrameHacking>();
         public CompFrameService Service => GetComp<CompFrameService>();
-        public new void GetChildHolders(List<IThingHolder> outChildren)
-        {
-            base.GetChildHolders(outChildren);
-            if (Cockpit != null) outChildren.Add(Cockpit);
-            if (Loadout != null) outChildren.Add(Loadout);
-        }
         public override void Kill(DamageInfo? dinfo, Hediff exactCulprit = null)
         {
             Cockpit?.EmergencyEject();
