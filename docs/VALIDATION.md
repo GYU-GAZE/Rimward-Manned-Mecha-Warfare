@@ -893,3 +893,32 @@ One Core hostile-melee phase initially timed out while vanilla AI remained in a 
 The SDK records the current Git commit in each assembly's informational version. Consequently the release DLL hashes are produced after the final documentation commit and are reported with the published branch rather than embedded self-referentially in this file.
 
 Focused manual gameplay QA is maintained in `docs/FRAME_MODULES.md`. Modular rendering and livery remain explicitly deferred.
+
+## Validated Modular Frame Rendering milestone
+
+Branch: `feat/frame-modular-rendering`, based on published `feat/frame-modular-anatomy` at `a98e493f78b5568aca582c67fc4b6d643d8e26f7`. `main` was left at `cc34af14c69e03194a2ee390e0375b65f911d15a` during implementation.
+
+Executed 2026-10-11 against RimWorld 1.6.4871. Installed `Version.txt` reports rev590; the real game logs report rev591. Harmony metadata declares 2.4.2.0 and its loaded `Current/Assemblies/0Harmony.dll` reports file version 2.4.1.0. The installed VEF and VPE metadata contain no `modVersion`; their RimWorld 1.6 assemblies report file versions 1.1.9.0 and 1.1.0.0 respectively.
+
+| Layer | Result |
+|---|---|
+| Release Core and VEF compatibility builds | PASS, 0 warnings, 0 errors |
+| Pure eligibility and direction policy | PASS, 148 cases (144 eligibility, 4 rotations) |
+| XML/static/package/PNG checks | PASS, 363 checks |
+| Source-to-repository PNG identity | PASS, 12 SHA-256 matches, 1024x1024 RGBA with transparent corners |
+| Live Core + Harmony lifecycle | PASS, 955 `PASS` records, 47 fresh processes, 46 save/load transitions |
+| Live Core + Harmony + all installed official expansions | PASS, 954 `PASS` records, 47 fresh processes, 46 save/load transitions |
+| Rendering phases 45-46 | PASS, 47 substantive visual assertions plus two phase-completion records in each lifecycle profile |
+| Ability matrix A: Core + Harmony | PASS, 42 records, 4 fresh processes, 3 save/load transitions |
+| Ability matrix B: all installed official expansions | PASS, 55 records, 4 fresh processes, 3 save/load transitions |
+| Ability matrix C: expansions + real VEF | PASS, 70 records, 4 fresh processes, 3 save/load transitions |
+| Ability matrix D: expansions + real VEF + real VPE | PASS, 84 records, 4 fresh processes, 3 save/load transitions |
+| Independently audited winning runtime logs | PASS, 110 logs with no exception/config/XML/reference/asset-loading errors |
+
+The new native Pawn render tree resolves Torso, intrinsic chassis Head, physical Helmet, and physical Shoulder from one shared 1024x1024 canvas, `Graphic_Single` materials, world draw size 2, and zero per-layer positional offsets. The authored Sides view faces East; West flips that source locally. The vanilla carried/equipment node remains the only Primary Weapon drawing path. Runtime assertions exercise all four rotations and loaded materials/meshes, exact module identity, power deficit, Helmet removal/reinstallation, missing/reconstructed Head, downing, opposite-facing Frames, corpse transition, and fresh-process save/load. Source art names and all twelve repository mappings are recorded in `FRAME_ART_TEMPLATE.md`. No render-specific Harmony patch was added.
+
+The first Core raid phase 9 failed once when vanilla AI timing did not satisfy the hacking assertion; an unchanged rerun of the identical save passed. The first DLC ability-AI phase 18 likewise failed its target-damage deadline; its unchanged same-save rerun passed. Earlier candidate phase 34 exposed a too-short test timeout for a real slower undocked Construction worker and passed after extending only that fixture's deadline. The service fixture's all-items stockpile could fill before the outgoing Weapon was hauled; it now reserves valid nearby cells. In DLC phase 37 an unrelated Weapon was legitimately held by a `Pawn_CarryTracker` during automated hauling, so the identity assertion now accepts that authoritative physical owner. Failed attempts remain in their profiles under `first-fail` names and are excluded from the 110 clean-log claim.
+
+Retained passing profiles: `artifacts/frame-render-final-core`, `artifacts/frame-render-final-dlc`, and `artifacts/frame-render-abilities-{a,b,c,d}`. The SDK embeds the current Git commit in assembly informational versions; final DLL SHA-256 values are produced after the final documentation commit and reported with the published branch rather than embedded here.
+
+Automated checks establish state, ownership, selected texture paths, mirroring, loaded materials, scale, offsets, and runtime asset loading. Human eyes are still needed to judge proportion, seams, shadows, silhouette readability, and equipment overlap in the actual game window. The focused manual checklist is in `FRAME_RENDERING.md`. Livery and damaged-art variants remain deferred.

@@ -43,7 +43,10 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - Weapon remains exclusively in Pawn equipment; Utility, Power, Head, Shoulder, and Offhand remain in dedicated physical `ThingOwner`s; removed modules stay exact physical Things and use same-worker Dock storage hauling when possible
 - module Hediffs are derived projections reconciled from installed Things; passive effects need a valid structural mount and powered effects also need the global static addon budget
 - module-granted ability state belongs to the exact module Thing, never the pilot or permanent chassis tracker; rebinding changes only its current Frame caster
-- Chassis is not an addon category, modular rendering and livery are deferred, and enum values `Weapon=0`, `Utility=1`, `Power=2` are save compatibility contracts
+- Chassis is not an addon category; enum values `Weapon=0`, `Utility=1`, `Power=2` are save compatibility contracts
+- Frame rendering composes chassis Torso + intrinsic Head, then optional physical Helmet (gameplay Head slot) and Shoulder; Head damage does not destroy an installed Helmet Thing
+- Body art uses one uncropped transparent 1024x1024 canvas per layer, South/Sides/North exports, one authored East-facing Sides source mirrored locally for West, one shared draw size and no per-module offsets
+- Visual presence follows exact installation and structural mount validity, never addon power; primary Weapon stays in ordinary equipment rendering; Offhand/Utility/Power body art and livery remain deferred
 
 ### Frames are NOT Biotech mechs
 

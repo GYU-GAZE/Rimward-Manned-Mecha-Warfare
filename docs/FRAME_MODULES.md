@@ -35,7 +35,7 @@ Frame weapons remain normal physical equipment for storage and hauling. Narrow `
 
 ## Rendering boundary
 
-This milestone contains no module drawing. Head and Shoulder overlays, weapon anchors, per-rotation sockets, asymmetrical layers, color masks, and livery belong to Modular Frame Rendering and Frame Livery.
+Modular rendering now maps the physical Head-slot item as a Helmet overlay and the physical Shoulder item as a Shoulder overlay. The intrinsic chassis Head remains separate and belongs to the Frame Def. Structural mounts control visual availability; power deficits leave physically installed modules visible. Weapon anchors, color masks, and livery remain deferred. See `FRAME_RENDERING.md` and `FRAME_ART_TEMPLATE.md`.
 
 ## Focused manual QA
 

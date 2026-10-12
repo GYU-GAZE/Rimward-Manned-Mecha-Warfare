@@ -294,3 +294,7 @@ Frame-only health patches suppress vanilla lethal injury accumulation, generic l
 Resolved Cockpit injury transfers the chassis definition's fraction to the exact pilot through normal `Pawn.TakeDamage`. Cockpit health ticking calls only the contained pilot's `Pawn_HealthTracker.HealthTick`. Downed and Kill transitions eject the pilot immediately; vanilla then owns map downing, rescue, capture, medical care, and corpse creation.
 
 Embarked self-tend is a Frame job with exact pilot and carried-medicine targets. The pilot supplies MedicalTendSpeed, Medicine XP, wound state, and normal `TendUtility`; map medicine is never searched. See `docs/FRAME_DAMAGE_MODEL.md` for the complete contract and QA sequence.
+
+## Modular Frame rendering
+
+The Frame race points to `ZF_FrameModular`, a native Pawn render tree with dedicated Torso, intrinsic Head, Helmet, and Shoulder nodes plus vanilla carried/equipment drawing. The chassis Def owns Torso and intrinsic Head visuals; the exact Head-slot and Shoulder Things own their overlay definitions. The real Head Assembly and `IsMountValid` determine structural availability. Power never hides a physical overlay. All four layers share a 1024x1024 transparent export canvas, one draw size and origin, and one Sides texture mirrored locally for West. No render-specific Harmony patch or serialized visual inventory exists. See `docs/FRAME_RENDERING.md`.
