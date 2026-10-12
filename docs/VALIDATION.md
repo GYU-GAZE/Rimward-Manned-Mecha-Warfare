@@ -4,6 +4,14 @@
 
 Focused affected-subsystem validation is the normal completion gate. For ordinary bugfixes and small features, run only the relevant focused phase or standalone subsystem test. Do not replay unrelated lifecycle phases. Full Core, full DLC, and ability matrices are expensive broad-regression tools, reserved for major lifecycle/architecture milestones, release validation, an explicit user request, or a concrete cross-system risk. State the reason before launching a full suite. Preserve the broad suites; their availability does not make them a routine gate.
 
+The livery proof uses one disposable RimWorld process and performs its save/load in that same process:
+
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Livery -RunName 'livery-unique-name'
+```
+
+It checks two physical Frames with separate masked materials, all facings and body layers, stationary paint changes, module and pilot changes, down/repair and save/load. The final human pass still judges the actual colors and fixed details on screen.
+
 The standalone repair regression uses one fresh RimWorld process and repeats player-forced WorkGiver repairs of a Frame downed by repairable leg injuries while Helmet, Shoulder, and shield Offhand are installed. It checks that the worker keeps the job and service lock as the Frame stands up and as individual injuries finish, then verifies an explicit interruption separately:
 
 ```powershell

@@ -108,6 +108,7 @@ namespace ZenithFrame.Tests
         public LifecycleSuite(Game game) { }
         private bool SmokeMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "smoke-suite.txt"));
         private bool RepairMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "repair-suite.txt"));
+        private bool LiveryMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "livery-suite.txt"));
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath,
             (RepairMode ? "repair-phase-" : SmokeMode ? "smoke-phase-" : "phase-") + phase + ".txt");
         public override void ExposeData()
@@ -216,6 +217,7 @@ namespace ZenithFrame.Tests
         }
         public override void GameComponentUpdate()
         {
+            if (LiveryMode) return;
             if (finished || pendingGuiAction != null || Current.ProgramState != ProgramState.Playing || Find.CurrentMap == null || LongEventHandler.ShouldWaitForEvent) return;
             try
             {

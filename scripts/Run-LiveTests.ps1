@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke','Repair')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
+param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke','Repair','Livery')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
@@ -60,13 +60,15 @@ if (Test-Path $profile) { throw "Use a new RunName; profile already exists: $pro
 New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Null
 if ($Suite -eq 'Smoke') { Set-Content "$profile/smoke-suite.txt" 'manual-qa-regressions' }
 if ($Suite -eq 'Repair') { Set-Content "$profile/repair-suite.txt" 'repair-persistence' }
+if ($Suite -eq 'Livery') { Set-Content "$profile/livery-suite.txt" 'frame-livery' }
 @'
 <ModsConfigData><version>1.6.4871</version><activeMods><li>brrainz.harmony</li><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
 '@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-if ($Suite -eq 'Repair') { $lastPhase = 0; $saveName = 'ZenithRepair'; $reportPrefix = 'repair-phase-' }
+if ($Suite -eq 'Livery') { $lastPhase = 0; $saveName = 'ZenithLivery'; $reportPrefix = 'livery-phase-' }
+elseif ($Suite -eq 'Repair') { $lastPhase = 0; $saveName = 'ZenithRepair'; $reportPrefix = 'repair-phase-' }
 elseif ($Suite -eq 'Smoke') { $lastPhase = 2; $saveName = 'ZenithSmoke'; $reportPrefix = 'smoke-phase-' }
 else { $lastPhase = 46; $saveName = 'ZenithLifecycle'; $reportPrefix = 'phase-' }
 if ($EndPhase -eq -1) { $EndPhase = $lastPhase }

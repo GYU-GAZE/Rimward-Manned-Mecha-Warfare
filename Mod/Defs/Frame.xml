@@ -54,6 +54,7 @@
     </tools>
     <comps>
       <li Class="ZenithFrame.CompProperties_PilotableMech" />
+      <li Class="ZenithFrame.CompProperties_FrameLivery" />
       <li Class="ZenithFrame.CompProperties_FrameLoadout">
         <weaponCapacity>1</weaponCapacity>
         <utilityCapacity>1</utilityCapacity>

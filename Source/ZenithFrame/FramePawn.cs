@@ -13,6 +13,7 @@ namespace ZenithFrame
         public CompFrameRecovery Recovery => GetComp<CompFrameRecovery>();
         public CompFrameHacking Hacking => GetComp<CompFrameHacking>();
         public CompFrameService Service => GetComp<CompFrameService>();
+        public CompFrameLivery Livery => GetComp<CompFrameLivery>();
         public override void Kill(DamageInfo? dinfo, Hediff exactCulprit = null)
         {
             Cockpit?.EmergencyEject();

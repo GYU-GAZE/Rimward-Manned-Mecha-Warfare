@@ -102,6 +102,8 @@ namespace ZenithFrame
         private Graphic southGraphic;
         private Graphic sidesGraphic;
         private Graphic northGraphic;
+        private Color loadedPrimary;
+        private Color loadedSecondary;
 
         public FrameVisualPart Part => ((FrameRenderNodeProperties)Props).visualPart;
 
@@ -123,17 +125,22 @@ namespace ZenithFrame
             if (northGraphic != null) yield return northGraphic;
         }
 
-        private static Graphic Load(string path) => path.NullOrEmpty() ? null :
-            GraphicDatabase.Get<Graphic_Single>(path, ShaderDatabase.Cutout, Vector2.one, Color.white);
+        private static Graphic Load(string path, Color primary, Color secondary) => path.NullOrEmpty() ? null :
+            GraphicDatabase.Get<Graphic_Single>(path, ShaderDatabase.CutoutComplex, Vector2.one, primary, secondary);
 
         private void RefreshGraphics()
         {
-            FrameVisualSet source = FrameVisualRules.Source(tree.pawn as FramePawn, Part);
-            if (ReferenceEquals(source, loadedVisualSet)) return;
+            FramePawn frame = tree.pawn as FramePawn;
+            FrameVisualSet source = FrameVisualRules.Source(frame, Part);
+            Color primary = frame?.Livery?.Primary ?? Color.white;
+            Color secondary = frame?.Livery?.Secondary ?? Color.white;
+            if (ReferenceEquals(source, loadedVisualSet) && loadedPrimary == primary && loadedSecondary == secondary) return;
             loadedVisualSet = source;
-            southGraphic = Load(source?.south);
-            sidesGraphic = Load(source?.sides);
-            northGraphic = Load(source?.north);
+            loadedPrimary = primary;
+            loadedSecondary = secondary;
+            southGraphic = Load(source?.south, primary, secondary);
+            sidesGraphic = Load(source?.sides, primary, secondary);
+            northGraphic = Load(source?.north, primary, secondary);
         }
 
         public Graphic GraphicAt(Rot4 facing)

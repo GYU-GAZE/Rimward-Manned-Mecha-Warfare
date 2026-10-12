@@ -46,7 +46,8 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - Chassis is not an addon category; enum values `Weapon=0`, `Utility=1`, `Power=2` are save compatibility contracts
 - Frame rendering composes chassis Torso + intrinsic Head, then optional physical Helmet (gameplay Head slot) and Shoulder; Head damage does not destroy an installed Helmet Thing
 - Body art uses one uncropped transparent 1024x1024 canvas per layer, South/Sides/North exports, one authored East-facing Sides source mirrored locally for West, one shared draw size and no per-module offsets
-- Visual presence follows exact installation and structural mount validity, never addon power; primary Weapon stays in ordinary equipment rendering; Offhand/Utility/Power body art and livery remain deferred
+- Visual presence follows exact installation and structural mount validity, never addon power; primary Weapon stays in ordinary equipment rendering; Offhand/Utility/Power body art remains deferred
+- Frame-wide livery colors belong to the physical chassis comp and feed only the four masked body layers; never copy them to pilots or modules, recolor equipped weapons, or mutate shared Graphic/Material instances
 
 ### Frames are NOT Biotech mechs
 

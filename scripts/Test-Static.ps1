@@ -247,15 +247,24 @@ Assert-Static ($boardingDuration -eq 300 -and $serviceCode -match 'dockingSpeedM
 $dlls = @(Get-ChildItem "$repo/artifacts/ZenithFrame/Assemblies" -Filter '*.dll')
 Assert-Static ($dlls.Count -eq 1 -and $dlls[0].Name -eq 'ZenithFrame.dll') 'Release contains unexpected runtime assemblies'
 $renderCode = Get-Content "$repo/Source/ZenithFrame/FrameRendering.cs" -Raw
+$liveryCode = Get-Content "$repo/Source/ZenithFrame/FrameLivery.cs" -Raw
 $renderDef = [xml](Get-Content "$repo/Mod/Defs/FrameRendering.xml" -Raw)
 Assert-Static ($frameDef.race.renderTree -eq 'ZF_FrameModular' -and $renderDef.Defs.PawnRenderTreeDef.defName -eq 'ZF_FrameModular') 'Debug Frame must use its own native Pawn render tree'
 Assert-Static ($frame.Defs.PawnKindDef.lifeStages.li.bodyGraphicData.texPath -ne 'Things/Pawn/Mechanoid/Lancer' -and $frameDef.description -notmatch 'lancer') 'Debug Frame must not retain the visible Lancer placeholder'
 Assert-Static ($renderCode -match 'InstalledHead' -and $renderCode -match 'InstalledShoulder' -and $renderCode -match 'IsMountValid' -and $renderCode -match 'HeadState' -and $renderCode -notmatch 'IsModulePowered|HasSufficientAddonPower') 'Body overlays must follow exact physical modules and structural mounts rather than power'
 Assert-Static ($renderCode -notmatch 'Scribe_|OffsetForChassis|OffsetForHelmet|Texture2D\s*\(' -and $renderCode -match 'PawnRenderNodeWorker_Body') 'Frame rendering must remain derived, layer-based and native'
+Assert-Static (@($frameDef.comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLivery').Count -eq 1 -and
+    $liveryCode -match 'Scribe_Values\.Look\(ref primary' -and $liveryCode -match 'Scribe_Values\.Look\(ref secondary' -and
+    $liveryCode -match 'SetAllGraphicsDirty\(\)') 'One physical Frame comp must own both saved colors and invalidate native graphics'
+Assert-Static ($renderCode -match 'ShaderDatabase\.CutoutComplex' -and $renderCode -match 'GraphicDatabase\.Get<Graphic_Single>' -and
+    $renderCode -match 'frame\?\.Livery\?\.Primary' -and $renderCode -match 'frame\?\.Livery\?\.Secondary' -and
+    $renderCode -notmatch '\.MatSingle\.color\s*=|\.colorTwo\s*=') 'Body layers must request native per-color masked Graphics without mutating shared materials'
+Assert-Static ($heavyWeapon[0].graphicData.drawSize -eq '(2.5,2.5)' -and !$rifleDef.graphicData.drawSize) 'Livery must not change the normal or oversized weapon scale'
 $parts = @('Torso','Head','Helmet','Shoulder')
 $directions = @('South','Sides','North')
 $textures = "$repo/Mod/Textures/ZenithFrame/Frames/Debug/TestFrame"
-Assert-Static (@(Get-ChildItem $textures -File -Filter '*.png').Count -eq 12) 'Test Frame must contain exactly twelve authored full-canvas PNGs'
+Assert-Static (@(Get-ChildItem $textures -File -Filter '*.png' | Where-Object BaseName -NotMatch '_m$').Count -eq 12 -and
+    @(Get-ChildItem $textures -File -Filter '*_m.png').Count -eq 12) 'Test Frame must contain twelve original canvases and twelve matching development masks'
 Add-Type -AssemblyName System.Drawing
 foreach ($part in $parts) {
     foreach ($direction in $directions) {
@@ -264,13 +273,34 @@ foreach ($part in $parts) {
         $bytes = [System.IO.File]::ReadAllBytes($file)
         Assert-Static ($bytes.Length -gt 33 -and [Convert]::ToHexString($bytes[0..7]) -eq '89504E470D0A1A0A' -and $bytes[25] -eq 6) "Invalid RGBA PNG: $file"
         $bitmap = [System.Drawing.Bitmap]::new($file)
+        $maskFile = Join-Path $textures "${part}_${direction}_m.png"
+        Assert-Static (Test-Path -LiteralPath $maskFile) "Missing Test Frame mask: $maskFile"
+        $maskBytes = [System.IO.File]::ReadAllBytes($maskFile)
+        Assert-Static ($maskBytes.Length -gt 33 -and [Convert]::ToHexString($maskBytes[0..7]) -eq '89504E470D0A1A0A' -and $maskBytes[25] -eq 6) "Invalid RGBA mask: $maskFile"
+        $mask = [System.Drawing.Bitmap]::new($maskFile)
         try {
             Assert-Static ($bitmap.Width -eq 1024 -and $bitmap.Height -eq 1024) "Wrong full-canvas size: $file"
             Assert-Static ($bitmap.GetPixel(0,0).A -eq 0 -and $bitmap.GetPixel(1023,0).A -eq 0 -and $bitmap.GetPixel(0,1023).A -eq 0 -and $bitmap.GetPixel(1023,1023).A -eq 0) "Opaque PNG background: $file"
-        } finally { $bitmap.Dispose() }
+            Assert-Static ($mask.Width -eq 1024 -and $mask.Height -eq 1024) "Wrong mask canvas size: $maskFile"
+            $red = 0; $green = 0; $alphaAligned = $true
+            for ($y=0; $y -lt 1024 -and $alphaAligned; $y+=8) {
+                for ($x=0; $x -lt 1024; $x+=8) {
+                    $sourcePixel = $bitmap.GetPixel($x,$y)
+                    $maskPixel = $mask.GetPixel($x,$y)
+                    if ($sourcePixel.A -ne $maskPixel.A) { $alphaAligned = $false; break }
+                    if ($maskPixel.R -eq 255 -and $maskPixel.G -eq 0 -and $maskPixel.B -eq 0) { $red++ }
+                    if ($maskPixel.R -eq 0 -and $maskPixel.G -eq 255 -and $maskPixel.B -eq 0) { $green++ }
+                }
+            }
+            Assert-Static $alphaAligned "Mask alpha drift in ${part}_${direction}"
+            Assert-Static ($red -gt 0 -and $green -gt 0) "Both paint channels must appear in ${part}_${direction}"
+        } finally { $bitmap.Dispose(); $mask.Dispose() }
         $releaseFile = Join-Path "$repo/artifacts/ZenithFrame/Textures/ZenithFrame/Frames/Debug/TestFrame" "${part}_${direction}.png"
+        $releaseMask = Join-Path "$repo/artifacts/ZenithFrame/Textures/ZenithFrame/Frames/Debug/TestFrame" "${part}_${direction}_m.png"
         Assert-Static ((Test-Path -LiteralPath $releaseFile) -and
             (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseFile -Algorithm SHA256).Hash) "Release texture differs from source copy: $file"
+        Assert-Static ((Test-Path -LiteralPath $releaseMask) -and
+            (Get-FileHash -LiteralPath $maskFile -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseMask -Algorithm SHA256).Hash) "Release mask differs from source copy: $maskFile"
     }
 }
 Write-Host "PASS: $checks XML/static/package checks"
