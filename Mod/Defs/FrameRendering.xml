@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <PawnRenderTreeDef>
+    <defName>ZF_FrameModular</defName>
+    <root Class="PawnRenderNodeProperties_Parent">
+      <debugLabel>Frame root</debugLabel><tagDef>Root</tagDef>
+      <children>
+        <li Class="ZenithFrame.FrameRenderNodeProperties">
+          <debugLabel>Frame torso</debugLabel><tagDef>Body</tagDef><visualPart>Torso</visualPart><baseLayer>0</baseLayer>
+          <children>
+            <li><debugLabel>Wounds</debugLabel><nodeClass>PawnRenderNode_AnimalPart</nodeClass><workerClass>PawnRenderNodeWorker_OverlayWounds</workerClass><overlayLayer>Body</overlayLayer><useGraphic>false</useGraphic><baseLayer>3</baseLayer></li>
+            <li><debugLabel>Firefoam</debugLabel><nodeClass>PawnRenderNode_AnimalPart</nodeClass><workerClass>PawnRenderNodeWorker_OverlayFirefoam</workerClass><overlayLayer>Body</overlayLayer><useGraphic>false</useGraphic><baseLayer>5</baseLayer></li>
+          </children>
+        </li>
+        <li Class="ZenithFrame.FrameRenderNodeProperties"><debugLabel>Intrinsic chassis head</debugLabel><tagDef>Head</tagDef><visualPart>Head</visualPart><baseLayer>1</baseLayer></li>
+        <li Class="ZenithFrame.FrameRenderNodeProperties"><debugLabel>Physical helmet</debugLabel><visualPart>Helmet</visualPart><baseLayer>2</baseLayer></li>
+        <li Class="ZenithFrame.FrameRenderNodeProperties"><debugLabel>Physical shoulder</debugLabel><visualPart>Shoulder</visualPart><baseLayer>3</baseLayer></li>
+        <li Class="PawnRenderNodeProperties_Carried"><debugLabel>Weapon/carried thing</debugLabel><workerClass>PawnRenderNodeWorker_Carried</workerClass></li>
+      </children>
+    </root>
+  </PawnRenderTreeDef>
+</Defs>

@@ -3,10 +3,15 @@
   <ThingDef ParentName="BasePawn">
     <defName>ZF_DebugFrame</defName>
     <label>debug Frame</label>
-    <description>Experimental humanoid pilotable Frame. Requires one colonist pilot. Board by selecting the pilot and right-clicking the Frame; once piloted, control it like a drafted pawn. Placeholder lancer art.</description>
+    <description>Experimental humanoid pilotable Frame. Requires one colonist pilot. Board by selecting the pilot and right-clicking the Frame; once piloted, control it like a drafted pawn.</description>
     <thingClass>ZenithFrame.FramePawn</thingClass>
     <modExtensions>
       <li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li>
+      <li Class="ZenithFrame.FrameChassisVisualExtension">
+        <worldDrawSize>2</worldDrawSize>
+        <torso><south>ZenithFrame/Frames/Debug/TestFrame/Torso_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Torso_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Torso_North</north></torso>
+        <head><south>ZenithFrame/Frames/Debug/TestFrame/Head_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Head_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Head_North</north></head>
+      </li>
       <li Class="ZenithFrame.FrameServiceExtension">
         <reconstructionMaterial>Steel</reconstructionMaterial>
         <reconstructionMaterialPerPartHp>0.1</reconstructionMaterialPerPartHp>
@@ -34,6 +39,7 @@
       <thinkTreeMain>ZF_FrameIdle</thinkTreeMain><thinkTreeConstant>ZF_FrameConstant</thinkTreeConstant>
       <hasGenders>false</hasGenders><needsRest>false</needsRest><foodType>None</foodType>
       <baseBodySize>1.5</baseBodySize><baseHealthScale>2</baseHealthScale><lifeExpectancy>2500</lifeExpectancy>
+      <renderTree>ZF_FrameModular</renderTree>
       <bloodDef>Filth_MachineBits</bloodDef>
       <lifeStageAges><li><def>MechanoidFullyFormed</def><minAge>0</minAge></li></lifeStageAges>
     </race>
@@ -72,7 +78,7 @@
   <PawnKindDef>
     <defName>ZF_DebugFrame</defName><label>debug Frame</label><race>ZF_DebugFrame</race><combatPower>150</combatPower>
     <abilities><li>ZF_DebugFrameOverdrive</li></abilities>
-    <lifeStages><li><bodyGraphicData><texPath>Things/Pawn/Mechanoid/Lancer</texPath><graphicClass>Graphic_Multi</graphicClass><drawSize>2</drawSize></bodyGraphicData></li></lifeStages>
+    <lifeStages><li><bodyGraphicData><texPath>ZenithFrame/Frames/Debug/TestFrame/Torso_South</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>2</drawSize></bodyGraphicData></li></lifeStages>
   </PawnKindDef>
   <ThinkTreeDef>
     <defName>ZF_FrameIdle</defName>
@@ -183,13 +189,19 @@
     <defName>ZF_DebugSensorHelmet</defName><label>debug sensor helmet</label><description>Development Head module whose powered sensor package improves the Frame's real Sight capacity.</description>
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Special/SubpersonaCoreTechprof</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>5</Mass><MarketValue>120</MarketValue></statBases>
-    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li></modExtensions>
+    <modExtensions>
+      <li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li>
+      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North</north></visual></li>
+    </modExtensions>
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_DebugShoulderSystem</defName><label>debug shoulder system</label><description>Development Shoulder module carrying its own persistent Shoulder Burst ability state.</description>
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>9</Mass><MarketValue>180</MarketValue></statBases>
-    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li></modExtensions>
+    <modExtensions>
+      <li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li>
+      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North</north></visual></li>
+    </modExtensions>
     <comps><li Class="ZenithFrame.CompProperties_FrameModuleAbility"><ability>ZF_DebugShoulderBurst</ability></li></comps>
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
