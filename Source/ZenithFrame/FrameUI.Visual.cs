@@ -107,59 +107,91 @@ namespace ZenithFrame
         }
     }
 
-    // Fixed visual composition. Every value is read from the selected physical
-    // Frame and its exact Thing/Pawn owners on each redraw.
+    // All measurements belong to this one tab; health and loadout values are
+    // read again from the selected physical Frame on every redraw.
     public sealed class ITab_FrameVisual : ITab
     {
+        public const float TabWidth = 620f;
+        public const float TabHeight = 520f;
+        public const float SlotSize = 78f;
+        public const float SlotCardWidth = 100f;
+        public const float SlotCardTop = 53f;
+        public const float PreviewSize = 170f;
+        public const float RowHeight = 23f;
+        private const float OuterMargin = 14f;
+        private const float PilotHeight = 103f;
+        private const float SlotStatusHeight = 20f;
+        private const float HeaderHeight = 40f;
+        private const float ColumnGap = 16f;
+        private static readonly Texture2D BleedingIcon =
+            ContentFinder<Texture2D>.Get("UI/Icons/Medical/Bleeding");
+
         public ITab_FrameVisual()
         {
             labelKey = "ZF_FrameTab";
-            size = new Vector2(720f, 570f);
+            size = new Vector2(TabWidth, TabHeight);
         }
 
         public override bool IsVisible => SelPawn is FramePawn;
+
+        protected override void UpdateSize()
+        {
+            // InspectTabBase positions this tab PaneTopY - 30 - size.y.
+            // Keep a small top margin at resolutions below the design height.
+            size = new Vector2(TabWidth, Mathf.Min(TabHeight, Mathf.Max(0f, PaneTopY - 38f)));
+        }
 
         protected override void FillTab()
         {
             FramePawn frame = SelPawn as FramePawn;
             if (frame == null) return;
             FrameUiSnapshot data = FrameUiSnapshot.From(frame);
-            DrawHeader(data, 16f, 8f);
-            DrawSlot(frame, FrameAddonCategory.Head, "Head", 30f, 55f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", 578f, 55f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", 30f, 183f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", 578f, 183f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", 30f, 311f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Power, "Power", 578f, 311f, data.IsReadOnly);
-            DrawPreviewAndColors(data, 215f, 70f);
-            DrawStatus(data, 215f, 293f);
-            DrawFrameIssues(data, 215f, 335f);
-            Widgets.DrawLineHorizontal(28f, 445f, 664f);
-            DrawPilot(data, 30f, 449f);
+            float rightX = size.x - OuterMargin - SlotCardWidth;
+            float centerX = OuterMargin + SlotCardWidth + ColumnGap;
+            float centerWidth = rightX - ColumnGap - centerX;
+            float mainBottom = size.y - PilotHeight - 10f;
+            float slotStep = (mainBottom - SlotCardTop) / 3f;
+            float slotSize = Mathf.Min(SlotSize, slotStep - 41f);
+            float previewSize = Mathf.Min(PreviewSize, mainBottom - 214f);
+            float previewY = HeaderHeight + 14f;
+            float conditionY = previewY + previewSize + 54f;
+
+            DrawHeader(data);
+            DrawSlot(frame, FrameAddonCategory.Head, "Head", OuterMargin, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", OuterMargin, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", OuterMargin, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", rightX, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", rightX, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Power, "Power", rightX, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
+            DrawPreviewAndColors(data, centerX + 18f, previewY, previewSize);
+            DrawStatus(data, centerX, previewY + previewSize + 7f, centerWidth);
+            DrawFrameIssues(data, centerX, conditionY, centerWidth, mainBottom - conditionY - 3f);
+            Widgets.DrawLineHorizontal(OuterMargin, mainBottom + 5f, size.x - OuterMargin * 2f);
+            DrawPilot(data, mainBottom + 6f);
         }
 
-        private static void DrawHeader(FrameUiSnapshot data, float x, float y)
+        private static void DrawHeader(FrameUiSnapshot data)
         {
-            Label(new Rect(x + 4f, y, 480f, 25f), data.Frame.LabelShortCap, GameFont.Medium);
-            if (data.CanRename && Widgets.ButtonText(new Rect(x + 550f, y, 125f, 28f), "Rename"))
+            Label(new Rect(18f, 5f, 430f, 30f), data.Frame.LabelShortCap, GameFont.Medium);
+            Label(new Rect(18f, 29f, 480f, 23f), data.Frame.def.LabelCap);
+            if (data.CanRename && Widgets.ButtonText(new Rect(TabWidth - 112f, 9f, 84f, 26f), "Rename"))
                 Find.WindowStack.Add(new Dialog_RenameFrame(data.Frame));
-            Label(new Rect(x + 4f, y + 25f, 580f, 18f), data.Frame.def.LabelCap);
         }
 
-        private static void DrawPreviewAndColors(FrameUiSnapshot data, float x, float y)
+        private static void DrawPreviewAndColors(FrameUiSnapshot data, float x, float y, float previewSize)
         {
-            Rect preview = new Rect(x, y, 208f, 218f);
+            Rect preview = new Rect(x, y, previewSize, previewSize);
             Widgets.DrawBoxSolid(preview, new Color(0.15f, 0.15f, 0.15f, 0.6f));
-            // Vanilla's cache renderer uses an orthographic camera of 1/zoom.
-            // The 3.5-world-unit chassis needs a wider UI camera than a human.
+            // Keep the 3.5-world-unit machine inside its UI portrait camera.
             GUI.DrawTexture(preview, PortraitsCache.Get(data.Frame, preview.size, Rot4.South,
                 cameraZoom: 0.43f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(preview);
             TooltipHandler.TipRegion(preview, "Current assembled Frame and livery");
-            DrawSwatch(data.Frame, FrameColorChannel.Primary, x + 222f, y + 17f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Secondary, x + 222f, y + 65f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Visor, x + 222f, y + 113f, data.IsReadOnly);
-            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(x + 222f, y + 173f, 110f, 27f), "Reset paint"))
+            float swatchX = x + previewSize + 16f;
+            DrawSwatch(data.Frame, FrameColorChannel.Primary, swatchX, y + 10f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Secondary, swatchX, y + 58f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Visor, swatchX, y + 106f, data.IsReadOnly);
+            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(swatchX, y + previewSize - 29f, 120f, 26f), "Reset paint"))
                 data.Frame.Livery.ResetColors();
         }
 
@@ -167,41 +199,44 @@ namespace ZenithFrame
         {
             Color color = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
                 channel == FrameColorChannel.Secondary ? frame.Livery.Secondary : frame.Livery.Visor;
-            Rect swatch = new Rect(x, y, 30f, 30f);
+            Rect swatch = new Rect(x, y, 29f, 29f);
             Widgets.DrawBoxSolid(swatch, color);
             Widgets.DrawBox(swatch, 2);
-            Label(new Rect(x + 37f, y + 5f, 78f, 20f), channel.ToString());
+            Label(new Rect(x + 35f, y + 3f, 105f, 23f), channel.ToString());
             TooltipHandler.TipRegion(swatch, channel + " paint color" + (readOnly ? " (read only)" : " (click to edit)"));
             if (!readOnly && Widgets.ButtonInvisible(swatch))
                 Find.WindowStack.Add(new Dialog_FrameColorPicker(frame, channel));
         }
 
+        public static Rect SlotBoxRect(float x, float y, float slotSize) =>
+            new Rect(x + 10f, y + 21f, slotSize, slotSize);
+
         private static void DrawSlot(FramePawn frame, FrameAddonCategory category, string title,
-            float x, float y, bool readOnly)
+            float x, float y, float slotSize, float slotStep, bool readOnly)
         {
             Thing installed = frame.Service.Installed(category);
             FrameServiceOrder order = frame.Service.OrderFor(category);
             bool active = order != null && ReferenceEquals(order, frame.Service.ActiveOrder);
-            Rect card = new Rect(x - 8f, y - 4f, 108f, 128f);
+            Rect card = new Rect(x, y, SlotCardWidth, slotStep - 3f);
             Widgets.DrawBoxSolid(card, new Color(0.12f, 0.16f, 0.19f, 0.46f));
             Widgets.DrawBox(card);
-            Rect box = new Rect(x, y + 20f, 92f, 84f);
-            Label(new Rect(x, y, 104f, 18f), title);
+            Label(new Rect(x + 8f, y + 2f, SlotCardWidth - 12f, 23f), title);
+            Rect box = SlotBoxRect(x, y, slotSize);
             Widgets.DrawBoxSolid(box, new Color(0.14f, 0.14f, 0.14f, 0.8f));
             if (installed != null) DrawContainedIcon(box.ContractedBy(7f), installed, 1f);
             else if (order?.kind == FrameServiceOrderKind.Install && order.incoming != null)
                 DrawContainedIcon(box.ContractedBy(7f), order.incoming, 0.42f);
             Widgets.DrawBox(box, 2);
             Widgets.DrawHighlightIfMouseover(box);
-            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Queued remove" :
+            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
                 order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "Queued" : "Replacing") :
                 installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "Mount lost" :
                 !frame.Loadout.IsModulePowered(installed) && (CompFrameLoadout.Extension(installed)?.powerDraw ?? 0) > 0
                     ? "Unpowered" : null;
             if (state != null)
             {
-                Rect status = new Rect(x - 8f, box.yMax + 2f, 108f, 18f);
-                Label(status, state, GameFont.Tiny);
+                Rect status = new Rect(x + 4f, box.yMax, SlotCardWidth - 8f, SlotStatusHeight);
+                Label(status, state, GameFont.Tiny, TextAnchor.MiddleCenter);
                 TooltipHandler.TipRegion(status, state);
             }
             string tip = title + "\nInstalled: " + (installed?.LabelCap ?? "none");
@@ -209,13 +244,12 @@ namespace ZenithFrame
                 (order.incoming == null ? "" : " " + order.incoming.LabelCap) +
                 "\nExpected installed: " + (order.expectedInstalled?.LabelCap ?? "empty");
             TooltipHandler.TipRegion(box, tip);
-            // The info corner is outside BOTH menu hitboxes. A full-box
-            // ButtonInvisible consumed the vanilla InfoCard click.
+            // Keep the vanilla InfoCard corner outside both menu hitboxes.
             Rect info = new Rect(box.xMax - 27f, box.yMax - 27f, 25f, 25f);
             Rect upperHit = new Rect(box.x, box.y, box.width, box.height - 27f);
             Rect lowerHit = new Rect(box.x, box.yMax - 27f, box.width - 27f, 27f);
             if (!readOnly && (Widgets.ButtonInvisible(upperHit) || Widgets.ButtonInvisible(lowerHit)))
-                OpenSlotMenu(frame, category);
+                Find.WindowStack.Add(new FloatMenu(SlotOptions(frame, category)));
             if (installed != null) Widgets.InfoCardButton(info.x, info.y, installed);
         }
 
@@ -226,21 +260,12 @@ namespace ZenithFrame
             if (texture == null || texture == BaseContent.BadTex) return;
             Color previous = GUI.color;
             GUI.color = color;
-            // Use the icon texture's own proportions, not the world drawSize or
-            // GenUI.IconDrawScale (2.5 for the development rifle).
             float scale = Mathf.Abs(angle) > 1f ? 0.65f : 0.9f;
             Widgets.DrawTextureFitted(inner, texture, scale,
                 new Vector2(texture.width, texture.height), new Rect(0f, 0f, 1f, 1f), angle, material, alpha);
             GUI.color = previous;
         }
 
-        private static void OpenSlotMenu(FramePawn frame, FrameAddonCategory category)
-        {
-            Find.WindowStack.Add(new FloatMenu(SlotOptions(frame, category)));
-        }
-
-        // The drawn slot and the focused acceptance harness use this same
-        // action list, so the menu's real remove/replace/cancel path is checked.
         public static List<FloatMenuOption> SlotOptions(FramePawn frame, FrameAddonCategory category)
         {
             FrameServiceOrder order = frame.Service.OrderFor(category);
@@ -264,80 +289,155 @@ namespace ZenithFrame
             return options;
         }
 
-        private static void DrawStatus(FrameUiSnapshot data, float x, float y)
+        private static void DrawStatus(FrameUiSnapshot data, float x, float y, float width)
         {
             string contextual = data.IsDocked ? "Docked" : data.ActiveService != null ? "Being serviced" :
                 data.IsRecoverable ? "Recoverable" : data.IsHackable ? "Hackable " + data.HackProgress.ToStringPercent() : null;
             string state = "State  " + ("ZF_State_" + data.OperationalState).Translate();
             if (contextual != null) state += "  ·  " + contextual;
-            Label(new Rect(x, y, 340f, 20f), state);
-            Label(new Rect(x, y + 22f, 340f, 20f), "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
+            Label(new Rect(x, y, width, RowHeight), state);
+            Label(new Rect(x, y + RowHeight, width, RowHeight),
+                "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
         }
 
-        private static void DrawFrameIssues(FrameUiSnapshot data, float x, float y)
+        private static void DrawFrameIssues(FrameUiSnapshot data, float x, float y, float width, float height)
         {
-            Rect panel = new Rect(x - 4f, y - 4f, 344f, 102f);
+            Rect panel = new Rect(x, y, width, height);
             Widgets.DrawBoxSolid(panel, new Color(0.12f, 0.16f, 0.19f, 0.46f));
             Widgets.DrawBox(panel);
-            Label(new Rect(x + 6f, y + 2f, 230f, 20f), "Frame condition", GameFont.Medium);
-            Widgets.DrawLineHorizontal(x + 6f, y + 26f, 230f);
-            DrawIssues(FrameHealthSummary.For(data.Frame, true), x + 6f, y + 32f, 326f, 62f, () =>
-                Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false)));
-            if (Widgets.ButtonText(new Rect(x + 250f, y + 2f, 82f, 25f), "Health"))
+            Label(new Rect(x + 8f, y + 3f, width - 94f, RowHeight), "Frame condition");
+            if (Widgets.ButtonText(new Rect(x + width - 78f, y + 2f, 70f, 25f), "Health"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false));
+            Widgets.DrawLineHorizontal(x + 8f, y + 29f, width - 16f);
+            DrawIssues(FrameHealthSummary.For(data.Frame, true), new Rect(x + 8f, y + 34f, width - 16f, height - 39f),
+                () => Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false)));
         }
 
-        private static void DrawPilot(FrameUiSnapshot data, float x, float y)
+        private static void DrawPilot(FrameUiSnapshot data, float y)
         {
-            Label(new Rect(x, y, 90f, 20f), "Pilot", GameFont.Medium);
+            Label(new Rect(20f, y, 76f, RowHeight), "Pilot");
             if (data.Pilot == null)
             {
-                Label(new Rect(x + 90f, y + 31f, 220f, 22f), "No pilot");
+                Label(new Rect(95f, y + 28f, 195f, RowHeight), "No pilot");
                 return;
             }
             Pawn pilot = data.Pilot;
-            Rect portrait = new Rect(x, y + 25f, 88f, 82f);
+            Rect portrait = new Rect(20f, y + 24f, 62f, 68f);
             Widgets.DrawBoxSolid(portrait, new Color(0.14f, 0.14f, 0.14f, 0.8f));
-            GUI.DrawTexture(portrait.ContractedBy(5f), PortraitsCache.Get(pilot, portrait.size, Rot4.South,
-                cameraZoom: 0.78f), ScaleMode.ScaleToFit);
+            GUI.DrawTexture(portrait.ContractedBy(4f), PortraitsCache.Get(pilot, portrait.size, Rot4.South,
+                cameraZoom: 0.95f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(portrait);
-            Label(new Rect(x + 100f, y + 20f, 215f, 22f), pilot.LabelShortCap, GameFont.Medium);
-            Label(new Rect(x + 100f, y + 44f, 215f, 20f), pilot.Faction?.Name ?? "No faction");
-            Label(new Rect(x + 100f, y + 65f, 215f, 20f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
+            Label(new Rect(95f, y + 17f, 211f, 21f), pilot.LabelShortCap);
+            Label(new Rect(95f, y + 38f, 211f, 21f), pilot.Faction?.Name ?? "No faction");
+            Label(new Rect(95f, y + 59f, 211f, 21f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
                 pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "Embarked");
-            Widgets.DrawLineVertical(x + 358f, y + 15f, 88f);
-            Label(new Rect(x + 388f, y + 14f, 270f, 20f), "Pilot health", GameFont.Medium);
-            DrawIssues(FrameHealthSummary.For(pilot, false), x + 388f, y + 39f, 275f, 70f,
+            if (Widgets.ButtonText(new Rect(95f, y + 81f, 132f, 22f), "Information"))
+                OpenPilotInformation(pilot);
+            Widgets.DrawLineVertical(316f, y + 10f, 87f);
+            Label(new Rect(330f, y + 12f, 270f, RowHeight), "Pilot health");
+            DrawIssues(FrameHealthSummary.For(pilot, false), new Rect(330f, y + 37f, 276f, 65f),
                 () => Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true, FrameInfoPage.Health)));
-            if (Widgets.ButtonText(new Rect(x + 100f, y + 81f, 155f, 27f), "Information"))
-                Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true));
         }
 
-        private static void DrawIssues(List<FrameHealthIssue> issues, float x, float y, float width, float height,
-            System.Action openHealth)
+        public static Dialog_FramePawnInfo OpenPilotInformation(Pawn pilot)
         {
-            if (issues.Count == 0) { Label(new Rect(x, y, width, 18f), "No critical issues"); return; }
-            int rows = Mathf.FloorToInt(height / 18f);
-            int shown = Mathf.Min(issues.Count, rows);
-            if (issues.Count > rows) shown = Mathf.Max(0, rows - 1);
+            var dialog = new Dialog_FramePawnInfo(pilot, true);
+            Find.WindowStack.Add(dialog);
+            return dialog;
+        }
+
+        private static void DrawIssues(List<FrameHealthIssue> issues, Rect area, System.Action openHealth)
+        {
+            if (issues.Count == 0)
+            {
+                Label(new Rect(area.x, area.y, area.width, RowHeight), "No critical issues");
+                return;
+            }
+            int shown = 0;
+            float used = 0f;
+            while (shown < issues.Count)
+            {
+                float rowHeight = HealthRowHeight(issues[shown], area.width);
+                float reserve = shown + 1 < issues.Count ? RowHeight : 0f;
+                if (used + rowHeight + reserve > area.height) break;
+                used += rowHeight;
+                shown++;
+            }
+            float rowY = area.y;
             for (int index = 0; index < shown; index++)
-                Label(new Rect(x, y + index * 18f, width, 18f), issues[index].Label);
+            {
+                float rowHeight = HealthRowHeight(issues[index], area.width);
+                DrawHealthRow(issues[index], new Rect(area.x, rowY, area.width, rowHeight));
+                rowY += rowHeight;
+            }
             if (issues.Count > shown)
             {
-                Rect overflow = new Rect(x, y + shown * 18f, width, 18f);
+                Rect overflow = new Rect(area.x, rowY, area.width, RowHeight);
                 Label(overflow, "+" + (issues.Count - shown) + " more  ·  Health");
                 if (Widgets.ButtonInvisible(overflow)) openHealth();
             }
         }
 
-        private static void Label(Rect rect, string value, GameFont font = GameFont.Small)
+        private static float HealthRowHeight(FrameHealthIssue issue, float width)
+        {
+            float leftWidth = Mathf.Floor(width * 0.37f);
+            float rightWidth = width - leftWidth - IconWidth(issue) - 8f;
+            GameFont oldFont = Text.Font;
+            bool oldWrap = Text.WordWrap;
+            Text.Font = GameFont.Small;
+            Text.WordWrap = true;
+            float height = Mathf.Max(Text.CalcHeight(issue.PartLabel, leftWidth),
+                Text.CalcHeight(issue.ConditionLabel, rightWidth)) + 2f;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWrap;
+            return Mathf.Max(RowHeight, height);
+        }
+
+        private static float IconWidth(FrameHealthIssue issue) =>
+            (issue.Bleeding ? 19f : 0f) + (issue.StateIcon.HasValue ? 19f : 0f);
+
+        private static void DrawHealthRow(FrameHealthIssue issue, Rect row)
+        {
+            float leftWidth = Mathf.Floor(row.width * 0.37f);
+            float iconsWidth = IconWidth(issue);
+            Rect left = new Rect(row.x, row.y, leftWidth - 4f, row.height);
+            Rect right = new Rect(row.x + leftWidth, row.y,
+                row.width - leftWidth - iconsWidth - 5f, row.height);
+            Widgets.DrawHighlightIfMouseover(row);
+            Label(left, issue.PartLabel, GameFont.Small, TextAnchor.UpperLeft, true, issue.PartColor);
+            Label(right, issue.ConditionLabel, GameFont.Small, TextAnchor.UpperLeft, true, issue.ConditionColor);
+            float iconX = row.xMax - iconsWidth;
+            if (issue.Bleeding)
+            {
+                GUI.DrawTexture(new Rect(iconX, row.y + 2f, 16f, 16f), BleedingIcon);
+                iconX += 19f;
+            }
+            if (issue.StateIcon.HasValue)
+            {
+                Color previous = GUI.color;
+                GUI.color = issue.StateIcon.Color;
+                GUI.DrawTexture(new Rect(iconX, row.y + 2f, 16f, 16f), issue.StateIcon.Texture);
+                GUI.color = previous;
+            }
+            TooltipHandler.TipRegion(row, issue.Tooltip);
+        }
+
+        private static void Label(Rect rect, string value, GameFont font = GameFont.Small,
+            TextAnchor anchor = TextAnchor.UpperLeft, bool wrap = false, Color? color = null)
         {
             GameFont previousFont = Text.Font;
             bool previousWrap = Text.WordWrap;
+            TextAnchor previousAnchor = Text.Anchor;
+            Color previousColor = GUI.color;
             Text.Font = font;
-            Text.WordWrap = false;
+            Text.WordWrap = wrap;
+            Text.Anchor = anchor;
+            GUI.color = color ?? Color.white;
+            if (!wrap) rect.height = Mathf.Max(rect.height, Text.LineHeight);
             Widgets.Label(rect, value);
-            if (Text.CalcSize(value).x > rect.width) TooltipHandler.TipRegion(rect, value);
+            if (!wrap && Text.CalcSize(value).x > rect.width) TooltipHandler.TipRegion(rect, value);
+            GUI.color = previousColor;
+            Text.Anchor = previousAnchor;
             Text.WordWrap = previousWrap;
             Text.Font = previousFont;
         }

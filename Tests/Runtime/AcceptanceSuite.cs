@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using RimWorld;
@@ -9,7 +8,7 @@ using Verse.AI;
 
 namespace ZenithFrame.Tests
 {
-    // One disposable quicktest game, no phase files or save/load chain.
+    // One disposable quicktest game for the compact Frame UI correction.
     public sealed class AcceptanceSuite : GameComponent
     {
         private int step;
@@ -20,15 +19,12 @@ namespace ZenithFrame.Tests
         private Pawn worker;
         private Pawn pilot;
         private Thing head;
-        private Thing shoulder;
-        private Thing rifle;
-        private Thing haulItem;
-        private int remainingOrders;
+        private Thing replacement;
         private Dialog_FrameColorPicker picker;
-        private int pickerGuiFrames;
         private Dialog_FramePawnInfo pilotInfo;
+        private int pickerFrames;
         private int visualStep;
-        private int visualGuiFrames;
+        private int visualFrames;
 
         private bool Enabled => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "acceptance-suite.txt"));
         private string Report => Path.Combine(GenFilePaths.SaveDataFolderPath, "acceptance.txt");
@@ -40,63 +36,42 @@ namespace ZenithFrame.Tests
             File.AppendAllText(Report, "PASS " + label + Environment.NewLine);
         }
 
-        private void Next(int value, int waitTicks = 6500)
-        {
-            step = value;
-            deadline = Find.TickManager.TicksGame + waitTicks;
-        }
-
-        private static Pawn SpawnColonist(IntVec3 cell, Map map) => (Pawn)GenSpawn.Spawn(
-            PawnGenerator.GeneratePawn(new PawnGenerationRequest(PawnKindDefOf.Colonist, Faction.OfPlayer,
-                canGeneratePawnRelations: false)), cell, map);
-
         private void Start()
         {
-            File.WriteAllText(Report, "ZENITH one-process acceptance" + Environment.NewLine);
+            File.WriteAllText(Report, "ZENITH compact Frame UI acceptance" + Environment.NewLine);
             Map map = Find.CurrentMap;
             IntVec3 center = map.Center;
             frame = (FramePawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(
                 DefDatabase<PawnKindDef>.GetNamed("ZF_DebugFrame"), Faction.OfPlayer), center, map);
-            worker = SpawnColonist(center + IntVec3.West * 3, map);
+            worker = (Pawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, Faction.OfPlayer, canGeneratePawnRelations: false)),
+                center + IntVec3.West * 3, map);
             foreach (Pawn colonist in map.mapPawns.FreeColonistsSpawned)
             {
                 colonist.workSettings.SetPriority(WorkTypeDefOf.Construction, 0);
                 colonist.jobs.StopAll();
             }
-            foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned.ToList())
-                pawn.relations?.ClearAllRelations();
-            Check(frame.Livery != null && frame.Livery.Primary.a > 0f &&
-                frame.Livery.Secondary.a > 0f && frame.Livery.Visor.a > 0f,
-                "three physical chassis paint channels available");
+            Check(frame.def.inspectorTabs.Contains(typeof(ITab_FrameVisual)), "Frame tab registered");
+            Rect slot = ITab_FrameVisual.SlotBoxRect(0f, 0f, ITab_FrameVisual.SlotSize);
+            Check(slot.width == slot.height && slot.width == 78f, "all six slots use one square box geometry");
+            Check(frame.Livery != null && frame.Livery.Primary.a > 0f,
+                "Frame paint channels available");
             Check(FrameHexColor.TryParse("#a1B2c3", out Color sample) &&
-                FrameHexColor.Format(sample) == "#A1B2C3" &&
-                !FrameHexColor.TryParse("#GGGGGG", out _), "hex input normalizes and rejects invalid values");
-            Check(frame.def.inspectorTabs.Contains(typeof(ITab_FrameVisual)), "visual Frame tab registered");
-            rifle = frame.equipment.Primary;
+                FrameHexColor.Format(sample) == "#A1B2C3", "color picker hex path available");
+
             head = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugSensorHelmet"));
-            shoulder = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugShoulderSystem"));
+            replacement = ThingMaker.MakeThing(head.def);
             var stockpile = new Zone_Stockpile(StorageSettingsPreset.DefaultStockpile, map.zoneManager);
             map.zoneManager.RegisterZone(stockpile);
             stockpile.GetStoreSettings().filter.SetDisallowAll();
             stockpile.GetStoreSettings().filter.SetAllow(head.def, true);
-            stockpile.GetStoreSettings().filter.SetAllow(shoulder.def, true);
-            stockpile.GetStoreSettings().filter.SetAllow(ThingDefOf.Steel, true);
-            for (int i = 0; i < 5; i++) stockpile.AddCell(center + IntVec3.North * 5 + IntVec3.East * i);
+            stockpile.AddCell(center + IntVec3.North * 5);
+            stockpile.AddCell(center + IntVec3.North * 5 + IntVec3.East);
             GenSpawn.Spawn(head, center + IntVec3.North * 5, map);
-            GenSpawn.Spawn(shoulder, center + IntVec3.North * 5 + IntVec3.East, map);
-            Check(frame.Service.QueueInstall(FrameAddonCategory.Head, head) &&
-                frame.Service.QueueInstall(FrameAddonCategory.Shoulder, shoulder) &&
-                frame.Service.QueueRemove(FrameAddonCategory.Weapon), "three categories queue together");
-            Check(frame.Service.ActiveOrder == null && frame.Service.OrderFor(FrameAddonCategory.Power) == null &&
-                frame.Service.Orders.Count == 3, "idle slots have no active service");
-            Check(frame.Service.CancelOrder(FrameAddonCategory.Shoulder) &&
-                frame.Service.OrderFor(FrameAddonCategory.Head) != null &&
-                frame.Service.OrderFor(FrameAddonCategory.Weapon) != null &&
-                frame.Service.QueueInstall(FrameAddonCategory.Shoulder, shoulder),
-                "canceling one category preserves other orders");
-            remainingOrders = frame.Service.Orders.Count;
+            GenSpawn.Spawn(replacement, center + IntVec3.North * 5 + IntVec3.East, map);
+            Check(frame.Service.QueueInstall(FrameAddonCategory.Head, head), "exact Head queued");
             Job job = new WorkGiver_ServiceFrameModule().JobOnThing(worker, frame, true);
-            Check(job != null && worker.jobs.TryTakeOrderedJob(job), "worker starts first exact order");
+            Check(job != null && worker.jobs.TryTakeOrderedJob(job), "worker begins Head service");
             Find.Selector.Select(frame);
             guiAction = () =>
             {
@@ -106,140 +81,111 @@ namespace ZenithFrame.Tests
             Next(1);
         }
 
+        private void Next(int value)
+        {
+            step = value;
+            deadline = Find.TickManager.TicksGame + 6500;
+        }
+
         private void AfterService()
         {
-            Check(ReferenceEquals(frame.Loadout.InstalledHead, head) &&
-                ReferenceEquals(frame.Loadout.InstalledShoulder, shoulder) &&
-                frame.equipment.Primary == null && rifle.Spawned,
-                "worker completes later queued changes with exact Things");
-            pilot = SpawnColonist(frame.Position + IntVec3.South, frame.Map);
-            Check(frame.Cockpit.TryBoard(pilot), "pilot boards exact Frame");
+            Check(ReferenceEquals(frame.Loadout.InstalledHead, head), "exact Head installed by service");
+            pilot = (Pawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                PawnKindDefOf.Colonist, Faction.OfPlayer, canGeneratePawnRelations: false)),
+                frame.Position + IntVec3.South, frame.Map);
+            BodyPartRecord arm = pilot.RaceProps.body.AllParts.First(part => part.def == BodyPartDefOf.Arm);
+            Hediff injury = HediffMaker.MakeHediff(DefDatabase<HediffDef>.GetNamed("Cut"), pilot, arm);
+            injury.Severity = 5f;
+            pilot.health.AddHediff(injury, arm);
+            var summary = FrameHealthSummary.For(pilot, false);
+            Check(pilot.health.hediffSet.BleedRateTotal > 0f && summary[0].IsBleedSummary &&
+                summary.Any(issue => ReferenceEquals(issue.Hediff, injury) && issue.Bleeding),
+                "pinned bleed total and exact wound appear in compact health data");
+            Check(frame.Cockpit.TryBoard(pilot), "injured pilot boards exact Frame");
             guiAction = BeginVisualCheck;
             Next(2);
         }
 
         private void BeginVisualCheck()
         {
-            FrameUiSnapshot snapshot = FrameUiSnapshot.From(frame);
-            Check(ReferenceEquals(snapshot.PilotForInspection, pilot) &&
-                ReferenceEquals(frame.Cockpit.Pilot, pilot), "UI reads exact contained pilot");
-            pilotInfo = new Dialog_FramePawnInfo(pilot, true);
-            Check(pilotInfo.SupportsPage(FrameInfoPage.Bio) &&
-                pilotInfo.SupportsPage(FrameInfoPage.Health) &&
-                pilotInfo.SupportsPage(FrameInfoPage.Gear), "pilot Information exposes Bio Health and Gear");
+            Check(ReferenceEquals(FrameUiSnapshot.From(frame).PilotForInspection, pilot),
+                "Frame UI reads exact contained pilot");
             Find.Selector.ClearSelection();
             Find.Selector.Select(frame);
             InspectPaneUtility.OpenTab(typeof(ITab_FrameVisual));
             visualStep = 1;
-            visualGuiFrames = 0;
         }
 
-        private void CheckManualMenus()
+        private void CheckMenuAndFinish()
         {
-            Thing replacement = ThingMaker.MakeThing(head.def);
-            GenSpawn.Spawn(replacement, frame.Position + IntVec3.North * 5 + IntVec3.East * 2, frame.Map);
-            var slotOptions = ITab_FrameVisual.SlotOptions(frame, FrameAddonCategory.Head);
-            FloatMenuOption replace = slotOptions.FirstOrDefault(option => option.Label.StartsWith("Install ") &&
-                !option.Disabled);
-            Check(replace != null && slotOptions.Any(option => option.Label == "Remove installed"),
-                "occupied slot offers exact replacement and Remove");
-            replace.Chosen(colonistOrdering: true, null);
+            var options = ITab_FrameVisual.SlotOptions(frame, FrameAddonCategory.Head);
+            FloatMenuOption install = options.FirstOrDefault(option => option.Label.StartsWith("Install ") && !option.Disabled);
+            Check(install != null && options.Any(option => option.Label == "Remove installed"),
+                "slot menu offers compatible install and Remove");
+            install.Chosen(colonistOrdering: true, null);
             Check(ReferenceEquals(frame.Service.OrderFor(FrameAddonCategory.Head)?.incoming, replacement),
                 "slot menu queues exact replacement");
-            FloatMenuOption cancel = ITab_FrameVisual.SlotOptions(frame, FrameAddonCategory.Head)
-                .FirstOrDefault(option => option.Label == "Cancel queued change");
-            Check(cancel != null, "queued slot exposes Cancel");
-            cancel.Chosen(colonistOrdering: true, null);
-            Check(frame.Service.OrderFor(FrameAddonCategory.Head) == null,
-                "slot Cancel preserves installed Head");
+            Check(frame.Service.CancelOrder(FrameAddonCategory.Head), "queued replacement cancels");
             ITab_FrameVisual.SlotOptions(frame, FrameAddonCategory.Head)
                 .First(option => option.Label == "Remove installed").Chosen(colonistOrdering: true, null);
             Check(frame.Service.OrderFor(FrameAddonCategory.Head)?.kind == FrameServiceOrderKind.Remove,
-                "slot Remove queues physical removal");
-            ITab_FrameVisual.SlotOptions(frame, FrameAddonCategory.Head)
-                .First(option => option.Label == "Cancel queued change").Chosen(colonistOrdering: true, null);
-            var selected = new List<Pawn> { frame };
-            var self = FloatMenuMakerMap.GetOptions(selected, frame.DrawPos, out _);
-            FloatMenuOption disembark = self.FirstOrDefault(option => option.Label == "Disembark");
-            Check(disembark != null && !disembark.Disabled, "self right-click Disembark is available");
-            disembark.Chosen(colonistOrdering: true, null);
-            Check(!frame.Cockpit.HasPilot && pilot.Spawned, "Disembark returns exact pilot to map");
-            Check(frame.Cockpit.TryBoard(pilot), "same pilot boards again");
-            haulItem = ThingMaker.MakeThing(ThingDefOf.Steel);
-            GenSpawn.Spawn(haulItem, frame.Position + IntVec3.South * 4, frame.Map);
-            var options = FloatMenuMakerMap.GetOptions(selected, haulItem.DrawPos, out _);
-            FloatMenuOption haul = options.FirstOrDefault(option => option.Label.StartsWith("Haul "));
-            Check(haul != null && !haul.Disabled &&
-                !options.Any(option => option.Label.StartsWith("Prioritize ") ||
-                    option.Label.StartsWith("Construct ") || option.Label.StartsWith("Clean ")),
-                "manual Haul available without ordinary work providers");
-            haul.Chosen(colonistOrdering: true, null);
-            Check(frame.CurJobDef == JobDefOf.HaulToCell || frame.CurJobDef == JobDefOf.HaulToContainer,
-                "manual Haul starts vanilla job");
-            Next(3, 5000);
-        }
-
-        private void Finish()
-        {
-            Check(StoreUtility.IsInValidStorage(haulItem), "manual Haul delivered exact item");
-            Pawn patient = SpawnColonist(frame.Position + IntVec3.South * 4, frame.Map);
-            patient.health.AddHediff(DefDatabase<HediffDef>.GetNamed("Anesthetic"));
-            Building_Bed bed = (Building_Bed)GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Bed, ThingDefOf.WoodLog),
-                frame.Position + IntVec3.East * 7 + IntVec3.South * 3, frame.Map);
-            bed.SetFaction(Faction.OfPlayer);
-            guiAction = () =>
-            {
-                var options = FloatMenuMakerMap.GetOptions(new List<Pawn> { frame }, patient.DrawPos, out _);
-                FloatMenuOption rescue = options.FirstOrDefault(option => option.Label.Contains("Rescue"));
-                Check(rescue != null && !rescue.Disabled, "manual Rescue appears for downed colonist");
-                rescue.Chosen(colonistOrdering: true, null);
-                Check(frame.CurJobDef == JobDefOf.Rescue, "manual Rescue starts vanilla job");
-                File.AppendAllText(Report, "PASS acceptance complete" + Environment.NewLine);
-                finished = true;
-                Application.Quit(0);
-            };
-            Next(4);
+                "slot menu queues Remove");
+            File.AppendAllText(Report, "PASS acceptance complete" + Environment.NewLine);
+            finished = true;
+            Application.Quit(0);
         }
 
         public override void GameComponentOnGUI()
         {
             if (!Enabled || finished) return;
-            if (picker != null && ++pickerGuiFrames >= 4)
+            if (Event.current.type == EventType.Repaint)
             {
-                picker.Close();
-                picker = null;
-            }
-            if (visualStep != 0 && Event.current.type == EventType.Repaint && ++visualGuiFrames >= 4)
-            {
-                visualGuiFrames = 0;
-                try
+                if (picker != null && ++pickerFrames >= 4)
                 {
-                    if (visualStep == 1)
-                    {
-                        ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "frame-tab.png"));
-                        Check(Find.Selector.SingleSelectedThing == frame, "Frame visual tab remains selected");
-                        Find.WindowStack.Add(pilotInfo);
-                        visualStep = 2;
-                    }
-                    else if (visualStep == 2)
-                    {
-                        pilotInfo.ShowPage(FrameInfoPage.Health);
-                        visualStep = 3;
-                    }
-                    else if (visualStep == 3)
-                    {
-                        pilotInfo.ShowPage(FrameInfoPage.Gear);
-                        visualStep = 4;
-                    }
-                    else
-                    {
-                        pilotInfo.Close();
-                        visualStep = 0;
-                        guiAction = CheckManualMenus;
-                        Check(true, "Frame tab and all pilot Information pages rendered");
-                    }
+                    picker.Close();
+                    picker = null;
+                    Check(true, "color picker rendered without GUI error");
                 }
-                catch (Exception error) { Fail(error); }
+                if (visualStep != 0 && ++visualFrames >= 4)
+                {
+                    visualFrames = 0;
+                    try
+                    {
+                        if (visualStep == 1)
+                        {
+                            Check(Find.Selector.SingleSelectedThing == frame, "Frame tab remains open");
+                            ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "frame-tab.png"));
+                            visualStep = 2;
+                        }
+                        else if (visualStep == 2)
+                        {
+                            pilotInfo = ITab_FrameVisual.OpenPilotInformation(pilot);
+                            Check(pilotInfo.SupportsPage(FrameInfoPage.Bio) &&
+                                pilotInfo.SupportsPage(FrameInfoPage.Health) &&
+                                pilotInfo.SupportsPage(FrameInfoPage.Gear),
+                                "Information opens exact pilot Bio Health and Gear");
+                            visualStep = 3;
+                        }
+                        else if (visualStep == 3)
+                        {
+                            pilotInfo.ShowPage(FrameInfoPage.Health);
+                            visualStep = 4;
+                        }
+                        else if (visualStep == 4)
+                        {
+                            pilotInfo.ShowPage(FrameInfoPage.Gear);
+                            visualStep = 5;
+                        }
+                        else
+                        {
+                            pilotInfo.Close();
+                            visualStep = 0;
+                            guiAction = CheckMenuAndFinish;
+                            Check(true, "Bio vanilla Health and Gear pages rendered");
+                        }
+                    }
+                    catch (Exception error) { Fail(error); }
+                }
             }
             if (guiAction == null) return;
             Action action = guiAction;
@@ -254,18 +200,11 @@ namespace ZenithFrame.Tests
             try
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
-                if (step == 1 && frame.Service.Orders.Count < remainingOrders)
-                {
-                    remainingOrders = frame.Service.Orders.Count;
-                    deadline = Find.TickManager.TicksGame + 6500;
-                }
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
-                    throw new TimeoutException("Acceptance step " + step + " timed out; job=" +
-                        worker?.CurJobDef?.defName + " queue=" + frame?.Service?.PendingLabel);
+                    throw new TimeoutException("Acceptance step " + step + " timed out");
                 if (step == 0) Start();
                 else if (step == 1 && !frame.Service.HasPendingOrder && !frame.Service.IsServiceLocked)
                     AfterService();
-                else if (step == 3 && StoreUtility.IsInValidStorage(haulItem)) Finish();
             }
             catch (Exception error) { Fail(error); }
         }

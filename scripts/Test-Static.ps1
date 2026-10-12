@@ -199,7 +199,9 @@ Assert-Static ($uiCode -notmatch 'ZF_DebugRifle|ZF_DebugReactor|ZF_DebugMobility
 Assert-Static ($uiCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(|Coventech|MechanitorUtility|IsColonyMech|Overseer') 'Frame UI must use stable local APIs without reflection Coventech or Biotech control semantics'
 Assert-Static ($uiCode -notmatch 'GainAbility|GiveAbility|StartAbilityJob|QueueCastingJob|GetGizmos\(') 'Frame UI must display ability summaries without recreating commands or entering targeting'
 Assert-Static ($uiCode -match 'IsReadOnly = frame\?\.Faction != Faction\.OfPlayer' -and $uiCode -match 'CanRename = .*Faction == Faction\.OfPlayer' -and $uiCode -match 'CanDisembark = .*Faction == Faction\.OfPlayer') 'Hostile and factionless Frame UI must remain read-only'
-Assert-Static ($visualUi -match 'Text\.WordWrap = false' -and $visualUi -match 'TooltipHandler\.TipRegion' -and $visualUi -notmatch 'BeginScrollView') 'Visual Frame UI must clip long labels and avoid a main scroll view'
+Assert-Static ($visualUi -match 'new Rect\(x \+ 10f, y \+ 21f, slotSize, slotSize\)' -and $visualUi -match 'Text\.WordWrap = true' -and $visualUi -match 'HealthRowHeight' -and $visualUi -match 'issues\.Count - shown' -and $visualUi -notmatch 'BeginScrollView') 'Visual Frame UI must use square slots and measured wrapped health rows without a main scroll view'
+$healthUi = Get-Content "$repo/Source/ZenithFrame/FrameHealthSummary.cs" -Raw
+Assert-Static ($healthUi -match 'GetMissingPartsCommonAncestors' -and $healthUi -match 'UIGroupKey' -and $healthUi -match 'hediff\.LabelCap' -and $healthUi -match 'hediff\.LabelColor' -and $healthUi -match 'hediff\.StateIcon' -and $healthUi -match 'hediff\.GetTooltip' -and $healthUi -match 'BleedRateTotal') 'Compact health rows must derive from live vanilla Hediff semantics and pin bleed rate'
 $bodyCode = Get-Content "$repo/Source/ZenithFrame/FrameDamage.cs" -Raw
 $pilotHealthCode = Get-Content "$repo/Source/ZenithFrame/FramePilotHealth.cs" -Raw
 [xml]$bodyDefs = Get-Content "$repo/Mod/Defs/FrameBodies.xml" -Raw

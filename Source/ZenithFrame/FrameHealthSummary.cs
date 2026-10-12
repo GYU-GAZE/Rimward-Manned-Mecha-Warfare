@@ -1,17 +1,44 @@
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using Verse;
 
 namespace ZenithFrame
 {
+    // Presentation data only: the exact Hediff and Pawn still own every health fact.
     public sealed class FrameHealthIssue
     {
         public readonly int Priority;
-        public readonly string Label;
-        public FrameHealthIssue(int priority, string label) { Priority = priority; Label = label; }
+        public readonly string PartLabel;
+        public readonly string ConditionLabel;
+        public readonly Color PartColor;
+        public readonly Color ConditionColor;
+        public readonly Pawn Pawn;
+        public readonly Hediff Hediff;
+        public readonly bool IsBleedSummary;
+        public readonly bool Bleeding;
+        public readonly TextureAndColor StateIcon;
+
+        public string Tooltip => Hediff != null ? Hediff.GetTooltip(Pawn, false) :
+            PartLabel + ": " + ConditionLabel;
+
+        public FrameHealthIssue(int priority, string partLabel, string conditionLabel, Color partColor,
+            Color conditionColor, Pawn pawn, Hediff hediff = null, bool bleedSummary = false,
+            bool bleeding = false, TextureAndColor stateIcon = default)
+        {
+            Priority = priority;
+            PartLabel = partLabel;
+            ConditionLabel = conditionLabel;
+            PartColor = partColor;
+            ConditionColor = conditionColor;
+            Pawn = pawn;
+            Hediff = hediff;
+            IsBleedSummary = bleedSummary;
+            Bleeding = bleeding;
+            StateIcon = stateIcon;
+        }
     }
 
-    // Derived from the live Pawn health tracker; the tab decides visible rows.
     public static class FrameHealthSummary
     {
         private const float CriticalPartFraction = 0.25f;
@@ -23,41 +50,61 @@ namespace ZenithFrame
             HediffSet health = pawn.health.hediffSet;
 
             if (!frame && health.BleedRateTotal > 0f)
-                issues.Add(new FrameHealthIssue(0, "Bleeding  " + health.BleedRateTotal.ToStringPercent() + "/day"));
+                issues.Add(new FrameHealthIssue(0, "Bleeding", health.BleedRateTotal.ToStringPercent() +
+                    "/" + "LetterDay".Translate(), HealthUtility.RedColor, Color.white, pawn,
+                    bleedSummary: true, bleeding: true));
 
-            // Vanilla folds descendants under their first missing ancestor.
-            var missingParts = health.GetMissingPartsCommonAncestors().ToList();
-            var describedParts = new HashSet<BodyPartRecord>();
-            foreach (Hediff_MissingPart missing in missingParts)
+            // Vanilla's common-ancestor list prevents a destroyed limb from
+            // generating a row for every missing child part.
+            foreach (Hediff_MissingPart missing in health.GetMissingPartsCommonAncestors())
                 if (missing.Part != null)
-                    issues.Add(new FrameHealthIssue(1, missing.Part.LabelCap + "  Destroyed"));
+                    issues.Add(FromHediff(pawn, missing, 1, 1));
 
-            foreach (Hediff hediff in health.hediffs)
+            var describedParts = new HashSet<BodyPartRecord>();
+            var visible = health.hediffs.Where(hediff => hediff.Visible && !(hediff is Hediff_MissingPart) &&
+                (hediff.Part == null || !health.PartIsMissing(hediff.Part)) &&
+                (hediff.IsCurrentlyLifeThreatening || hediff.Bleeding || hediff.TendPriority >= 0.65f ||
+                    (frame && IsCriticalPart(pawn, health, hediff.Part))));
+            foreach (var group in visible.GroupBy(hediff => new { hediff.Part, hediff.UIGroupKey }))
             {
-                if (!hediff.Visible || hediff is Hediff_MissingPart) continue;
-                if (hediff.Part != null && health.PartIsMissing(hediff.Part)) continue;
-                bool threatening = hediff.IsCurrentlyLifeThreatening;
-                if (!threatening && !hediff.Bleeding && hediff.TendPriority < 0.65f) continue;
-                if (hediff.Part != null) describedParts.Add(hediff.Part);
-                string label = hediff.LabelCap;
-                if (hediff.Part != null && !label.ToLowerInvariant().Contains(hediff.Part.Label.ToLowerInvariant()))
-                    label += " - " + hediff.Part.Label;
-                if (threatening) label += "  Life threatening";
-                else if (hediff.Bleeding) label += "  Bleeding";
-                issues.Add(new FrameHealthIssue(threatening ? 2 : 4, label));
+                Hediff first = group.First();
+                if (first.Part != null) describedParts.Add(first.Part);
+                int priority = group.Any(hediff => hediff.IsCurrentlyLifeThreatening) ? 2 :
+                    group.Any(hediff => hediff.Bleeding) ? 3 : 4;
+                issues.Add(FromHediff(pawn, first, priority, group.Count(), group.Any(hediff => hediff.Bleeding)));
             }
 
             if (frame)
                 foreach (BodyPartRecord part in pawn.RaceProps.body.AllParts)
                 {
-                    if (health.PartIsMissing(part) || describedParts.Contains(part)) continue;
-                    float max = part.def.GetMaxHealth(pawn);
-                    if (max <= 0f) continue;
-                    float fraction = health.GetPartHealth(part) / max;
-                    if (fraction > 0f && fraction <= CriticalPartFraction)
-                        issues.Add(new FrameHealthIssue(3, part.LabelCap + "  " + fraction.ToStringPercent()));
+                    if (health.PartIsMissing(part) || describedParts.Contains(part) ||
+                        !IsCriticalPart(pawn, health, part)) continue;
+                    var condition = HealthUtility.GetPartConditionLabel(pawn, part);
+                    issues.Add(new FrameHealthIssue(5, part.LabelCap, condition.First,
+                        condition.Second, condition.Second, pawn));
                 }
-            return issues.OrderBy(issue => issue.Priority).ThenBy(issue => issue.Label).ToList();
+
+            return issues.OrderBy(issue => issue.Priority).ThenBy(issue => issue.PartLabel).ToList();
+        }
+
+        private static bool IsCriticalPart(Pawn pawn, HediffSet health, BodyPartRecord part)
+        {
+            if (part == null) return false;
+            float max = part.def.GetMaxHealth(pawn);
+            if (max <= 0f) return false;
+            float fraction = health.GetPartHealth(part) / max;
+            return fraction > 0f && fraction <= CriticalPartFraction;
+        }
+
+        private static FrameHealthIssue FromHediff(Pawn pawn, Hediff hediff, int priority, int count,
+            bool bleeding = false)
+        {
+            string partLabel = hediff.Part?.LabelCap ?? "WholeBody".Translate();
+            Color partColor = hediff.Part == null ? HealthUtility.RedColor :
+                HealthUtility.GetPartConditionLabel(pawn, hediff.Part).Second;
+            string condition = hediff.LabelCap + (count > 1 ? " x" + count : "");
+            return new FrameHealthIssue(priority, partLabel, condition, partColor, hediff.LabelColor,
+                pawn, hediff, bleeding: bleeding || hediff.Bleeding, stateIcon: hediff.StateIcon);
         }
     }
 }
