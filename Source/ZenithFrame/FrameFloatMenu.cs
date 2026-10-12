@@ -1,4 +1,5 @@
 using RimWorld;
+using System.Linq;
 using Verse;
 using Verse.AI;
 
@@ -46,6 +47,53 @@ namespace ZenithFrame
             {
                 if (!frame.Cockpit.TryDisembark())
                     Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false);
+            });
+        }
+    }
+
+    public sealed class FloatMenuOptionProvider_FramePilotSelfTend : FloatMenuOptionProvider
+    {
+        protected override bool Drafted => true;
+        protected override bool Undrafted => true;
+        protected override bool Multiselect => false;
+        protected override bool CanSelfTarget => true;
+
+        protected override FloatMenuOption GetSingleOptionFor(Pawn clickedPawn, FloatMenuContext context)
+        {
+            if (!(context.FirstSelectedPawn is FramePawn frame) || !ReferenceEquals(frame, clickedPawn) ||
+                frame.Faction != Faction.OfPlayer || !frame.Spawned || !frame.Cockpit.CanTakePlayerOrders)
+                return null;
+            Pawn pilot = frame.Cockpit.Pilot;
+            if (pilot?.health?.HasHediffsNeedingTend() != true) return null;
+            Medicine medicine = CompPilotableMech.BestPilotMedicine(pilot);
+            return new FloatMenuOption("Pilot self-tend", () =>
+                CompPilotableMech.StartPilotSelfTend(frame, pilot, medicine));
+        }
+    }
+
+    public sealed class FloatMenuOptionProvider_DockFrame : FloatMenuOptionProvider
+    {
+        protected override bool Drafted => true;
+        protected override bool Undrafted => true;
+        protected override bool Multiselect => false;
+
+        protected override FloatMenuOption GetSingleOptionFor(Thing clickedThing, FloatMenuContext context)
+        {
+            if (!(clickedThing is Building bay) || bay.def.defName != DockingBayUtility.DockingBayDefName ||
+                !(context.FirstSelectedPawn is FramePawn frame) || !frame.Cockpit.CanTakePlayerOrders ||
+                frame.Faction != Faction.OfPlayer || !frame.Spawned || frame.Map != bay.Map ||
+                DockingBayUtility.IsDocked(frame)) return null;
+            IntVec3 cell = bay.OccupiedRect().Cells.Where(candidate =>
+                candidate.Standable(frame.Map) && frame.CanReach(candidate, PathEndMode.OnCell, Danger.Deadly))
+                .DefaultIfEmpty(IntVec3.Invalid).First();
+            if (!cell.IsValid) return new FloatMenuOption("Dock Frame: Cannot reach", null);
+            return new FloatMenuOption("Dock Frame", () =>
+            {
+                if (!frame.Cockpit.CanTakePlayerOrders || !bay.Spawned || bay.Map != frame.Map ||
+                    !cell.Standable(frame.Map) || !frame.CanReach(cell, PathEndMode.OnCell, Danger.Deadly)) return;
+                Job job = JobMaker.MakeJob(JobDefOf.Goto, cell);
+                job.playerForced = true;
+                frame.jobs.TryTakeOrderedJob(job);
             });
         }
     }

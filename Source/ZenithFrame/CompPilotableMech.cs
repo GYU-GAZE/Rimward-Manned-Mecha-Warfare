@@ -215,30 +215,11 @@ namespace ZenithFrame
                 operationalLord = currentLord;
         }
 
-        public override IEnumerable<Gizmo> CompGetGizmosExtra()
-        {
-            if (!(Frame is FramePawn frame) || frame.Faction != Faction.OfPlayer ||
-                !frame.Spawned || !CanTakePlayerOrders || Pilot?.health?.HasHediffsNeedingTend() != true)
-                yield break;
+        internal static Medicine BestPilotMedicine(Pawn pilot) => pilot?.inventory?.innerContainer
+            .OfType<Medicine>().Where(item => !item.Destroyed && item.stackCount > 0)
+            .OrderByDescending(item => item.def.GetStatValueAbstract(StatDefOf.MedicalPotency)).FirstOrDefault();
 
-            Pawn exactPilot = Pilot;
-            Medicine medicine = exactPilot.inventory?.innerContainer.OfType<Medicine>()
-                .Where(item => !item.Destroyed && item.stackCount > 0)
-                .OrderByDescending(item => item.def.GetStatValueAbstract(StatDefOf.MedicalPotency))
-                .FirstOrDefault();
-            var command = new Command_Action
-            {
-                defaultLabel = "Pilot self-tend",
-                defaultDesc = medicine == null
-                    ? "The contained pilot tends their real wounds without medicine."
-                    : "The contained pilot tends their real wounds using " + medicine.LabelCap + " from their own inventory.",
-                icon = TexCommand.Install,
-                action = () => StartPilotSelfTend(frame, exactPilot, medicine)
-            };
-            yield return command;
-        }
-
-        private static void StartPilotSelfTend(FramePawn frame, Pawn exactPilot, Medicine medicine)
+        internal static void StartPilotSelfTend(FramePawn frame, Pawn exactPilot, Medicine medicine)
         {
             if (!ReferenceEquals(frame.Cockpit?.Pilot, exactPilot) || !frame.Cockpit.CanTakePlayerOrders ||
                 exactPilot.health?.HasHediffsNeedingTend() != true ||

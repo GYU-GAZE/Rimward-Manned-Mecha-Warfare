@@ -8,33 +8,52 @@ namespace ZenithFrame
 {
     public enum FrameColorChannel { Primary, Secondary, Visor }
 
+    public static class FramePaintPresets
+    {
+        public static readonly string[] Groups = { "Neutral", "Military", "Industrial", "Ace", "Sensor" };
+        public static readonly string[][] Hex =
+        {
+            new[] { "F0F0EC", "B8BAB7", "6A6D70", "24272B" },
+            new[] { "777A55", "56634B", "3E4A43", "B5A27A" },
+            new[] { "4D5258", "627181", "8A6752", "C47A26" },
+            new[] { "B92B32", "E8652D", "D9B52C", "315FD4" },
+            new[] { "27CFE2", "42D66B", "B449D1", "7657E8" }
+        };
+    }
+
     public sealed class Dialog_FrameColorPicker : Window
     {
-        private static readonly List<Color> Palette = new List<Color>
-        {
-            Color.white, Color.black, Color.gray, Color.red, Color.yellow,
-            Color.green, Color.cyan, Color.blue, Color.magenta
-        };
         private readonly FramePawn frame;
-        private readonly FrameColorChannel channel;
+        private FrameColorChannel channel;
         private Color color;
         private string hex;
         private bool wheelDragging;
-        public override Vector2 InitialSize => new Vector2(480f, 410f);
+        public override Vector2 InitialSize => new Vector2(596f, 470f);
+        public FrameColorChannel SelectedChannel => channel;
 
         public Dialog_FrameColorPicker(FramePawn frame, FrameColorChannel channel)
         {
             this.frame = frame;
             this.channel = channel;
-            color = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
-                channel == FrameColorChannel.Secondary ? frame.Livery.Secondary : frame.Livery.Visor;
+            color = ChannelColor(channel);
             hex = FrameHexColor.Format(color);
             forcePause = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
         }
 
-        private void Apply(Color chosen)
+        private Color ChannelColor(FrameColorChannel selected) => selected == FrameColorChannel.Primary
+            ? frame.Livery.Primary : selected == FrameColorChannel.Secondary
+                ? frame.Livery.Secondary : frame.Livery.Visor;
+
+        public void SelectChannel(FrameColorChannel selected)
+        {
+            channel = selected;
+            color = ChannelColor(selected);
+            hex = FrameHexColor.Format(color);
+        }
+
+        internal void Apply(Color chosen)
         {
             if (frame == null || frame.Destroyed || frame.Faction != Faction.OfPlayer) return;
             color = chosen;
@@ -47,41 +66,71 @@ namespace ZenithFrame
 
         public override void DoWindowContents(Rect rect)
         {
-            Widgets.Label(new Rect(12f, 8f, 420f, 26f), channel + " paint");
-            Color beforeWheel = color;
-            Widgets.HSVColorWheel(new Rect(18f, 46f, 170f, 170f), ref color, ref wheelDragging);
-            if (color != beforeWheel) Apply(color);
-            Widgets.DrawBoxSolid(new Rect(212f, 46f, 212f, 44f), color);
-            Widgets.DrawBox(new Rect(212f, 46f, 212f, 44f));
-            Widgets.Label(new Rect(212f, 100f, 210f, 25f), "Hex color");
-            string edited = Widgets.TextField(new Rect(212f, 126f, 132f, 30f), hex);
-            if (edited != hex)
+            Widgets.Label(new Rect(18f, 5f, 310f, 26f), "Frame paint");
+            if (Widgets.ButtonText(new Rect(rect.width - 86f, 3f, 78f, 27f), "Done")) Close();
+            for (int i = 0; i < 3; i++)
             {
-                hex = edited;
-                if (FrameHexColor.TryParse(edited, out Color parsed)) Apply(parsed);
+                FrameColorChannel selected = (FrameColorChannel)i;
+                Rect tab = new Rect(18f + i * 115f, 37f, 108f, 27f);
+                if (Widgets.ButtonText(tab, selected.ToString())) SelectChannel(selected);
+                if (selected == channel)
+                    Widgets.DrawBoxSolid(new Rect(tab.x + 4f, tab.yMax - 4f, tab.width - 8f, 3f),
+                        new Color(0.18f, 0.8f, 0.9f));
             }
-            if (Widgets.ButtonText(new Rect(352f, 126f, 72f, 30f), "Apply") &&
+            Color beforeWheel = color;
+            Widgets.HSVColorWheel(new Rect(18f, 71f, 162f, 162f), ref color, ref wheelDragging);
+            if (color != beforeWheel) Apply(color);
+            Color.RGBToHSV(color, out float hue, out float saturation, out float value);
+            Widgets.Label(new Rect(18f, 234f, 165f, 21f), "Brightness  " + Mathf.RoundToInt(value * 100f) + "%");
+            float adjusted = GUI.HorizontalSlider(new Rect(18f, 253f, 162f, 18f), value, 0f, 1f);
+            if (Mathf.Abs(adjusted - value) > 0.001f) Apply(Color.HSVToRGB(hue, saturation, adjusted));
+
+            Rect current = new Rect(209f, 74f, 321f, 38f);
+            Widgets.DrawBoxSolid(current, color);
+            Widgets.DrawBox(current);
+            Widgets.Label(new Rect(209f, 116f, 110f, 23f), "Current " + channel);
+            hex = Widgets.TextField(new Rect(209f, 142f, 180f, 28f), hex);
+            if (Widgets.ButtonText(new Rect(396f, 142f, 65f, 28f), "Apply") &&
                 FrameHexColor.TryParse(hex, out Color entered)) Apply(entered);
             if (!FrameHexColor.TryParse(hex, out _))
-                Widgets.Label(new Rect(212f, 160f, 215f, 22f), "Use #RRGGBB");
-
-            for (int i = 0; i < Palette.Count; i++)
+                Widgets.Label(new Rect(209f, 171f, 200f, 20f), "Use RRGGBB or #RRGGBB");
+            if (Widgets.ButtonText(new Rect(209f, 194f, 91f, 27f), "Copy"))
+                GUIUtility.systemCopyBuffer = FrameHexColor.Format(color);
+            if (Widgets.ButtonText(new Rect(307f, 194f, 91f, 27f), "Paste") &&
+                FrameHexColor.TryParse(GUIUtility.systemCopyBuffer, out Color pasted)) Apply(pasted);
+            if (Widgets.ButtonText(new Rect(405f, 194f, 125f, 27f), "Default"))
             {
-                Rect swatch = new Rect(212f + (i % 5) * 43f, 188f + (i / 5) * 35f, 30f, 27f);
-                Widgets.DrawBoxSolid(swatch, Palette[i]);
-                Widgets.DrawBox(swatch);
-                if (Widgets.ButtonInvisible(swatch)) Apply(Palette[i]);
+                FrameChassisVisualExtension defaults = frame.Livery.Defaults;
+                Apply(channel == FrameColorChannel.Primary ? defaults?.defaultPrimary ?? Color.white :
+                    channel == FrameColorChannel.Secondary ? defaults?.defaultSecondary ?? Color.white :
+                    defaults?.defaultVisor ?? Color.white);
             }
 
-            Widgets.Label(new Rect(18f, 230f, 180f, 24f), "Saved colors");
-            if (Widgets.ButtonText(new Rect(330f, 230f, 94f, 25f), "Save color"))
+            for (int group = 0; group < FramePaintPresets.Groups.Length; group++)
+            {
+                float y = 270f + group * 20f;
+                Widgets.Label(new Rect(18f, y, 105f, 20f), FramePaintPresets.Groups[group]);
+                for (int index = 0; index < 4; index++)
+                {
+                    string preset = FramePaintPresets.Hex[group][index];
+                    FrameHexColor.TryParse(preset, out Color sample);
+                    Rect swatch = new Rect(128f + index * 52f, y + 1f, 43f, 17f);
+                    Widgets.DrawBoxSolid(swatch, sample);
+                    Widgets.DrawBox(swatch);
+                    TooltipHandler.TipRegion(swatch, "#" + preset);
+                    if (Widgets.ButtonInvisible(swatch)) Apply(sample);
+                }
+            }
+
+            Widgets.Label(new Rect(18f, 372f, 180f, 20f), "Favorites");
+            if (Widgets.ButtonText(new Rect(429f, 372f, 101f, 22f), "Save color"))
             {
                 FrameColorPreferences settings = ZenithFrameMod.Instance?.Colors;
-                string value = FrameHexColor.Format(color);
-                if (settings != null && !settings.favorites.Contains(value))
+                string favoriteHex = FrameHexColor.Format(color);
+                if (settings != null && !settings.favorites.Contains(favoriteHex))
                 {
-                    if (settings.favorites.Count == 12) settings.favorites.RemoveAt(0);
-                    settings.favorites.Add(value);
+                    if (settings.favorites.Count >= 12) settings.favorites.RemoveAt(0);
+                    settings.favorites.Add(favoriteHex);
                     ZenithFrameMod.Instance.WriteSettings();
                 }
             }
@@ -90,20 +139,19 @@ namespace ZenithFrame
                 for (int i = 0; i < favorites.Count; i++)
                 {
                     if (!FrameHexColor.TryParse(favorites[i], out Color favorite)) continue;
-                    float x = 18f + (i % 6) * 69f, y = 265f + (i / 6) * 40f;
-                    Rect swatch = new Rect(x, y, 38f, 29f);
+                    float x = 18f + (i % 6) * 85f, y = 395f + (i / 6) * 20f;
+                    Rect swatch = new Rect(x, y, 52f, 18f);
                     Widgets.DrawBoxSolid(swatch, favorite);
                     Widgets.DrawBox(swatch);
                     TooltipHandler.TipRegion(swatch, favorites[i]);
                     if (Widgets.ButtonInvisible(swatch)) Apply(favorite);
-                    if (Widgets.ButtonText(new Rect(x + 39f, y + 2f, 25f, 24f), "×"))
+                    if (Widgets.ButtonText(new Rect(x + 53f, y, 22f, 18f), "×"))
                     {
                         favorites.RemoveAt(i);
                         ZenithFrameMod.Instance.WriteSettings();
                         break;
                     }
                 }
-            if (Widgets.ButtonText(new Rect(340f, 344f, 84f, 28f), "Done")) Close();
         }
     }
 
@@ -166,7 +214,6 @@ namespace ZenithFrame
             DrawPreviewAndColors(data, centerX + 18f, previewY, previewSize);
             DrawStatus(data, centerX, previewY + previewSize + 7f, centerWidth);
             DrawFrameIssues(data, centerX, conditionY, centerWidth, mainBottom - conditionY - 3f);
-            Widgets.DrawLineHorizontal(OuterMargin, mainBottom + 5f, size.x - OuterMargin * 2f);
             DrawPilot(data, mainBottom + 6f);
         }
 
@@ -305,38 +352,37 @@ namespace ZenithFrame
             Rect panel = new Rect(x, y, width, height);
             Widgets.DrawBoxSolid(panel, new Color(0.12f, 0.16f, 0.19f, 0.46f));
             Widgets.DrawBox(panel);
-            Label(new Rect(x + 8f, y + 3f, width - 94f, RowHeight), "Frame condition");
-            if (Widgets.ButtonText(new Rect(x + width - 78f, y + 2f, 70f, 25f), "Health"))
+            Widgets.DrawHighlightIfMouseover(panel);
+            if (Widgets.ButtonInvisible(panel))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false));
-            Widgets.DrawLineHorizontal(x + 8f, y + 29f, width - 16f);
-            DrawIssues(FrameHealthSummary.For(data.Frame, true), new Rect(x + 8f, y + 34f, width - 16f, height - 39f),
-                () => Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false)));
+            DrawIssues(FrameHealthSummary.For(data.Frame, true),
+                new Rect(x + 8f, y + 4f, width - 16f, height - 8f));
         }
 
         private static void DrawPilot(FrameUiSnapshot data, float y)
         {
-            Label(new Rect(20f, y, 76f, RowHeight), "Pilot");
             if (data.Pilot == null)
             {
-                Label(new Rect(95f, y + 28f, 195f, RowHeight), "No pilot");
+                Label(new Rect(20f, y + 10f, 250f, RowHeight), "No pilot");
                 return;
             }
             Pawn pilot = data.Pilot;
-            Rect portrait = new Rect(20f, y + 24f, 62f, 68f);
+            Rect portrait = new Rect(20f, y + 6f, 62f, 68f);
             Widgets.DrawBoxSolid(portrait, new Color(0.14f, 0.14f, 0.14f, 0.8f));
             GUI.DrawTexture(portrait.ContractedBy(4f), PortraitsCache.Get(pilot, portrait.size, Rot4.South,
                 cameraZoom: 0.95f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(portrait);
-            Label(new Rect(95f, y + 17f, 211f, 21f), pilot.LabelShortCap);
-            Label(new Rect(95f, y + 38f, 211f, 21f), pilot.Faction?.Name ?? "No faction");
-            Label(new Rect(95f, y + 59f, 211f, 21f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
+            Label(new Rect(95f, y + 3f, 175f, 21f), pilot.LabelShortCap);
+            Label(new Rect(95f, y + 24f, 175f, 21f), pilot.Faction?.Name ?? "No faction");
+            Label(new Rect(95f, y + 45f, 175f, 21f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
                 pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "Embarked");
-            if (Widgets.ButtonText(new Rect(95f, y + 81f, 132f, 22f), "Information"))
+            if (Widgets.ButtonText(new Rect(95f, y + 75f, 132f, 22f), "Information"))
                 OpenPilotInformation(pilot);
-            Widgets.DrawLineVertical(316f, y + 10f, 87f);
-            Label(new Rect(330f, y + 12f, 270f, RowHeight), "Pilot health");
-            DrawIssues(FrameHealthSummary.For(pilot, false), new Rect(330f, y + 37f, 276f, 65f),
-                () => Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true, FrameInfoPage.Health)));
+            Rect health = new Rect(282f, y + 1f, 324f, 100f);
+            Widgets.DrawHighlightIfMouseover(health);
+            if (Widgets.ButtonInvisible(health))
+                Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true, FrameInfoPage.Health));
+            DrawIssues(FrameHealthSummary.For(pilot, false), health.ContractedBy(4f));
         }
 
         public static Dialog_FramePawnInfo OpenPilotInformation(Pawn pilot)
@@ -346,7 +392,7 @@ namespace ZenithFrame
             return dialog;
         }
 
-        private static void DrawIssues(List<FrameHealthIssue> issues, Rect area, System.Action openHealth)
+        private static void DrawIssues(List<FrameHealthIssue> issues, Rect area)
         {
             if (issues.Count == 0)
             {
@@ -357,40 +403,22 @@ namespace ZenithFrame
             float used = 0f;
             while (shown < issues.Count)
             {
-                float rowHeight = HealthRowHeight(issues[shown], area.width);
                 float reserve = shown + 1 < issues.Count ? RowHeight : 0f;
-                if (used + rowHeight + reserve > area.height) break;
-                used += rowHeight;
+                if (used + RowHeight + reserve > area.height) break;
+                used += RowHeight;
                 shown++;
             }
             float rowY = area.y;
             for (int index = 0; index < shown; index++)
             {
-                float rowHeight = HealthRowHeight(issues[index], area.width);
-                DrawHealthRow(issues[index], new Rect(area.x, rowY, area.width, rowHeight));
-                rowY += rowHeight;
+                DrawHealthRow(issues[index], new Rect(area.x, rowY, area.width, RowHeight));
+                rowY += RowHeight;
             }
             if (issues.Count > shown)
             {
                 Rect overflow = new Rect(area.x, rowY, area.width, RowHeight);
-                Label(overflow, "+" + (issues.Count - shown) + " more  ·  Health");
-                if (Widgets.ButtonInvisible(overflow)) openHealth();
+                Label(overflow, "+" + (issues.Count - shown) + " more");
             }
-        }
-
-        private static float HealthRowHeight(FrameHealthIssue issue, float width)
-        {
-            float leftWidth = Mathf.Floor(width * 0.37f);
-            float rightWidth = width - leftWidth - IconWidth(issue) - 8f;
-            GameFont oldFont = Text.Font;
-            bool oldWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = true;
-            float height = Mathf.Max(Text.CalcHeight(issue.PartLabel, leftWidth),
-                Text.CalcHeight(issue.ConditionLabel, rightWidth)) + 2f;
-            Text.Font = oldFont;
-            Text.WordWrap = oldWrap;
-            return Mathf.Max(RowHeight, height);
         }
 
         private static float IconWidth(FrameHealthIssue issue) =>
@@ -404,8 +432,8 @@ namespace ZenithFrame
             Rect right = new Rect(row.x + leftWidth, row.y,
                 row.width - leftWidth - iconsWidth - 5f, row.height);
             Widgets.DrawHighlightIfMouseover(row);
-            Label(left, issue.PartLabel, GameFont.Small, TextAnchor.UpperLeft, true, issue.PartColor);
-            Label(right, issue.ConditionLabel, GameFont.Small, TextAnchor.UpperLeft, true, issue.ConditionColor);
+            Label(left, issue.PartLabel, GameFont.Small, TextAnchor.UpperLeft, false, issue.PartColor);
+            Label(right, issue.ConditionLabel, GameFont.Small, TextAnchor.UpperLeft, false, issue.ConditionColor);
             float iconX = row.xMax - iconsWidth;
             if (issue.Bleeding)
             {

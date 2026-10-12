@@ -139,7 +139,9 @@ namespace ZenithFrame
                 __instance is FloatMenuOptionProvider_RescuePawn ||
                 __instance is FloatMenuOptionProvider_CapturePawn ||
                 __instance is FloatMenuOptionProvider_FrameHaul ||
-                __instance is FloatMenuOptionProvider_FrameDisembark;
+                __instance is FloatMenuOptionProvider_FrameDisembark ||
+                __instance is FloatMenuOptionProvider_FramePilotSelfTend ||
+                __instance is FloatMenuOptionProvider_DockFrame;
 
             __result = __result && allowed;
         }

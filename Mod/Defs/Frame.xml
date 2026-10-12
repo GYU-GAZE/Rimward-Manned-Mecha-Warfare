@@ -38,6 +38,7 @@
     <race>
       <intelligence>ToolUser</intelligence><fleshType>ZF_FrameMechanical</fleshType><body>ZF_HumanoidFrameBody</body>
       <trainability>None</trainability>
+      <hideTrainingTab>true</hideTrainingTab>
       <thinkTreeMain>ZF_FrameIdle</thinkTreeMain><thinkTreeConstant>ZF_FrameConstant</thinkTreeConstant>
       <hasGenders>false</hasGenders><needsRest>false</needsRest><foodType>None</foodType>
       <baseBodySize>1.5</baseBodySize><baseHealthScale>2</baseHealthScale><lifeExpectancy>2500</lifeExpectancy>
@@ -134,7 +135,7 @@
 
   <ThingDef ParentName="BuildingBase">
     <defName>ZF_FrameDockingBay</defName><label>Frame docking bay</label>
-    <description>A standable workshop pad that accelerates Frame boarding, structural work, reconstruction and loadout service.</description>
+    <description>A standable 3x3 workshop pad. Select an operational Frame and right-click this bay to Dock Frame. While the Frame stands on the pad, boarding, injury repair, reconstruction and module service run five times faster. Outgoing modules can be stored in valid nearby stockpiles within 12 cells. Moving away ends the bonus. The bay does not perform work automatically.</description>
     <thingClass>Building</thingClass><category>Building</category><selectable>true</selectable><altitudeLayer>BuildingOnTop</altitudeLayer>
     <passability>Standable</passability><pathCost>4</pathCost><fillPercent>0</fillPercent><size>(3,3)</size>
     <graphicData><texPath>Things/Building/Furniture/Bed/Bed</texPath><graphicClass>Graphic_Multi</graphicClass><drawSize>(3,3)</drawSize></graphicData>

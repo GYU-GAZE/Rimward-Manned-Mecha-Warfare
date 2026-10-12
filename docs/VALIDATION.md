@@ -11,7 +11,7 @@ dotnet run --project Tests/Policy -c Release
 ./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -RunName 'acceptance-unique-name'
 ```
 
-The one-process acceptance checks current milestone mechanics: three paint channels and hex parsing, multiple exact module orders, cancellation isolation, sequential worker completion, the slot menu's Replace/Remove/Cancel actions, self-right-click Disembark, manual Haul, and a Rescue menu/job. It selects the Frame and opens the color picker in real GUI callbacks so GUI exceptions appear in the process log. It does not assert visual layout, icon framing, real mouse hit testing, saved-game behavior, or manual Capture. Those are human QA responsibilities.
+The one-process acceptance now checks the compact paint editor and Frame tab in real GUI callbacks, three independent paint channels and reset, fixed health summary data, self-right-click pilot self-tend with exact pilot-owned medicine, vanilla Rescue into a bed, vanilla Capture into a prisoner bed with status transition, unarmed drafted melee with actual damage, hidden training tab, and positional Dock Frame/undock with the fivefold timing change. It saves `paint-editor.png` and `frame-tab.png` for layout review. The harness does not simulate actual mouse hit testing, judge visual quality, or replay save/load and DLC combinations; those remain separate human QA or historical gates.
 
 If the final process fails, preserve its report and log, fix the concrete cause, and rerun once as necessary. Report all launches. Historical results below describe older commits and retired runtime suites; their commands and process counts are not current instructions.
 
