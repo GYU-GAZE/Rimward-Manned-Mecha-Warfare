@@ -20,7 +20,6 @@ namespace ZenithFrame.Tests
         private Pawn pilot;
         private Dialog_FrameColorPicker picker;
         private Dialog_FramePawnInfo pilotInfo;
-        private int pickerFrames;
         private int visualStep;
         private int visualFrames;
         private Pawn patient;
@@ -61,13 +60,17 @@ namespace ZenithFrame.Tests
             Check(FramePaintPresets.Hex.Length == 5 && FramePaintPresets.Hex.All(group => group.Length == 4) &&
                 FramePaintPresets.Hex.SelectMany(group => group).All(value => FrameHexColor.TryParse(value, out _)),
                 "five curated four-color paint families parse");
+            Rect tab = new Rect(0f, 18f, 620f, 520f);
+            Rect right = FramePopupPlacement.Beside(tab, new Vector2(690f, 570f), 1366f, 768f, 620f);
+            Rect narrow = FramePopupPlacement.Beside(tab, new Vector2(690f, 570f), 1280f, 800f, 620f);
+            Rect left = FramePopupPlacement.Beside(new Rect(730f, 18f, 620f, 520f),
+                new Vector2(520f, 420f), 1366f, 768f, 500f);
+            Check(right.x >= tab.xMax + FramePopupPlacement.Gap && right.xMax <= 1358f &&
+                narrow.x >= tab.xMax + FramePopupPlacement.Gap && narrow.xMax <= 1272f &&
+                left.xMax <= 730f - FramePopupPlacement.Gap,
+                "popup placement prefers right, narrows at 1280 and falls back left");
 
             Find.Selector.Select(frame);
-            guiAction = () =>
-            {
-                picker = new Dialog_FrameColorPicker(frame, FrameColorChannel.Primary);
-                Find.WindowStack.Add(picker);
-            };
             Next(1);
         }
 
@@ -100,7 +103,7 @@ namespace ZenithFrame.Tests
             Check(ReferenceEquals(FrameUiSnapshot.From(frame).PilotForInspection, pilot),
                 "Frame UI reads exact contained pilot");
             picker = new Dialog_FrameColorPicker(frame, FrameColorChannel.Visor);
-            Check(picker.InitialSize == new Vector2(596f, 470f) &&
+            Check(picker.InitialSize == new Vector2(520f, 420f) &&
                 picker.SelectedChannel == FrameColorChannel.Visor, "compact picker opens on clicked Visor channel");
             Color originalPrimary = frame.Livery.Primary;
             Color originalSecondary = frame.Livery.Secondary;
@@ -310,14 +313,6 @@ namespace ZenithFrame.Tests
             if (!Enabled || finished) return;
             if (Event.current.type == EventType.Repaint)
             {
-                if (picker != null && ++pickerFrames == 3)
-                    ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "paint-editor.png"));
-                if (picker != null && pickerFrames >= 5)
-                {
-                    picker.Close();
-                    picker = null;
-                    Check(true, "color picker rendered without GUI error");
-                }
                 if (visualStep != 0 && ++visualFrames >= 4)
                 {
                     visualFrames = 0;
@@ -331,22 +326,68 @@ namespace ZenithFrame.Tests
                         }
                         else if (visualStep == 2)
                         {
-                            pilotInfo = ITab_FrameVisual.OpenPilotInformation(pilot);
-                            Check(pilotInfo.SupportsPage(FrameInfoPage.Bio) &&
-                                pilotInfo.SupportsPage(FrameInfoPage.Health) &&
-                                pilotInfo.SupportsPage(FrameInfoPage.Gear),
-                                "Information opens exact pilot Bio Health and Gear");
+                            picker = new Dialog_FrameColorPicker(frame, FrameColorChannel.Primary);
+                            Find.WindowStack.Add(picker);
+                            CheckBeside(picker, "paint popup opens beside Frame tab");
                             visualStep = 3;
                         }
                         else if (visualStep == 3)
                         {
-                            pilotInfo.ShowPage(FrameInfoPage.Health);
+                            ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "paint-editor.png"));
                             visualStep = 4;
                         }
                         else if (visualStep == 4)
                         {
-                            pilotInfo.ShowPage(FrameInfoPage.Gear);
+                            picker.Close();
+                            picker = null;
+                            pilotInfo = ITab_FrameVisual.OpenPilotInformation(pilot);
+                            CheckBeside(pilotInfo, "pilot Information opens beside Frame tab");
+                            Check(pilotInfo.SupportsPage(FrameInfoPage.Bio) &&
+                                pilotInfo.SupportsPage(FrameInfoPage.Health) &&
+                                pilotInfo.SupportsPage(FrameInfoPage.Gear),
+                                "Information opens exact pilot Bio Health and Gear");
                             visualStep = 5;
+                        }
+                        else if (visualStep == 5)
+                        {
+                            ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "pilot-info.png"));
+                            visualStep = 6;
+                        }
+                        else if (visualStep == 6)
+                        {
+                            pilotInfo.ShowPage(FrameInfoPage.Health);
+                            visualStep = 7;
+                        }
+                        else if (visualStep == 7)
+                        {
+                            pilotInfo.ShowPage(FrameInfoPage.Gear);
+                            visualStep = 8;
+                        }
+                        else if (visualStep == 8)
+                        {
+                            pilotInfo.Close();
+                            pilotInfo = new Dialog_FramePawnInfo(frame, false);
+                            Find.WindowStack.Add(pilotInfo);
+                            CheckBeside(pilotInfo, "Frame health opens beside Frame tab");
+                            visualStep = 9;
+                        }
+                        else if (visualStep == 9)
+                        {
+                            ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "frame-health.png"));
+                            visualStep = 10;
+                        }
+                        else if (visualStep == 10)
+                        {
+                            pilotInfo.Close();
+                            pilotInfo = new Dialog_FramePawnInfo(pilot, true, FrameInfoPage.Health);
+                            Find.WindowStack.Add(pilotInfo);
+                            CheckBeside(pilotInfo, "pilot health opens beside Frame tab");
+                            visualStep = 11;
+                        }
+                        else if (visualStep == 11)
+                        {
+                            ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "pilot-health.png"));
+                            visualStep = 12;
                         }
                         else
                         {
@@ -365,6 +406,15 @@ namespace ZenithFrame.Tests
             try { action(); } catch (Exception error) { Fail(error); }
         }
 
+        private void CheckBeside(Window popup, string label)
+        {
+            Rect tab = ITab_FrameVisual.CurrentScreenRect();
+            Rect positioned = popup.windowRect;
+            Check(positioned.x >= tab.xMax + FramePopupPlacement.Gap &&
+                positioned.xMax <= UI.screenWidth - 8f && positioned.y >= 8f &&
+                positioned.yMax <= UI.screenHeight - 8f, label);
+        }
+
         public override void GameComponentUpdate()
         {
             if (!Enabled || finished || guiAction != null || Current.ProgramState != ProgramState.Playing ||
@@ -375,7 +425,7 @@ namespace ZenithFrame.Tests
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
                     throw new TimeoutException("Acceptance step " + step + " timed out");
                 if (step == 0) Start();
-                else if (step == 1 && picker == null)
+                else if (step == 1)
                     AfterService();
                 else if (step == 3 && frame.CurJobDef != ZenithJobDefOf.ZF_FramePilotSelfTend)
                     BeginRescue();

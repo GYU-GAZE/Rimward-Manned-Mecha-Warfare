@@ -28,7 +28,10 @@ namespace ZenithFrame
         private Color color;
         private string hex;
         private bool wheelDragging;
-        public override Vector2 InitialSize => new Vector2(596f, 470f);
+        private bool valueDragging;
+        private float selectedHue;
+        private float selectedSaturation;
+        public override Vector2 InitialSize => new Vector2(520f, 420f);
         public FrameColorChannel SelectedChannel => channel;
 
         public Dialog_FrameColorPicker(FramePawn frame, FrameColorChannel channel)
@@ -37,6 +40,7 @@ namespace ZenithFrame
             this.channel = channel;
             color = ChannelColor(channel);
             hex = FrameHexColor.Format(color);
+            RememberHue(color, true);
             forcePause = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
@@ -51,6 +55,31 @@ namespace ZenithFrame
             channel = selected;
             color = ChannelColor(selected);
             hex = FrameHexColor.Format(color);
+            RememberHue(color, true);
+        }
+
+        private void RememberHue(Color chosen, bool resetOnBlack = false)
+        {
+            Color.RGBToHSV(chosen, out float hue, out float saturation, out float value);
+            if (value > 0.0001f || resetOnBlack)
+            {
+                selectedHue = hue;
+                selectedSaturation = saturation;
+            }
+        }
+
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            windowRect = FramePopupPlacement.Beside(ITab_FrameVisual.CurrentScreenRect(), windowRect.size,
+                UI.screenWidth, UI.screenHeight, 500f);
+        }
+
+        internal bool CommitHex()
+        {
+            if (!FrameHexColor.TryParse(hex, out Color entered)) return false;
+            Apply(entered);
+            return true;
         }
 
         internal void Apply(Color chosen)
@@ -58,6 +87,7 @@ namespace ZenithFrame
             if (frame == null || frame.Destroyed || frame.Faction != Faction.OfPlayer) return;
             color = chosen;
             hex = FrameHexColor.Format(chosen);
+            RememberHue(chosen);
             CompFrameLivery paint = frame.Livery;
             paint.SetColors(channel == FrameColorChannel.Primary ? chosen : paint.Primary,
                 channel == FrameColorChannel.Secondary ? chosen : paint.Secondary,
@@ -66,39 +96,61 @@ namespace ZenithFrame
 
         public override void DoWindowContents(Rect rect)
         {
-            Widgets.Label(new Rect(18f, 5f, 310f, 26f), "Frame paint");
+            Widgets.Label(new Rect(12f, 3f, 280f, 26f), "Frame paint");
             if (Widgets.ButtonText(new Rect(rect.width - 86f, 3f, 78f, 27f), "Done")) Close();
             for (int i = 0; i < 3; i++)
             {
                 FrameColorChannel selected = (FrameColorChannel)i;
-                Rect tab = new Rect(18f + i * 115f, 37f, 108f, 27f);
+                Rect tab = new Rect(12f + i * 105f, 34f, 98f, 26f);
                 if (Widgets.ButtonText(tab, selected.ToString())) SelectChannel(selected);
                 if (selected == channel)
                     Widgets.DrawBoxSolid(new Rect(tab.x + 4f, tab.yMax - 4f, tab.width - 8f, 3f),
                         new Color(0.18f, 0.8f, 0.9f));
             }
+            Widgets.DrawBoxSolid(new Rect(10f, 65f, rect.width - 20f, 135f),
+                new Color(0.12f, 0.16f, 0.19f, 0.5f));
             Color beforeWheel = color;
-            Widgets.HSVColorWheel(new Rect(18f, 71f, 162f, 162f), ref color, ref wheelDragging);
+            Widgets.HSVColorWheel(new Rect(14f, 67f, 130f, 130f), ref color, ref wheelDragging);
             if (color != beforeWheel) Apply(color);
-            Color.RGBToHSV(color, out float hue, out float saturation, out float value);
-            Widgets.Label(new Rect(18f, 234f, 165f, 21f), "Brightness  " + Mathf.RoundToInt(value * 100f) + "%");
-            float adjusted = GUI.HorizontalSlider(new Rect(18f, 253f, 162f, 18f), value, 0f, 1f);
-            if (Mathf.Abs(adjusted - value) > 0.001f) Apply(Color.HSVToRGB(hue, saturation, adjusted));
+            Color.RGBToHSV(color, out _, out _, out float value);
+            Rect valueBar = new Rect(158f, 68f, 24f, 128f);
+            for (int strip = 0; strip < 32; strip++)
+                Widgets.DrawBoxSolid(new Rect(valueBar.x, valueBar.y + strip * 4f, valueBar.width, 4f),
+                    Color.HSVToRGB(selectedHue, selectedSaturation, 1f - strip / 31f));
+            Widgets.DrawBox(valueBar);
+            Widgets.DrawBoxSolid(new Rect(valueBar.x - 3f,
+                valueBar.y + Mathf.Clamp((1f - value) * valueBar.height - 1f, 0f, valueBar.height - 3f),
+                valueBar.width + 6f, 3f), Color.white);
+            Event evt = Event.current;
+            if (evt.type == EventType.MouseDown && evt.button == 0 && valueBar.Contains(evt.mousePosition))
+                valueDragging = true;
+            if (valueDragging && (evt.type == EventType.MouseDown || evt.type == EventType.MouseDrag))
+            {
+                Apply(Color.HSVToRGB(selectedHue, selectedSaturation,
+                    1f - Mathf.Clamp01((evt.mousePosition.y - valueBar.y) / valueBar.height)));
+                evt.Use();
+            }
+            if (evt.rawType == EventType.MouseUp) valueDragging = false;
 
-            Rect current = new Rect(209f, 74f, 321f, 38f);
+            Rect current = new Rect(211f, 82f, 40f, 30f);
             Widgets.DrawBoxSolid(current, color);
             Widgets.DrawBox(current);
-            Widgets.Label(new Rect(209f, 116f, 110f, 23f), "Current " + channel);
-            hex = Widgets.TextField(new Rect(209f, 142f, 180f, 28f), hex);
-            if (Widgets.ButtonText(new Rect(396f, 142f, 65f, 28f), "Apply") &&
-                FrameHexColor.TryParse(hex, out Color entered)) Apply(entered);
+            GUI.SetNextControlName("FramePaintHex");
+            hex = Widgets.TextField(new Rect(260f, 82f, rect.width - 272f, 30f), hex);
+            if (evt.type == EventType.KeyDown &&
+                (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) &&
+                GUI.GetNameOfFocusedControl() == "FramePaintHex")
+            {
+                if (CommitHex()) GUI.FocusControl(null);
+                evt.Use();
+            }
             if (!FrameHexColor.TryParse(hex, out _))
-                Widgets.Label(new Rect(209f, 171f, 200f, 20f), "Use RRGGBB or #RRGGBB");
-            if (Widgets.ButtonText(new Rect(209f, 194f, 91f, 27f), "Copy"))
+                Widgets.Label(new Rect(211f, 115f, 248f, 20f), "Use RRGGBB or #RRGGBB");
+            if (Widgets.ButtonText(new Rect(211f, 149f, 70f, 27f), "Copy"))
                 GUIUtility.systemCopyBuffer = FrameHexColor.Format(color);
-            if (Widgets.ButtonText(new Rect(307f, 194f, 91f, 27f), "Paste") &&
+            if (Widgets.ButtonText(new Rect(290f, 149f, 70f, 27f), "Paste") &&
                 FrameHexColor.TryParse(GUIUtility.systemCopyBuffer, out Color pasted)) Apply(pasted);
-            if (Widgets.ButtonText(new Rect(405f, 194f, 125f, 27f), "Default"))
+            if (Widgets.ButtonText(new Rect(369f, 149f, rect.width - 381f, 27f), "Default"))
             {
                 FrameChassisVisualExtension defaults = frame.Livery.Defaults;
                 Apply(channel == FrameColorChannel.Primary ? defaults?.defaultPrimary ?? Color.white :
@@ -106,15 +158,17 @@ namespace ZenithFrame
                     defaults?.defaultVisor ?? Color.white);
             }
 
+            Widgets.DrawBoxSolid(new Rect(10f, 205f, rect.width - 20f, 102f),
+                new Color(0.12f, 0.16f, 0.19f, 0.5f));
             for (int group = 0; group < FramePaintPresets.Groups.Length; group++)
             {
-                float y = 270f + group * 20f;
-                Widgets.Label(new Rect(18f, y, 105f, 20f), FramePaintPresets.Groups[group]);
+                float y = 207f + group * 20f;
+                Widgets.Label(new Rect(14f, y, 80f, 20f), FramePaintPresets.Groups[group]);
                 for (int index = 0; index < 4; index++)
                 {
                     string preset = FramePaintPresets.Hex[group][index];
                     FrameHexColor.TryParse(preset, out Color sample);
-                    Rect swatch = new Rect(128f + index * 52f, y + 1f, 43f, 17f);
+                    Rect swatch = new Rect(98f + index * 92f, y + 1f, 82f, 17f);
                     Widgets.DrawBoxSolid(swatch, sample);
                     Widgets.DrawBox(swatch);
                     TooltipHandler.TipRegion(swatch, "#" + preset);
@@ -122,8 +176,10 @@ namespace ZenithFrame
                 }
             }
 
-            Widgets.Label(new Rect(18f, 372f, 180f, 20f), "Favorites");
-            if (Widgets.ButtonText(new Rect(429f, 372f, 101f, 22f), "Save color"))
+            Widgets.DrawBoxSolid(new Rect(10f, 311f, rect.width - 20f, 70f),
+                new Color(0.12f, 0.16f, 0.19f, 0.5f));
+            Widgets.Label(new Rect(14f, 314f, 180f, 20f), "Favorites");
+            if (Widgets.ButtonText(new Rect(rect.width - 109f, 313f, 99f, 22f), "Save color"))
             {
                 FrameColorPreferences settings = ZenithFrameMod.Instance?.Colors;
                 string favoriteHex = FrameHexColor.Format(color);
@@ -139,13 +195,13 @@ namespace ZenithFrame
                 for (int i = 0; i < favorites.Count; i++)
                 {
                     if (!FrameHexColor.TryParse(favorites[i], out Color favorite)) continue;
-                    float x = 18f + (i % 6) * 85f, y = 395f + (i / 6) * 20f;
+                    float x = 14f + (i % 6) * 77f, y = 339f + (i / 6) * 20f;
                     Rect swatch = new Rect(x, y, 52f, 18f);
                     Widgets.DrawBoxSolid(swatch, favorite);
                     Widgets.DrawBox(swatch);
                     TooltipHandler.TipRegion(swatch, favorites[i]);
                     if (Widgets.ButtonInvisible(swatch)) Apply(favorite);
-                    if (Widgets.ButtonText(new Rect(x + 53f, y, 22f, 18f), "×"))
+                    if (Widgets.ButtonText(new Rect(x + 53f, y, 18f, 18f), "×"))
                     {
                         favorites.RemoveAt(i);
                         ZenithFrameMod.Instance.WriteSettings();
@@ -182,11 +238,18 @@ namespace ZenithFrame
 
         public override bool IsVisible => SelPawn is FramePawn;
 
+        internal static Rect CurrentScreenRect()
+        {
+            float paneTopY = ((MainTabWindow_Inspect)MainButtonDefOf.Inspect.TabWindow).PaneTopY;
+            float height = Mathf.Min(TabHeight, Mathf.Max(0f, paneTopY - 38f));
+            return new Rect(0f, paneTopY - 30f - height, TabWidth, height);
+        }
+
         protected override void UpdateSize()
         {
             // InspectTabBase positions this tab PaneTopY - 30 - size.y.
             // Keep a small top margin at resolutions below the design height.
-            size = new Vector2(TabWidth, Mathf.Min(TabHeight, Mathf.Max(0f, PaneTopY - 38f)));
+            size = CurrentScreenRect().size;
         }
 
         protected override void FillTab()

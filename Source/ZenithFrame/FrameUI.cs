@@ -177,6 +177,13 @@ namespace ZenithFrame
             absorbInputAroundWindow = false;
         }
 
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            windowRect = FramePopupPlacement.Beside(ITab_FrameVisual.CurrentScreenRect(), windowRect.size,
+                UI.screenWidth, UI.screenHeight, 620f);
+        }
+
         public bool SupportsPage(FrameInfoPage requested) =>
             requested == FrameInfoPage.Health || characterAvailable;
 
