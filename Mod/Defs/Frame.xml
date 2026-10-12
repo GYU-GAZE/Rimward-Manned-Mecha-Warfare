@@ -9,8 +9,10 @@
       <li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li>
       <li Class="ZenithFrame.FrameChassisVisualExtension">
         <worldDrawSize>3.5</worldDrawSize>
+        <defaultPrimary>(1,1,1,1)</defaultPrimary><defaultSecondary>(1,1,1,1)</defaultSecondary><defaultVisor>(1,1,1,1)</defaultVisor>
         <torso><south>ZenithFrame/Frames/Debug/TestFrame/Torso_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Torso_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Torso_North</north></torso>
         <head><south>ZenithFrame/Frames/Debug/TestFrame/Head_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Head_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Head_North</north></head>
+        <headVisor><south>ZenithFrame/Frames/Debug/TestFrame/Head_South_v</south><sides>ZenithFrame/Frames/Debug/TestFrame/Head_Sides_v</sides><north>ZenithFrame/Frames/Debug/TestFrame/Head_North_v</north></headVisor>
       </li>
       <li Class="ZenithFrame.FrameServiceExtension">
         <reconstructionMaterial>Steel</reconstructionMaterial>
@@ -24,7 +26,7 @@
         <dockingStorageRadius>12</dockingStorageRadius>
       </li>
     </modExtensions>
-    <inspectorTabs><li>ZenithFrame.ITab_Frame</li></inspectorTabs>
+    <inspectorTabs><li>ZenithFrame.ITab_FrameVisual</li></inspectorTabs>
     <statBases>
       <MoveSpeed>4.7</MoveSpeed><MarketValue>1000</MarketValue>
       <ArmorRating_Sharp>0.4</ArmorRating_Sharp><ArmorRating_Blunt>0.2</ArmorRating_Blunt>
@@ -192,7 +194,7 @@
     <statBases><Mass>5</Mass><MarketValue>120</MarketValue></statBases>
     <modExtensions>
       <li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li>
-      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North</north></visual></li>
+      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North</north></visual><visor><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South_v</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides_v</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North_v</north></visor></li>
     </modExtensions>
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
@@ -201,7 +203,7 @@
     <statBases><Mass>9</Mass><MarketValue>180</MarketValue></statBases>
     <modExtensions>
       <li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li>
-      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North</north></visual></li>
+      <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North</north></visual><visor><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South_v</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides_v</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North_v</north></visor></li>
     </modExtensions>
     <comps><li Class="ZenithFrame.CompProperties_FrameModuleAbility"><ability>ZF_DebugShoulderBurst</ability></li></comps>
   </ThingDef>
