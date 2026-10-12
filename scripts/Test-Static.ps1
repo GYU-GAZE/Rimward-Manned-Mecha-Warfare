@@ -36,6 +36,10 @@ foreach ($file in Get-ChildItem "$repo/Mod/Defs" -Filter '*.xml' -Recurse) {
 [xml]$fleshTypes = Get-Content "$repo/Mod/Defs/FrameFleshTypes.xml" -Raw
 $frameDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugFrame')[0]
 $rifleDef = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugRifle')[0]
+$visualExtension = @($frameDef.modExtensions.li | Where-Object { $_.GetAttribute('Class') -eq 'ZenithFrame.FrameChassisVisualExtension' })[0]
+Assert-Static ($visualExtension.worldDrawSize -eq '3.5' -and $frame.Defs.PawnKindDef.lifeStages.li.bodyGraphicData.drawSize -eq '3.5') 'Frame chassis and PawnKind fallback must use the 3.5 visual draw size'
+Assert-Static ($frameDef.race.baseBodySize -eq '1.5') 'Visual scale must not alter mechanical body size'
+Assert-Static (!$rifleDef.graphicData.drawSize) 'Assault rifle control must retain vanilla graphic draw size'
 $refs = @{
     BodyDef = $frameDef.race.body
     FleshTypeDef = $frameDef.race.fleshType
@@ -49,6 +53,7 @@ Assert-Static ($weaponVerbs[0].verbClass -eq 'ZenithFrame.Verb_HostileFrameShot'
 Assert-Static ($weaponVerbs[1].verbClass -eq 'ZenithFrame.Verb_FrameShot' -and $weaponVerbs[1].onlyManualCast -eq 'true') 'Player Frame weapon verb must remain manually targeted'
 $heavyWeapon = @($frame.Defs.ThingDef | Where-Object defName -EQ 'ZF_DebugHeavyRifle')
 Assert-Static ($heavyWeapon.Count -eq 1 -and $heavyWeapon.verbs.li[0].range -eq '40' -and $heavyWeapon.verbs.li[0].burstShotCount -eq '1' -and $heavyWeapon.statBases.RangedWeapon_Cooldown -eq '2.5') 'Heavy Rifle must remain a mechanically distinct single-shot development Weapon'
+Assert-Static ($heavyWeapon[0].graphicData.drawSize -eq '(2.5,2.5)') 'Oversized debug Heavy Rifle must specify graphic draw size through ordinary equipment data'
 Assert-Static ($weaponVerbs[1].hasStandardCommand -eq 'true') 'Debug rifle must expose vanilla Command_VerbTarget / Misc1'
 Assert-Static ($frameDef.race.thinkTreeMain -eq 'ZF_FrameIdle') 'Frame must not inherit autonomous AI'
 Assert-Static ($frameDef.race.trainability -eq 'None') 'Frame must not expose animal training and must serialize a valid training tracker'

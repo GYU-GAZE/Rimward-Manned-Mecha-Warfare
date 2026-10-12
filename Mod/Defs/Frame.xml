@@ -8,7 +8,7 @@
     <modExtensions>
       <li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li>
       <li Class="ZenithFrame.FrameChassisVisualExtension">
-        <worldDrawSize>2</worldDrawSize>
+        <worldDrawSize>3.5</worldDrawSize>
         <torso><south>ZenithFrame/Frames/Debug/TestFrame/Torso_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Torso_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Torso_North</north></torso>
         <head><south>ZenithFrame/Frames/Debug/TestFrame/Head_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Head_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Head_North</north></head>
       </li>
@@ -78,7 +78,7 @@
   <PawnKindDef>
     <defName>ZF_DebugFrame</defName><label>debug Frame</label><race>ZF_DebugFrame</race><combatPower>150</combatPower>
     <abilities><li>ZF_DebugFrameOverdrive</li></abilities>
-    <lifeStages><li><bodyGraphicData><texPath>ZenithFrame/Frames/Debug/TestFrame/Torso_South</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>2</drawSize></bodyGraphicData></li></lifeStages>
+    <lifeStages><li><bodyGraphicData><texPath>ZenithFrame/Frames/Debug/TestFrame/Torso_South</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>3.5</drawSize></bodyGraphicData></li></lifeStages>
   </PawnKindDef>
   <ThinkTreeDef>
     <defName>ZF_FrameIdle</defName>
@@ -153,7 +153,7 @@
   <ThingDef ParentName="BaseWeapon">
     <techLevel>Industrial</techLevel><defName>ZF_DebugHeavyRifle</defName><label>Frame debug heavy rifle</label><description>Development Frame Weapon addon with a slower single long-range shot.</description>
     <thingCategories><li>WeaponsRanged</li></thingCategories><weaponClasses><li>Ranged</li></weaponClasses>
-    <graphicData><texPath>Things/Item/Equipment/WeaponRanged/SniperRifle</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <graphicData><texPath>Things/Item/Equipment/WeaponRanged/SniperRifle</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>(2.5,2.5)</drawSize></graphicData>
     <statBases><Mass>14</Mass><RangedWeapon_Cooldown>2.5</RangedWeapon_Cooldown><AccuracyTouch>1</AccuracyTouch><AccuracyShort>1</AccuracyShort><AccuracyMedium>1</AccuracyMedium><AccuracyLong>1</AccuracyLong></statBases>
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Weapon</category></li></modExtensions>
     <verbs>

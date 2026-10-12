@@ -3679,7 +3679,7 @@ namespace ZenithFrame.Tests
                     Vector3 scale = node.Worker.ScaleFor(node, parms);
                     Vector3 pivot;
                     Vector3 offset = node.Worker.OffsetFor(node, parms, out pivot);
-                    Check(Approximately(scale.x, 2f) && Approximately(scale.z, 2f) &&
+                    Check(Approximately(scale.x, 3.5f) && Approximately(scale.z, 3.5f) &&
                         offset.x == 0f && offset.z == 0f && pivot == Vector3.zero,
                         node.Part + " shares the chassis draw size and unshifted full-canvas origin for " + facing);
                 }
@@ -3719,6 +3719,45 @@ namespace ZenithFrame.Tests
                 FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) &&
                 ReferenceEquals(frame.Loadout.InstalledHead, moduleHead),
                 "reconstructed Head restores chassis Head and same still-installed Helmet");
+            ThingWithComps originalWeapon = frame.equipment.Primary;
+            Check(originalWeapon != null && frame.Loadout.TryRemoveWeapon(out ThingWithComps removedOriginal) &&
+                ReferenceEquals(originalWeapon, removedOriginal),
+                "rendering fixture safely removes its existing exact weapon");
+            ThingWithComps normalRifle = originalWeapon.def.defName == "ZF_DebugRifle" ? originalWeapon :
+                (ThingWithComps)ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_DebugRifle"));
+            Check(frame.Loadout.TryInstallWeapon(normalRifle) &&
+                ReferenceEquals(frame.equipment.Primary, normalRifle) &&
+                normalRifle.def.graphicData.drawSize == DefDatabase<ThingDef>.GetNamed("Gun_AssaultRifle").graphicData.drawSize,
+                "assault-rifle control uses normal equipment rendering at vanilla graphic size");
+            ThingWithComps oversized = (ThingWithComps)ThingMaker.MakeThing(
+                DefDatabase<ThingDef>.GetNamed("ZF_DebugHeavyRifle"));
+            Check(oversized.def.graphicData.drawSize == new Vector2(2.5f, 2.5f) &&
+                frame.Loadout.TryRemoveWeapon(out ThingWithComps removedNormal) &&
+                ReferenceEquals(removedNormal, normalRifle) &&
+                frame.Loadout.TryInstallWeapon(oversized) &&
+                ReferenceEquals(frame.equipment.Primary, oversized),
+                "oversized rifle installs as the exact normal primary equipment item");
+            frame.Drawer.renderer.EnsureGraphicsInitialized();
+            tree = frame.Drawer.renderer.renderTree;
+            Check(tree.Resolved &&
+                tree.rootNode.children.Count(node => node.Worker is PawnRenderNodeWorker_Carried) == 1,
+                "oversized rifle uses the same single vanilla carried-equipment node");
+            foreach (Rot4 facing in Rot4.AllRotations)
+            {
+                var parms = new PawnDrawParms { pawn = frame, facing = facing, posture = PawnPosture.Standing };
+                Check(new[] { torso, head, helmet, shoulder }.All(node =>
+                    Approximately(node.Worker.ScaleFor(node, parms).x, 3.5f) &&
+                    Approximately(node.Worker.ScaleFor(node, parms).z, 3.5f)) &&
+                    frame.equipment.Primary.def.graphicData.drawSize == new Vector2(2.5f, 2.5f),
+                    "oversized weapon size stays independent of all four body layers for " + facing);
+            }
+            Check(frame.Loadout.TryRemoveWeapon(out ThingWithComps removedOversized) &&
+                ReferenceEquals(removedOversized, oversized) && frame.Loadout.TryInstallWeapon(normalRifle) &&
+                frame.Loadout.TryRemoveWeapon(out removedNormal) && ReferenceEquals(removedNormal, normalRifle) &&
+                frame.Loadout.TryInstallWeapon(originalWeapon),
+                "rendering fixture restores its exact original weapon before save");
+            if (!ReferenceEquals(normalRifle, originalWeapon)) normalRifle.Destroy();
+            oversized.Destroy();
             SaveNext(46);
         }
 

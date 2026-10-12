@@ -25,7 +25,7 @@ namespace ZenithFrame
     {
         public FrameVisualSet torso;
         public FrameVisualSet head;
-        public float worldDrawSize = 2f;
+        public float worldDrawSize = 3.5f;
     }
 
     public sealed class FrameModuleVisualExtension : DefModExtension
@@ -166,7 +166,7 @@ namespace ZenithFrame
         public override Vector3 ScaleFor(PawnRenderNode node, PawnDrawParms parms)
         {
             Vector3 scale = base.ScaleFor(node, parms);
-            float size = parms.pawn.def.GetModExtension<FrameChassisVisualExtension>()?.worldDrawSize ?? 2f;
+            float size = parms.pawn.def.GetModExtension<FrameChassisVisualExtension>()?.worldDrawSize ?? 3.5f;
             scale.x *= size;
             scale.z *= size;
             return scale;
