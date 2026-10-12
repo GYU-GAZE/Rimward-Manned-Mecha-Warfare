@@ -3699,6 +3699,8 @@ namespace ZenithFrame.Tests
                 !FrameVisualRules.Visible(frame, FrameVisualPart.Helmet) && helmet.RecacheRequested,
                 "removing Helmet leaves intrinsic Head and invalidates the cached overlay");
             frame.Drawer.renderer.EnsureGraphicsInitialized();
+            // SetAllGraphicsDirty rebuilds the tree; the prior node is detached.
+            helmet = RenderNode(frame, FrameVisualPart.Helmet);
             Check(frame.Loadout.TryInstallHead(removedHead) && helmet.RecacheRequested &&
                 FrameVisualRules.Visible(frame, FrameVisualPart.Helmet),
                 "same exact Helmet restores its visual without replacing chassis Head");
@@ -3738,10 +3740,13 @@ namespace ZenithFrame.Tests
             opposite.Drawer.renderer.EnsureGraphicsInitialized();
             var eastParms = new PawnDrawParms { pawn = frame, facing = Rot4.East };
             var westParms = new PawnDrawParms { pawn = opposite, facing = Rot4.West };
-            Check(!RenderNode(frame, FrameVisualPart.Torso).FlipGraphic(eastParms) &&
-                RenderNode(opposite, FrameVisualPart.Torso).FlipGraphic(westParms) &&
-                RenderNode(frame, FrameVisualPart.Torso).GraphicAt(Rot4.East)?.path ==
-                RenderNode(opposite, FrameVisualPart.Torso).GraphicAt(Rot4.West)?.path,
+            FrameRenderNode eastTorso = RenderNode(frame, FrameVisualPart.Torso);
+            FrameRenderNode westTorso = RenderNode(opposite, FrameVisualPart.Torso);
+            Check(!MeshPool.GetMetaData(eastTorso.GetMesh(eastParms)).flipped &&
+                MeshPool.GetMetaData(westTorso.GetMesh(westParms)).flipped &&
+                eastTorso.GraphicAt(Rot4.East)?.path == westTorso.GraphicAt(Rot4.West)?.path &&
+                ReferenceEquals(eastTorso.Worker.GetFinalizedMaterial(eastTorso, eastParms),
+                    westTorso.Worker.GetFinalizedMaterial(westTorso, westParms)),
                 "two opposite-facing Frames share one Sides source with independent draw-local mirroring");
             DownByMissingLegs(frame);
             Check(frame.Downed && FrameVisualRules.Visible(frame, FrameVisualPart.Torso) &&
