@@ -20,7 +20,10 @@ if (![string]::IsNullOrWhiteSpace($VEFDir)) {
     if ($LASTEXITCODE) { throw 'VEF compatibility build failed' }
 }
 $release = Join-Path $repo 'artifacts/ZenithFrame'
-if (Test-Path $release) { Remove-Item $release -Recurse -Force }
+$repoRoot = [IO.Path]::GetFullPath($repo).TrimEnd('\') + '\'
+$releaseFull = [IO.Path]::GetFullPath($release)
+if (!$releaseFull.StartsWith($repoRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe release target: $releaseFull" }
+if (Test-Path -LiteralPath $releaseFull) { Remove-Item -LiteralPath $releaseFull -Recurse -Force }
 New-Item -ItemType Directory -Force "$release/Assemblies" | Out-Null
 Copy-Item "$repo/Mod/*" $release -Recurse -Force
 Copy-Item "$repo/Source/ZenithFrame/bin/Release/net472/ZenithFrame.dll" "$release/Assemblies/"

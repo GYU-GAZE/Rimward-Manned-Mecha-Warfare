@@ -1,9 +1,15 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke','Repair','Livery','FrameUX')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
+param(
+    [Parameter(Mandatory=$true)][string]$RimWorldDir,
+    [string]$RunName = ('acceptance-' + (Get-Date -Format 'yyyyMMdd-HHmmss')),
+    [string]$HarmonyDir
+)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
+if ($LASTEXITCODE) { throw 'Build failed' }
 dotnet build "$repo/Tests/Runtime/Runtime.csproj" -c Release "-p:RimWorldDir=$RimWorldDir" --nologo
-if ($LASTEXITCODE) { throw 'Harness build failed' }
+if ($LASTEXITCODE) { throw 'Acceptance harness build failed' }
+
 $runtime = Join-Path $repo 'artifacts/runtime'
 New-Item -ItemType Directory -Force "$runtime/Data","$runtime/Mods" | Out-Null
 if (!(Test-Path "$runtime/RimWorldWin64.exe")) {
@@ -11,106 +17,53 @@ if (!(Test-Path "$runtime/RimWorldWin64.exe")) {
     Copy-Item "$RimWorldDir/MonoBleedingEdge","$RimWorldDir/RimWorldWin64_Data" $runtime -Recurse
     Copy-Item "$RimWorldDir/Data/Core" "$runtime/Data" -Recurse
 }
-if (Test-Path "$runtime/Mods/ZenithFrame") { Remove-Item "$runtime/Mods/ZenithFrame" -Recurse -Force }
+$testMod = Join-Path $runtime 'Mods/ZenithTests'
+$gameMod = Join-Path $runtime 'Mods/ZenithFrame'
+$runtimeRoot = [IO.Path]::GetFullPath($runtime).TrimEnd('\') + '\'
+foreach ($target in @($testMod, $gameMod)) {
+    $fullTarget = [IO.Path]::GetFullPath($target)
+    if (!$fullTarget.StartsWith($runtimeRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe mod target: $fullTarget" }
+    if (Test-Path -LiteralPath $fullTarget) { Remove-Item -LiteralPath $fullTarget -Recurse -Force }
+}
 Copy-Item "$repo/artifacts/ZenithFrame" "$runtime/Mods" -Recurse -Force
 if ([string]::IsNullOrWhiteSpace($HarmonyDir)) {
     $steamApps = Split-Path (Split-Path $RimWorldDir -Parent) -Parent
-    $HarmonyDir = Join-Path $steamApps "workshop/content/294100/2009463077"
+    $HarmonyDir = Join-Path $steamApps 'workshop/content/294100/2009463077'
 }
-if (!(Test-Path "$HarmonyDir/About/About.xml")) { throw "Harmony missing. Install Workshop item 2009463077 or pass -HarmonyDir PATH." }
+if (!(Test-Path "$HarmonyDir/About/About.xml")) { throw "Harmony missing at $HarmonyDir" }
 if (!(Test-Path "$runtime/Mods/Harmony/About/About.xml")) {
-    if (Test-Path "$runtime/Mods/Harmony") {
-        New-Item -ItemType Directory -Force "$runtime/Mods/Harmony/About" | Out-Null
-        Copy-Item "$HarmonyDir/About/About.xml" "$runtime/Mods/Harmony/About/About.xml" -Force
-    }
-    else {
-        Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
-    }
+    Copy-Item $HarmonyDir "$runtime/Mods/Harmony" -Recurse -Force
 }
-New-Item -ItemType Directory -Force "$runtime/Mods/ZenithTests/Assemblies" | Out-Null
-Copy-Item "$repo/Tests/Runtime/About","$repo/Tests/Runtime/Defs" "$runtime/Mods/ZenithTests" -Recurse -Force
-Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$runtime/Mods/ZenithTests/Assemblies" -Force
-$expansionMods = ''
-if ($WithInstalledExpansions) {
-    foreach ($name in @('Royalty','Ideology','Biotech','Anomaly','Odyssey')) {
-        if (Test-Path "$RimWorldDir/Data/$name/About/About.xml") {
-            if (!(Test-Path "$runtime/Data/$name/About/About.xml")) {
-                Copy-Item "$RimWorldDir/Data/$name" "$runtime/Data" -Recurse -Force
-            }
-            [xml]$metadata = Get-Content "$RimWorldDir/Data/$name/About/About.xml" -Raw
-            $expansionMods += '<li>' + $metadata.ModMetaData.packageId.ToLowerInvariant() + '</li>'
-        }
-    }
-}
-else {
-    foreach ($directory in Get-ChildItem "$runtime/Data" -Directory | Where-Object Name -NE 'Core') {
-        Get-ChildItem $directory.FullName -Recurse -Force -File | ForEach-Object {
-            $_.Attributes = $_.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
-        }
-        Remove-Item -LiteralPath $directory.FullName -Recurse -Force
-    }
-}
-$knownExpansionMods = ''
-foreach ($expansion in Get-ChildItem "$runtime/Data" -Directory | Where-Object Name -NE 'Core') {
-    [xml]$metadata = Get-Content "$($expansion.FullName)/About/About.xml" -Raw
-    $knownExpansionMods += '<li>' + $metadata.ModMetaData.packageId.ToLowerInvariant() + '</li>'
-}
+New-Item -ItemType Directory -Force "$testMod/Assemblies" | Out-Null
+Copy-Item "$repo/Tests/Runtime/About","$repo/Tests/Runtime/Defs" $testMod -Recurse -Force
+Copy-Item "$repo/Tests/Runtime/bin/Release/net472/ZenithFrame.RuntimeTests.dll" "$testMod/Assemblies" -Force
+
 $profile = Join-Path $repo "artifacts/$RunName"
-if (Test-Path $profile) { throw "Use a new RunName; profile already exists: $profile" }
-New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Null
-if ($Suite -eq 'Smoke') { Set-Content "$profile/smoke-suite.txt" 'manual-qa-regressions' }
-if ($Suite -eq 'Repair') { Set-Content "$profile/repair-suite.txt" 'repair-persistence' }
-if ($Suite -eq 'Livery') { Set-Content "$profile/livery-suite.txt" 'frame-livery' }
-if ($Suite -eq 'FrameUX') { Set-Content "$profile/frame-ux-suite.txt" 'frame-ux-service' }
+if (Test-Path -LiteralPath $profile) { throw "Profile exists: $profile" }
+New-Item -ItemType Directory -Force "$profile/Config" | Out-Null
+Set-Content "$profile/acceptance-suite.txt" 'one-process'
 @'
 <ModsConfigData><version>1.6.4871</version><activeMods><li>brrainz.harmony</li><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
-'@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
+'@ | Set-Content "$profile/Config/ModsConfig.xml"
 @'
-<PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
+<PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1280</screenWidth><screenHeight>800</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-if ($Suite -eq 'FrameUX') { $lastPhase = 0; $saveName = 'ZenithFrameUX'; $reportPrefix = 'frame-ux-phase-' }
-elseif ($Suite -eq 'Livery') { $lastPhase = 0; $saveName = 'ZenithLivery'; $reportPrefix = 'livery-phase-' }
-elseif ($Suite -eq 'Repair') { $lastPhase = 0; $saveName = 'ZenithRepair'; $reportPrefix = 'repair-phase-' }
-elseif ($Suite -eq 'Smoke') { $lastPhase = 2; $saveName = 'ZenithSmoke'; $reportPrefix = 'smoke-phase-' }
-else { $lastPhase = 46; $saveName = 'ZenithLifecycle'; $reportPrefix = 'phase-' }
-if ($EndPhase -eq -1) { $EndPhase = $lastPhase }
-if ($StartPhase -lt 0 -or $EndPhase -gt $lastPhase -or $StartPhase -gt $EndPhase) { throw 'Invalid phase range for selected suite' }
-if ($StartPhase -gt 0 -and !(Test-Path -LiteralPath $SeedSave -PathType Leaf)) { throw 'A saved input from the preceding phase is required with -SeedSave' }
-$phases = $StartPhase..$EndPhase
-foreach ($phase in $phases) {
-    if ($phase -eq $StartPhase -and ($StartPhase -gt 0 -or (![string]::IsNullOrWhiteSpace($SeedSave)))) {
-        if (!(Test-Path -LiteralPath $SeedSave -PathType Leaf)) { throw "Seed save missing: $SeedSave" }
-        Copy-Item -LiteralPath $SeedSave "$profile/Saves/Autostart.rws" -Force
-    }
-    elseif ($phase -gt 0) { Copy-Item "$profile/Saves/$saveName.rws" "$profile/Saves/Autostart.rws" -Force }
-    # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
-    # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.
-    # A minimized window keeps a real Unity window/event loop without interrupting
-    # the desktop; WindowStyle Hidden creates no handle and suppresses OnGUI.
-    $arguments = @(('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player-$phase.log" + '"'))
-    if ($phase -eq 0 -and [string]::IsNullOrWhiteSpace($SeedSave)) { $arguments += '-quicktest' }
-    $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Minimized -PassThru
-    $null = $process.Handle
-    Write-Host "Live phase $phase PID $($process.Id) profile $profile"
-    $expires = (Get-Date).AddMinutes(6)
-    while (!$process.HasExited) {
-        if ((Get-Date) -gt $expires) { Stop-Process -Id $process.Id; throw "Runtime timeout; inspect $profile/Player-$phase.log" }
-        Start-Sleep -Seconds 2
-        $process.Refresh()
-    }
-    $process.WaitForExit()
-    Write-Host "Phase $phase process exit: $($process.ExitCode)"
-    $report = "$profile/$reportPrefix$phase.txt"
-    if (!(Test-Path $report)) { throw "Runtime exited without a report; inspect $profile/Player-$phase.log" }
-    Get-Content $report
-    if ((Get-Content $report -Raw) -match '(?m)^FAIL ' -or $process.ExitCode -ne 0) { throw "Phase $phase failed" }
-    $runtimeErrors = Select-String -Path "$profile/Player-$phase.log" -Pattern 'Exception|Config error|Could not resolve|XML error|Error while|Error in|Could not execute|Could not load asset bundle'
-    if ($runtimeErrors) { throw "Runtime log contains errors: $($runtimeErrors.Line -join [Environment]::NewLine)" }
-    if ($Suite -eq 'Smoke' -and $phase -lt $lastPhase) {
-        Copy-Item "$profile/Saves/$saveName.rws" "$profile/Saves/SeedForPhase-$($phase + 1).rws" -Force
-    }
+$arguments = @(('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player.log" + '"'), '-quicktest')
+$process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Minimized -PassThru
+$null = $process.Handle
+Write-Host "Acceptance process PID $($process.Id) profile $profile"
+$expires = (Get-Date).AddMinutes(8)
+while (!$process.HasExited) {
+    if ((Get-Date) -gt $expires) { Stop-Process -Id $process.Id; throw "Acceptance timed out: $profile" }
+    Start-Sleep -Seconds 2
+    $process.Refresh()
 }
-Write-Host "PASS live $Suite phases $StartPhase..$EndPhase : $profile"
-
-
-
+$process.WaitForExit()
+$report = "$profile/acceptance.txt"
+if (!(Test-Path $report)) { throw "No acceptance report: $profile/Player.log" }
+Get-Content $report
+if ($process.ExitCode -ne 0 -or (Get-Content $report -Raw) -notmatch '(?m)^PASS acceptance complete$' -or
+    (Get-Content $report -Raw) -match '(?m)^FAIL ') { throw "Acceptance failed: $profile" }
+$errors = Select-String -Path "$profile/Player.log" -Pattern 'Exception|Config error|Could not resolve|XML error|Error while|Error in|Could not execute|Could not load asset bundle|Rect height was too small'
+if ($errors) { throw "Acceptance log contains errors: $($errors.Line -join [Environment]::NewLine)" }
+Write-Host "PASS one-process acceptance: $profile"

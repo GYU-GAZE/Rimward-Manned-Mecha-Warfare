@@ -119,28 +119,13 @@ Preserve working lifecycle code while changing the control layer.
 
 ## Tests
 
-Compilation is not completion.
-
-Focused affected-subsystem validation is the normal task completion gate. For a small bugfix or feature, run only the relevant focused phase or standalone subsystem test; do not replay unrelated historical phases. A full Core, full DLC, or ability-matrix run requires an explicit reason before launch: a major lifecycle/architecture milestone, release validation, direct user request, or a concrete broad cross-system regression risk. A successful build alone is not enough. Preserve all broad suites for those justified occasions; see `docs/VALIDATION.md` for focused selection.
-
-Available commands, selected by affected subsystem rather than run as a checklist:
+Keep iteration cheap. Build, static/XML/package validation and pure policy checks do not launch RimWorld. Use them while editing. For a completed milestone, run the single sequential acceptance harness once; only rerun after a concrete failure and a fix. No phased lifecycle replay, seed saves, save/load chain or DLC/ability matrix is part of the active runtime workflow. Manual QA is the visual and usability gate. See `docs/VALIDATION.md`.
 
 ```powershell
 ./scripts/Build.ps1 -RimWorldDir PATH -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir PATH
 dotnet run --project Tests/Policy -c Release
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Smoke
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Repair
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite FrameUX
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Suite Livery
 ./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
-./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH
-./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -WithInstalledExpansions
-./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -WithInstalledExpansions -VEFDir VEF_PATH
-./scripts/Run-AbilityTests.ps1 -RimWorldDir PATH -VEFDir VEF_PATH -VPEDir VPE_PATH
 ```
 
-A manually discovered behavioral bug should become a focused automated regression test when practical. A pure data/content edit does not need a new automated test unless it meaningfully protects behavior.
-
-Do not claim the current branch is validated until its own build/live suite has actually run. Historical results from `feat/mvp-pilot-lifecycle` do not validate later control/Harmony changes.
+Do not claim visual correctness from a mechanical harness. Record every live launch and preserve its report/log. Historical validation records are evidence for their old commits only.

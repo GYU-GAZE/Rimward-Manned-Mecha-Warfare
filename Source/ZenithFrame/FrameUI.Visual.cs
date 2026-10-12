@@ -8,7 +8,7 @@ namespace ZenithFrame
 {
     public enum FrameColorChannel { Primary, Secondary, Visor }
 
-    public sealed class Dialog_FrameColorPicker : Dialog_ColorPickerBase
+    public sealed class Dialog_FrameColorPicker : Window
     {
         private static readonly List<Color> Palette = new List<Color>
         {
@@ -17,31 +17,93 @@ namespace ZenithFrame
         };
         private readonly FramePawn frame;
         private readonly FrameColorChannel channel;
-        protected override bool ShowDarklight => false;
-        protected override Color DefaultColor => channel == FrameColorChannel.Primary ?
-            frame.Livery.Defaults?.defaultPrimary ?? Color.white :
-            channel == FrameColorChannel.Secondary ? frame.Livery.Defaults?.defaultSecondary ?? Color.white :
-            frame.Livery.Defaults?.defaultVisor ?? Color.white;
-        protected override List<Color> PickableColors => Palette;
-        protected override float ForcedColorValue => -1f;
-        protected override bool ShowColorTemperatureBar => false;
+        private Color color;
+        private string hex;
+        private bool wheelDragging;
+        public override Vector2 InitialSize => new Vector2(480f, 410f);
 
         public Dialog_FrameColorPicker(FramePawn frame, FrameColorChannel channel)
-            : base(Widgets.ColorComponents.All, Widgets.ColorComponents.All)
         {
             this.frame = frame;
             this.channel = channel;
-            color = oldColor = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
+            color = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
                 channel == FrameColorChannel.Secondary ? frame.Livery.Secondary : frame.Livery.Visor;
+            hex = FrameHexColor.Format(color);
+            forcePause = true;
+            absorbInputAroundWindow = true;
+            closeOnClickedOutside = true;
         }
 
-        protected override void SaveColor(Color chosen)
+        private void Apply(Color chosen)
         {
             if (frame == null || frame.Destroyed || frame.Faction != Faction.OfPlayer) return;
+            color = chosen;
+            hex = FrameHexColor.Format(chosen);
             CompFrameLivery paint = frame.Livery;
             paint.SetColors(channel == FrameColorChannel.Primary ? chosen : paint.Primary,
                 channel == FrameColorChannel.Secondary ? chosen : paint.Secondary,
                 channel == FrameColorChannel.Visor ? chosen : paint.Visor);
+        }
+
+        public override void DoWindowContents(Rect rect)
+        {
+            Widgets.Label(new Rect(12f, 8f, 420f, 26f), channel + " paint");
+            Color beforeWheel = color;
+            Widgets.HSVColorWheel(new Rect(18f, 46f, 170f, 170f), ref color, ref wheelDragging);
+            if (color != beforeWheel) Apply(color);
+            Widgets.DrawBoxSolid(new Rect(212f, 46f, 212f, 44f), color);
+            Widgets.DrawBox(new Rect(212f, 46f, 212f, 44f));
+            Widgets.Label(new Rect(212f, 100f, 210f, 25f), "Hex color");
+            string edited = Widgets.TextField(new Rect(212f, 126f, 132f, 30f), hex);
+            if (edited != hex)
+            {
+                hex = edited;
+                if (FrameHexColor.TryParse(edited, out Color parsed)) Apply(parsed);
+            }
+            if (Widgets.ButtonText(new Rect(352f, 126f, 72f, 30f), "Apply") &&
+                FrameHexColor.TryParse(hex, out Color entered)) Apply(entered);
+            if (!FrameHexColor.TryParse(hex, out _))
+                Widgets.Label(new Rect(212f, 160f, 215f, 22f), "Use #RRGGBB");
+
+            for (int i = 0; i < Palette.Count; i++)
+            {
+                Rect swatch = new Rect(212f + (i % 5) * 43f, 188f + (i / 5) * 35f, 30f, 27f);
+                Widgets.DrawBoxSolid(swatch, Palette[i]);
+                Widgets.DrawBox(swatch);
+                if (Widgets.ButtonInvisible(swatch)) Apply(Palette[i]);
+            }
+
+            Widgets.Label(new Rect(18f, 230f, 180f, 24f), "Saved colors");
+            if (Widgets.ButtonText(new Rect(330f, 230f, 94f, 25f), "Save color"))
+            {
+                FrameColorPreferences settings = ZenithFrameMod.Instance?.Colors;
+                string value = FrameHexColor.Format(color);
+                if (settings != null && !settings.favorites.Contains(value))
+                {
+                    if (settings.favorites.Count == 12) settings.favorites.RemoveAt(0);
+                    settings.favorites.Add(value);
+                    ZenithFrameMod.Instance.WriteSettings();
+                }
+            }
+            var favorites = ZenithFrameMod.Instance?.Colors?.favorites;
+            if (favorites != null)
+                for (int i = 0; i < favorites.Count; i++)
+                {
+                    if (!FrameHexColor.TryParse(favorites[i], out Color favorite)) continue;
+                    float x = 18f + (i % 6) * 69f, y = 265f + (i / 6) * 40f;
+                    Rect swatch = new Rect(x, y, 38f, 29f);
+                    Widgets.DrawBoxSolid(swatch, favorite);
+                    Widgets.DrawBox(swatch);
+                    TooltipHandler.TipRegion(swatch, favorites[i]);
+                    if (Widgets.ButtonInvisible(swatch)) Apply(favorite);
+                    if (Widgets.ButtonText(new Rect(x + 39f, y + 2f, 25f, 24f), "×"))
+                    {
+                        favorites.RemoveAt(i);
+                        ZenithFrameMod.Instance.WriteSettings();
+                        break;
+                    }
+                }
+            if (Widgets.ButtonText(new Rect(340f, 344f, 84f, 28f), "Done")) Close();
         }
     }
 
@@ -52,7 +114,7 @@ namespace ZenithFrame
         public ITab_FrameVisual()
         {
             labelKey = "ZF_FrameTab";
-            size = new Vector2(520f, 560f);
+            size = new Vector2(720f, 570f);
         }
 
         public override bool IsVisible => SelPawn is FramePawn;
@@ -62,40 +124,42 @@ namespace ZenithFrame
             FramePawn frame = SelPawn as FramePawn;
             if (frame == null) return;
             FrameUiSnapshot data = FrameUiSnapshot.From(frame);
-            float x = 12f, y = 8f;
-            DrawHeader(data, x, y);
-            DrawSlot(frame, FrameAddonCategory.Head, "HEAD", x + 4f, y + 40f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Shoulder, "SHOULDER", x + 408f, y + 40f, data.IsReadOnly);
-            DrawPreviewAndColors(data, x + 162f, y + 39f);
-            DrawSlot(frame, FrameAddonCategory.Weapon, "PRIMARY", x + 4f, y + 153f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Offhand, "OFFHAND", x + 408f, y + 153f, data.IsReadOnly);
-            DrawStatus(data, x + 111f, y + 198f);
-            DrawSlot(frame, FrameAddonCategory.Utility, "UTILITY", x + 4f, y + 273f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Power, "POWER", x + 408f, y + 273f, data.IsReadOnly);
-            DrawFrameIssues(data, x + 111f, y + 276f);
-            Widgets.DrawLineHorizontal(x, y + 393f, 496f);
-            DrawPilot(data, x + 4f, y + 398f);
+            DrawHeader(data, 16f, 8f);
+            DrawSlot(frame, FrameAddonCategory.Head, "Head", 20f, 51f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", 605f, 51f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", 20f, 167f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", 605f, 167f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", 20f, 283f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Power, "Power", 605f, 283f, data.IsReadOnly);
+            DrawPreviewAndColors(data, 242f, 53f);
+            DrawStatus(data, 232f, 285f);
+            DrawFrameIssues(data, 137f, 365f);
+            Widgets.DrawLineHorizontal(18f, 438f, 682f);
+            DrawPilot(data, 20f, 445f);
         }
 
         private static void DrawHeader(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x + 4f, y, 340f, 25f), data.Frame.LabelShortCap, GameFont.Medium);
-            if (data.CanRename && Widgets.ButtonText(new Rect(x + 347f, y, 69f, 25f), "Rename"))
+            Label(new Rect(x + 4f, y, 480f, 25f), data.Frame.LabelShortCap, GameFont.Medium);
+            if (data.CanRename && Widgets.ButtonText(new Rect(x + 570f, y, 75f, 25f), "Rename"))
                 Find.WindowStack.Add(new Dialog_RenameFrame(data.Frame));
-            Label(new Rect(x + 4f, y + 25f, 480f, 18f), data.Frame.def.LabelCap);
+            Label(new Rect(x + 4f, y + 25f, 560f, 18f), data.Frame.def.LabelCap);
         }
 
         private static void DrawPreviewAndColors(FrameUiSnapshot data, float x, float y)
         {
-            Rect preview = new Rect(x, y, 160f, 160f);
+            Rect preview = new Rect(x, y, 218f, 218f);
             Widgets.DrawBoxSolid(preview, new Color(0.15f, 0.15f, 0.15f, 0.6f));
-            GUI.DrawTexture(preview, PortraitsCache.Get(data.Frame, preview.size, Rot4.South));
+            // Vanilla's cache renderer uses an orthographic camera of 1/zoom.
+            // The 3.5-world-unit chassis needs a wider UI camera than a human.
+            GUI.DrawTexture(preview, PortraitsCache.Get(data.Frame, preview.size, Rot4.South,
+                cameraZoom: 0.43f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(preview);
             TooltipHandler.TipRegion(preview, "Current assembled Frame and livery");
-            DrawSwatch(data.Frame, FrameColorChannel.Primary, x + 168f, y + 8f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Secondary, x + 168f, y + 48f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Visor, x + 168f, y + 88f, data.IsReadOnly);
-            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(x + 163f, y + 132f, 85f, 22f), "Reset paint"))
+            DrawSwatch(data.Frame, FrameColorChannel.Primary, x + 233f, y + 12f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Secondary, x + 233f, y + 59f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Visor, x + 233f, y + 106f, data.IsReadOnly);
+            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(x + 233f, y + 169f, 95f, 25f), "Reset paint"))
                 data.Frame.Livery.ResetColors();
         }
 
@@ -103,12 +167,10 @@ namespace ZenithFrame
         {
             Color color = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
                 channel == FrameColorChannel.Secondary ? frame.Livery.Secondary : frame.Livery.Visor;
-            Rect swatch = new Rect(x, y, 31f, 31f);
+            Rect swatch = new Rect(x, y, 34f, 34f);
             Widgets.DrawBoxSolid(swatch, color);
             Widgets.DrawBox(swatch, 2);
-            string shortName = channel == FrameColorChannel.Primary ? "PRI" :
-                channel == FrameColorChannel.Secondary ? "SEC" : "VIS";
-            Label(new Rect(x + 36f, y + 6f, 35f, 20f), shortName);
+            Label(new Rect(x + 41f, y + 7f, 67f, 20f), channel.ToString());
             TooltipHandler.TipRegion(swatch, channel + " paint color" + (readOnly ? " (read only)" : " (click to edit)"));
             if (!readOnly && Widgets.ButtonInvisible(swatch))
                 Find.WindowStack.Add(new Dialog_FrameColorPicker(frame, channel));
@@ -119,34 +181,67 @@ namespace ZenithFrame
         {
             Thing installed = frame.Service.Installed(category);
             FrameServiceOrder order = frame.Service.OrderFor(category);
-            bool active = ReferenceEquals(order, frame.Service.ActiveOrder);
-            Rect box = new Rect(x, y + 18f, 80f, 80f);
-            Label(new Rect(x, y, 95f, 17f), title);
+            bool active = order != null && ReferenceEquals(order, frame.Service.ActiveOrder);
+            Rect box = new Rect(x, y + 20f, 96f, 96f);
+            Label(new Rect(x, y, 112f, 18f), title);
             Widgets.DrawBoxSolid(box, new Color(0.14f, 0.14f, 0.14f, 0.8f));
-            if (installed != null) Widgets.ThingIcon(box.ContractedBy(8f), installed);
+            if (installed != null) DrawContainedIcon(box.ContractedBy(9f), installed, 1f);
             else if (order?.kind == FrameServiceOrderKind.Install && order.incoming != null)
-                Widgets.ThingIcon(box.ContractedBy(8f), order.incoming, 0.42f);
+                DrawContainedIcon(box.ContractedBy(9f), order.incoming, 0.42f);
             Widgets.DrawBox(box, 2);
             Widgets.DrawHighlightIfMouseover(box);
-            string state = active ? "SERVICING" : order?.kind == FrameServiceOrderKind.Remove ? "QUEUED REMOVE" :
-                order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "QUEUED" : "QUEUED REPLACE") :
-                installed == null ? "EMPTY" : !frame.Loadout.IsMountValid(installed) ? "MOUNT LOST" :
+            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
+                order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "Queued" : "Replacing") :
+                installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "Mount lost" :
                 !frame.Loadout.IsModulePowered(installed) && (CompFrameLoadout.Extension(installed)?.powerDraw ?? 0) > 0
-                    ? "UNPOWERED" : "INSTALLED";
-            Label(new Rect(x - 6f, y + 100f, 98f, 17f), state);
+                    ? "Unpowered" : null;
+            if (state != null)
+            {
+                Rect badge = new Rect(box.x + 2f, box.yMax - 22f, box.width - 4f, 20f);
+                Widgets.DrawBoxSolid(badge, new Color(0.10f, 0.10f, 0.10f, 0.93f));
+                Label(badge, state);
+            }
             string tip = title + "\nInstalled: " + (installed?.LabelCap ?? "none");
             if (order != null) tip += "\n" + (active ? "Servicing" : "Queued") + ": " + order.kind +
                 (order.incoming == null ? "" : " " + order.incoming.LabelCap) +
                 "\nExpected installed: " + (order.expectedInstalled?.LabelCap ?? "empty");
             TooltipHandler.TipRegion(box, tip);
-            if (!readOnly && Widgets.ButtonInvisible(box)) OpenSlotMenu(frame, category);
-            if (installed != null) Widgets.InfoCardButton(x + 55f, y + 73f, installed);
+            // The info corner is outside BOTH menu hitboxes. A full-box
+            // ButtonInvisible consumed the vanilla InfoCard click.
+            Rect info = new Rect(box.xMax - 27f, box.yMax - 27f, 25f, 25f);
+            Rect upperHit = new Rect(box.x, box.y, box.width, box.height - 27f);
+            Rect lowerHit = new Rect(box.x, box.yMax - 27f, box.width - 27f, 27f);
+            if (!readOnly && (Widgets.ButtonInvisible(upperHit) || Widgets.ButtonInvisible(lowerHit)))
+                OpenSlotMenu(frame, category);
+            if (installed != null) Widgets.InfoCardButton(info.x, info.y, installed);
+        }
+
+        private static void DrawContainedIcon(Rect inner, Thing thing, float alpha)
+        {
+            Texture texture = Widgets.GetIconFor(thing, inner.size, null, false,
+                out _, out float angle, out _, out Color color, out Material material);
+            if (texture == null || texture == BaseContent.BadTex) return;
+            Color previous = GUI.color;
+            GUI.color = color;
+            // Use the icon texture's own proportions, not the world drawSize or
+            // GenUI.IconDrawScale (2.5 for the development rifle).
+            float scale = Mathf.Abs(angle) > 1f ? 0.65f : 0.9f;
+            Widgets.DrawTextureFitted(inner, texture, scale,
+                new Vector2(texture.width, texture.height), new Rect(0f, 0f, 1f, 1f), angle, material, alpha);
+            GUI.color = previous;
         }
 
         private static void OpenSlotMenu(FramePawn frame, FrameAddonCategory category)
         {
+            Find.WindowStack.Add(new FloatMenu(SlotOptions(frame, category)));
+        }
+
+        // The drawn slot and the focused acceptance harness use this same
+        // action list, so the menu's real remove/replace/cancel path is checked.
+        public static List<FloatMenuOption> SlotOptions(FramePawn frame, FrameAddonCategory category)
+        {
             FrameServiceOrder order = frame.Service.OrderFor(category);
-            bool active = ReferenceEquals(order, frame.Service.ActiveOrder);
+            bool active = order != null && ReferenceEquals(order, frame.Service.ActiveOrder);
             var options = new List<FloatMenuOption>();
             if (order != null)
                 options.Add(new FloatMenuOption(active ? "Cancel active service" : "Cancel queued change",
@@ -163,62 +258,68 @@ namespace ZenithFrame
                     options.Add(new FloatMenuOption("Remove installed", () => frame.Service.QueueRemove(category)));
             }
             if (options.Count == 0) options.Add(new FloatMenuOption("No compatible modules in valid storage", null));
-            Find.WindowStack.Add(new FloatMenu(options));
+            return options;
         }
 
         private static void DrawStatus(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x, y, 278f, 19f), "Integrity  " + data.Integrity.ToStringPercent());
-            Label(new Rect(x, y + 20f, 278f, 19f), "State  " + ("ZF_State_" + data.OperationalState).Translate());
-            Label(new Rect(x, y + 40f, 278f, 19f), "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
+            Label(new Rect(x, y, 355f, 20f), "Integrity  " + data.Integrity.ToStringPercent());
+            Label(new Rect(x, y + 22f, 355f, 20f), "State  " + ("ZF_State_" + data.OperationalState).Translate());
+            Label(new Rect(x, y + 44f, 355f, 20f), "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
             string contextual = data.IsDocked ? "Docked" : data.ActiveService != null ? "Being serviced" :
                 data.IsRecoverable ? "Recoverable" : data.IsHackable ? "Hackable " + data.HackProgress.ToStringPercent() : null;
-            if (contextual != null) Label(new Rect(x, y + 59f, 278f, 18f), contextual);
+            if (contextual != null) Label(new Rect(x, y + 66f, 355f, 20f), contextual);
         }
 
         private static void DrawFrameIssues(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x, y, 276f, 19f), "STRUCTURAL ISSUES");
-            DrawIssues(FrameHealthSummary.For(data.Frame, true), x, y + 20f, 276f, () =>
+            Label(new Rect(x, y, 260f, 19f), "Frame health");
+            DrawIssues(FrameHealthSummary.For(data.Frame, true), x, y + 18f, 455f, 54f, () =>
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false)));
-            if (Widgets.ButtonText(new Rect(x + 82f, y + 94f, 110f, 22f), "Health"))
+            if (Widgets.ButtonText(new Rect(x + 383f, y - 2f, 72f, 23f), "Health"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false));
         }
 
         private static void DrawPilot(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x, y, 90f, 20f), "PILOT", GameFont.Medium);
+            Label(new Rect(x, y, 90f, 20f), "Pilot", GameFont.Medium);
             if (data.Pilot == null)
             {
-                Label(new Rect(x + 94f, y + 25f, 360f, 22f), "No pilot");
+                Label(new Rect(x + 115f, y + 31f, 380f, 22f), "No pilot");
                 return;
             }
             Pawn pilot = data.Pilot;
-            Rect portrait = new Rect(x, y + 22f, 82f, 105f);
-            GUI.DrawTexture(portrait, PortraitsCache.Get(pilot, portrait.size, Rot4.South));
+            Rect portrait = new Rect(x, y + 20f, 100f, 104f);
+            Widgets.DrawBoxSolid(portrait, new Color(0.14f, 0.14f, 0.14f, 0.8f));
+            GUI.DrawTexture(portrait.ContractedBy(5f), PortraitsCache.Get(pilot, portrait.size, Rot4.South,
+                cameraZoom: 0.78f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(portrait);
-            Label(new Rect(x + 93f, y + 20f, 170f, 22f), pilot.LabelShortCap, GameFont.Medium);
-            Label(new Rect(x + 93f, y + 44f, 170f, 20f), pilot.Faction?.Name ?? "No faction");
-            Label(new Rect(x + 93f, y + 65f, 170f, 20f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
+            Label(new Rect(x + 113f, y + 19f, 207f, 22f), pilot.LabelShortCap, GameFont.Medium);
+            Label(new Rect(x + 113f, y + 44f, 207f, 20f), pilot.Faction?.Name ?? "No faction");
+            Label(new Rect(x + 113f, y + 65f, 207f, 20f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
                 pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "Embarked");
-            DrawIssues(FrameHealthSummary.For(pilot, false), x + 269f, y + 20f, 211f,
+            Label(new Rect(x + 335f, y + 3f, 235f, 20f), "Pilot health");
+            DrawIssues(FrameHealthSummary.For(pilot, false), x + 335f, y + 24f, 325f, 95f,
                 () => Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true)));
-            if (Widgets.ButtonText(new Rect(x + 93f, y + 100f, 75f, 24f), "Bio"))
+            if (Widgets.ButtonText(new Rect(x + 113f, y + 96f, 86f, 26f), "Bio"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true));
-            if (Widgets.ButtonText(new Rect(x + 174f, y + 100f, 84f, 24f), "Health"))
+            if (Widgets.ButtonText(new Rect(x + 208f, y + 96f, 94f, 26f), "Health"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, false));
         }
 
-        private static void DrawIssues(List<FrameHealthIssue> issues, float x, float y, float width,
+        private static void DrawIssues(List<FrameHealthIssue> issues, float x, float y, float width, float height,
             System.Action openHealth)
         {
             if (issues.Count == 0) { Label(new Rect(x, y, width, 18f), "No critical issues"); return; }
-            for (int index = 0; index < Mathf.Min(3, issues.Count); index++)
+            int rows = Mathf.FloorToInt(height / 18f);
+            int shown = Mathf.Min(issues.Count, rows);
+            if (issues.Count > rows) shown = Mathf.Max(0, rows - 1);
+            for (int index = 0; index < shown; index++)
                 Label(new Rect(x, y + index * 18f, width, 18f), issues[index].Label);
-            if (issues.Count > 3)
+            if (issues.Count > shown)
             {
-                Rect overflow = new Rect(x, y + 54f, width, 18f);
-                Label(overflow, "+" + (issues.Count - 3) + " more... click for Health");
+                Rect overflow = new Rect(x, y + shown * 18f, width, 18f);
+                Label(overflow, "+" + (issues.Count - shown) + " more  ·  Health");
                 if (Widgets.ButtonInvisible(overflow)) openHealth();
             }
         }

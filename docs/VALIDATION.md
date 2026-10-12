@@ -1,48 +1,21 @@
-# MVP validation status
+# Validation
 
-## Focused development workflow (manual-QA stabilization)
+## Active workflow
 
-Focused affected-subsystem validation is the normal completion gate. For ordinary bugfixes and small features, run only the relevant focused phase or standalone subsystem test. Do not replay unrelated lifecycle phases. Full Core, full DLC, and ability matrices are expensive broad-regression tools, reserved for major lifecycle/architecture milestones, release validation, an explicit user request, or a concrete cross-system risk. State the reason before launching a full suite. Preserve the broad suites; their availability does not make them a routine gate.
-
-The Proper UI milestone uses one disposable FrameUX process for six-slot UI state, exact multi-order service across save/load, pending and active cancellation, invalid-order isolation, worker continuation, self right-click Disembark, and manual Haul/Rescue/Capture. The Livery suite is a separate disposable process for two Frames, three independent colors, visor overlay visibility and save/load. Use unique profile names and inspect both phase reports and logs:
+During implementation run the clean build, static/XML/package check, and pure policy tests as needed. These do not start RimWorld. At the completed milestone run one disposable quicktest game through `scripts/Run-LiveTests.ps1`. It launches one process and writes `acceptance.txt` plus `Player.log` in a unique profile under `artifacts`. No phase selection, seed saves, save/load chain, DLC matrix, or ability matrix is in the active live workflow.
 
 ```powershell
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite FrameUX -RunName 'frame-ux-unique-name'
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Livery -RunName 'livery-unique-name'
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
+./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
+dotnet run --project Tests/Policy -c Release
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -RunName 'acceptance-unique-name'
 ```
 
-The automated suite establishes identities, state and render materials. Human in-game QA still needs to judge tab spacing, portrait composition, actual visor appearance, color picker feel, and service timing. Full Core, full DLC, and ability matrices are not required for this focused milestone.
+The one-process acceptance checks current milestone mechanics: three paint channels and hex parsing, multiple exact module orders, cancellation isolation, sequential worker completion, the slot menu's Replace/Remove/Cancel actions, self-right-click Disembark, manual Haul, and a Rescue menu/job. It selects the Frame and opens the color picker in real GUI callbacks so GUI exceptions appear in the process log. It does not assert visual layout, icon framing, real mouse hit testing, saved-game behavior, or manual Capture. Those are human QA responsibilities.
 
-The livery proof uses one disposable RimWorld process and performs its save/load in that same process:
+If the final process fails, preserve its report and log, fix the concrete cause, and rerun once as necessary. Report all launches. Historical results below describe older commits and retired runtime suites; their commands and process counts are not current instructions.
 
-```powershell
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Livery -RunName 'livery-unique-name'
-```
-
-It checks two physical Frames with separate masked materials, all facings and body layers, stationary paint changes, module and pilot changes, down/repair and save/load. The final human pass still judges the actual colors and fixed details on screen.
-
-The standalone repair regression uses one fresh RimWorld process and repeats player-forced WorkGiver repairs of a Frame downed by repairable leg injuries while Helmet, Shoulder, and shield Offhand are installed. It checks that the worker keeps the job and service lock as the Frame stands up and as individual injuries finish, then verifies an explicit interruption separately:
-
-```powershell
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Repair
-```
-
-The three-phase smoke suite below is for changes that affect its rendering, boarding, ownership, repair, and module-service paths together. Select only a relevant phase for narrower changes.
-
-```powershell
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke
-```
-
-The named smoke phases are `0` (rendering, boarding, two-colonist colony state), `1` (embarked save/load, disembark, emergency ejection, repair, start module installation), and `2` (mid-service save/load, installation completion, removal). To run one phase, use `-StartPhase N -EndPhase N`. Phases 1 and 2 require `-SeedSave` pointing to the preceding phase's saved input. Successful smoke runs keep `SeedForPhase-1.rws` and `SeedForPhase-2.rws` in their disposable `Saves` folder so any one phase can be repeated without rerunning earlier phases. For example:
-
-```powershell
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke -StartPhase 0 -EndPhase 0
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke -StartPhase 1 -EndPhase 1 -SeedSave 'artifacts/<previous-smoke-profile>/Saves/SeedForPhase-1.rws'
-```
-
-Use a unique `-RunName` per attempt. A phase report and `Player-N.log` in its disposable profile are the evidence. Re-run a failed focused phase with its unchanged saved input before attributing a one-off scheduler or AI timeout to production code. Full Core is `-Suite Core` or the default invocation. `-WithInstalledExpansions` adds installed official DLC for an actual DLC-sensitive path.
-
-The smoke suite checks final mesh UV orientation, authored side material, stationary module mutation, pilot load-ID uniqueness in map/world/ColonistBar tracking, the two-colonist Man in Black and game-over case, boarding duration, repair mechanics and active work feedback, and real module-service work across fresh-process save/load. Human QA still has to judge the visible sprite, effect, sound, and on-screen bars.
+## Historical validation records
 
 ## Validated Frame body, damage and pilot trauma
 
