@@ -294,8 +294,12 @@ namespace ZenithFrame.Tests
             Check(DockingBayUtility.IsDocked(frame) && dock.OccupiedRect().Contains(frame.Position) &&
                 DockingBayUtility.BoardingTicks(frame) == 60,
                 "Frame reaches occupied bay footprint and gains fivefold bonus");
-            Job leave = JobMaker.MakeJob(JobDefOf.Goto, dock.Position + IntVec3.South * 6);
-            frame.jobs.TryTakeOrderedJob(leave);
+            IntVec3 exit = GenRadial.RadialCellsAround(dock.Position, 8f, false)
+                .First(cell => cell.InBounds(frame.Map) && cell.Standable(frame.Map) &&
+                    !dock.OccupiedRect().Contains(cell) &&
+                    frame.CanReach(cell, PathEndMode.OnCell, Danger.Some));
+            Job leave = JobMaker.MakeJob(JobDefOf.Goto, exit);
+            Check(frame.jobs.TryTakeOrderedJob(leave), "Frame accepts reachable exit order from docking bay");
             Next(8);
         }
 
@@ -423,7 +427,9 @@ namespace ZenithFrame.Tests
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
                 if (step != 0 && Find.TickManager.TicksGame > deadline)
-                    throw new TimeoutException("Acceptance step " + step + " timed out");
+                    throw new TimeoutException("Acceptance step " + step + " timed out; Frame=" +
+                        frame?.Position + " Job=" + frame?.CurJobDef?.defName +
+                        " Target=" + frame?.CurJob?.targetA + " Dock=" + dock?.Position);
                 if (step == 0) Start();
                 else if (step == 1)
                     AfterService();
