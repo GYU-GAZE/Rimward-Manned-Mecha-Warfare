@@ -1,4 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net472</TargetFramework><AssemblyName>ZenithFrame.RuntimeTests</AssemblyName></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../Source/ZenithFrame/ZenithFrame.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Reference Include="UnityEngine.ScreenCaptureModule">
+      <HintPath>$(RimWorldDir)/RimWorldWin64_Data/Managed/UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 </Project>

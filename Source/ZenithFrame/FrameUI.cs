@@ -155,22 +155,34 @@ namespace ZenithFrame
             FrameUiActions.IsValidName(name) ? true : "NameIsInvalid".Translate();
     }
 
+    public enum FrameInfoPage { Bio, Health, Gear }
+
     public sealed class Dialog_FramePawnInfo : Window
     {
         private readonly Pawn pawn;
         private readonly bool characterAvailable;
-        private bool health;
+        private FrameInfoPage page;
+        private Vector2 gearScroll;
 
         public override Vector2 InitialSize => new Vector2(690f, 570f);
 
-        public Dialog_FramePawnInfo(Pawn pawn, bool characterAvailable)
+        public Dialog_FramePawnInfo(Pawn pawn, bool characterAvailable,
+            FrameInfoPage initialPage = FrameInfoPage.Bio)
         {
             this.pawn = pawn;
             this.characterAvailable = characterAvailable && pawn?.story != null;
-            health = !this.characterAvailable;
+            page = this.characterAvailable ? initialPage : FrameInfoPage.Health;
             doCloseX = true;
             closeOnClickedOutside = true;
             absorbInputAroundWindow = false;
+        }
+
+        public bool SupportsPage(FrameInfoPage requested) =>
+            requested == FrameInfoPage.Health || characterAvailable;
+
+        public void ShowPage(FrameInfoPage requested)
+        {
+            if (SupportsPage(requested)) page = requested;
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -185,16 +197,60 @@ namespace ZenithFrame
             float x = 0f;
             if (characterAvailable)
             {
-                if (Widgets.ButtonText(new Rect(x, 38f, 130f, 28f), "TabCharacter".Translate())) health = false;
+                if (Widgets.ButtonText(new Rect(x, 38f, 130f, 28f), "TabCharacter".Translate()))
+                    ShowPage(FrameInfoPage.Bio);
                 x += 136f;
             }
-            if (Widgets.ButtonText(new Rect(x, 38f, 130f, 28f), "TabHealth".Translate())) health = true;
+            if (Widgets.ButtonText(new Rect(x, 38f, 130f, 28f), "TabHealth".Translate()))
+                ShowPage(FrameInfoPage.Health);
+            x += 136f;
+            if (characterAvailable && Widgets.ButtonText(new Rect(x, 38f, 170f, 28f), "Gear / Inventory"))
+                ShowPage(FrameInfoPage.Gear);
 
             Rect content = new Rect(0f, 76f, inRect.width, inRect.height - 76f);
-            if (health)
+            if (page == FrameInfoPage.Health)
                 HealthCardUtility.DrawPawnHealthCard(content, pawn, false, HealthCardUtility.ShowBloodLoss(pawn), pawn);
-            else
+            else if (page == FrameInfoPage.Bio)
                 CharacterCardUtility.DrawCharacterCard(content, pawn, showName: false);
+            else
+                DrawGear(content);
+        }
+
+        private void DrawGear(Rect content)
+        {
+            // The pilot stays in its real cockpit owner. This is an inspection
+            // of the exact live trackers, without selecting or spawning it.
+            List<Thing> equipment = pawn.equipment?.AllEquipmentListForReading?.Cast<Thing>().ToList() ?? new List<Thing>();
+            List<Thing> apparel = pawn.apparel?.WornApparel?.Cast<Thing>().ToList() ?? new List<Thing>();
+            List<Thing> inventory = pawn.inventory?.innerContainer?.Cast<Thing>().ToList() ?? new List<Thing>();
+            float rows = equipment.Count + apparel.Count + inventory.Count;
+            Rect view = new Rect(0f, 0f, content.width - 18f,
+                Mathf.Max(content.height, 200f + rows * 31f));
+            Widgets.BeginScrollView(content, ref gearScroll, view);
+            float y = 0f;
+            DrawGearSection(ref y, view.width, "Equipment".Translate(), equipment);
+            DrawGearSection(ref y, view.width, "Apparel".Translate(), apparel);
+            DrawGearSection(ref y, view.width, "Inventory".Translate(), inventory);
+            Widgets.EndScrollView();
+        }
+
+        private static void DrawGearSection(ref float y, float width, string title, List<Thing> things)
+        {
+            Widgets.ListSeparator(ref y, width, title);
+            if (things.Count == 0)
+            {
+                Widgets.Label(new Rect(12f, y, width - 12f, 27f), "None");
+                y += 31f;
+                return;
+            }
+            foreach (Thing thing in things)
+            {
+                Rect row = new Rect(0f, y, width, 29f);
+                Widgets.DrawHighlightIfMouseover(row);
+                Widgets.Label(new Rect(12f, y + 3f, width - 48f, 24f), thing.LabelCap);
+                Widgets.InfoCardButton(width - 29f, y + 2f, thing);
+                y += 31f;
+            }
         }
 
         private static void ClippedHeader(Rect rect, string value)

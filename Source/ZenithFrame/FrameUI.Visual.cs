@@ -125,30 +125,30 @@ namespace ZenithFrame
             if (frame == null) return;
             FrameUiSnapshot data = FrameUiSnapshot.From(frame);
             DrawHeader(data, 16f, 8f);
-            DrawSlot(frame, FrameAddonCategory.Head, "Head", 20f, 51f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", 605f, 51f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", 20f, 167f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", 605f, 167f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", 20f, 283f, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Power, "Power", 605f, 283f, data.IsReadOnly);
-            DrawPreviewAndColors(data, 242f, 53f);
-            DrawStatus(data, 232f, 285f);
-            DrawFrameIssues(data, 137f, 365f);
-            Widgets.DrawLineHorizontal(18f, 438f, 682f);
-            DrawPilot(data, 20f, 445f);
+            DrawSlot(frame, FrameAddonCategory.Head, "Head", 30f, 55f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", 578f, 55f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", 30f, 183f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", 578f, 183f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", 30f, 311f, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Power, "Power", 578f, 311f, data.IsReadOnly);
+            DrawPreviewAndColors(data, 215f, 70f);
+            DrawStatus(data, 215f, 293f);
+            DrawFrameIssues(data, 215f, 335f);
+            Widgets.DrawLineHorizontal(28f, 445f, 664f);
+            DrawPilot(data, 30f, 449f);
         }
 
         private static void DrawHeader(FrameUiSnapshot data, float x, float y)
         {
             Label(new Rect(x + 4f, y, 480f, 25f), data.Frame.LabelShortCap, GameFont.Medium);
-            if (data.CanRename && Widgets.ButtonText(new Rect(x + 570f, y, 75f, 25f), "Rename"))
+            if (data.CanRename && Widgets.ButtonText(new Rect(x + 550f, y, 125f, 28f), "Rename"))
                 Find.WindowStack.Add(new Dialog_RenameFrame(data.Frame));
-            Label(new Rect(x + 4f, y + 25f, 560f, 18f), data.Frame.def.LabelCap);
+            Label(new Rect(x + 4f, y + 25f, 580f, 18f), data.Frame.def.LabelCap);
         }
 
         private static void DrawPreviewAndColors(FrameUiSnapshot data, float x, float y)
         {
-            Rect preview = new Rect(x, y, 218f, 218f);
+            Rect preview = new Rect(x, y, 208f, 218f);
             Widgets.DrawBoxSolid(preview, new Color(0.15f, 0.15f, 0.15f, 0.6f));
             // Vanilla's cache renderer uses an orthographic camera of 1/zoom.
             // The 3.5-world-unit chassis needs a wider UI camera than a human.
@@ -156,10 +156,10 @@ namespace ZenithFrame
                 cameraZoom: 0.43f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(preview);
             TooltipHandler.TipRegion(preview, "Current assembled Frame and livery");
-            DrawSwatch(data.Frame, FrameColorChannel.Primary, x + 233f, y + 12f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Secondary, x + 233f, y + 59f, data.IsReadOnly);
-            DrawSwatch(data.Frame, FrameColorChannel.Visor, x + 233f, y + 106f, data.IsReadOnly);
-            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(x + 233f, y + 169f, 95f, 25f), "Reset paint"))
+            DrawSwatch(data.Frame, FrameColorChannel.Primary, x + 222f, y + 17f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Secondary, x + 222f, y + 65f, data.IsReadOnly);
+            DrawSwatch(data.Frame, FrameColorChannel.Visor, x + 222f, y + 113f, data.IsReadOnly);
+            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(x + 222f, y + 173f, 110f, 27f), "Reset paint"))
                 data.Frame.Livery.ResetColors();
         }
 
@@ -167,10 +167,10 @@ namespace ZenithFrame
         {
             Color color = channel == FrameColorChannel.Primary ? frame.Livery.Primary :
                 channel == FrameColorChannel.Secondary ? frame.Livery.Secondary : frame.Livery.Visor;
-            Rect swatch = new Rect(x, y, 34f, 34f);
+            Rect swatch = new Rect(x, y, 30f, 30f);
             Widgets.DrawBoxSolid(swatch, color);
             Widgets.DrawBox(swatch, 2);
-            Label(new Rect(x + 41f, y + 7f, 67f, 20f), channel.ToString());
+            Label(new Rect(x + 37f, y + 5f, 78f, 20f), channel.ToString());
             TooltipHandler.TipRegion(swatch, channel + " paint color" + (readOnly ? " (read only)" : " (click to edit)"));
             if (!readOnly && Widgets.ButtonInvisible(swatch))
                 Find.WindowStack.Add(new Dialog_FrameColorPicker(frame, channel));
@@ -182,24 +182,27 @@ namespace ZenithFrame
             Thing installed = frame.Service.Installed(category);
             FrameServiceOrder order = frame.Service.OrderFor(category);
             bool active = order != null && ReferenceEquals(order, frame.Service.ActiveOrder);
-            Rect box = new Rect(x, y + 20f, 96f, 96f);
-            Label(new Rect(x, y, 112f, 18f), title);
+            Rect card = new Rect(x - 8f, y - 4f, 108f, 128f);
+            Widgets.DrawBoxSolid(card, new Color(0.12f, 0.16f, 0.19f, 0.46f));
+            Widgets.DrawBox(card);
+            Rect box = new Rect(x, y + 20f, 92f, 84f);
+            Label(new Rect(x, y, 104f, 18f), title);
             Widgets.DrawBoxSolid(box, new Color(0.14f, 0.14f, 0.14f, 0.8f));
-            if (installed != null) DrawContainedIcon(box.ContractedBy(9f), installed, 1f);
+            if (installed != null) DrawContainedIcon(box.ContractedBy(7f), installed, 1f);
             else if (order?.kind == FrameServiceOrderKind.Install && order.incoming != null)
-                DrawContainedIcon(box.ContractedBy(9f), order.incoming, 0.42f);
+                DrawContainedIcon(box.ContractedBy(7f), order.incoming, 0.42f);
             Widgets.DrawBox(box, 2);
             Widgets.DrawHighlightIfMouseover(box);
-            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
+            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Queued remove" :
                 order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "Queued" : "Replacing") :
                 installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "Mount lost" :
                 !frame.Loadout.IsModulePowered(installed) && (CompFrameLoadout.Extension(installed)?.powerDraw ?? 0) > 0
                     ? "Unpowered" : null;
             if (state != null)
             {
-                Rect badge = new Rect(box.x + 2f, box.yMax - 22f, box.width - 4f, 20f);
-                Widgets.DrawBoxSolid(badge, new Color(0.10f, 0.10f, 0.10f, 0.93f));
-                Label(badge, state);
+                Rect status = new Rect(x - 8f, box.yMax + 2f, 108f, 18f);
+                Label(status, state, GameFont.Tiny);
+                TooltipHandler.TipRegion(status, state);
             }
             string tip = title + "\nInstalled: " + (installed?.LabelCap ?? "none");
             if (order != null) tip += "\n" + (active ? "Servicing" : "Queued") + ": " + order.kind +
@@ -263,20 +266,24 @@ namespace ZenithFrame
 
         private static void DrawStatus(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x, y, 355f, 20f), "Integrity  " + data.Integrity.ToStringPercent());
-            Label(new Rect(x, y + 22f, 355f, 20f), "State  " + ("ZF_State_" + data.OperationalState).Translate());
-            Label(new Rect(x, y + 44f, 355f, 20f), "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
             string contextual = data.IsDocked ? "Docked" : data.ActiveService != null ? "Being serviced" :
                 data.IsRecoverable ? "Recoverable" : data.IsHackable ? "Hackable " + data.HackProgress.ToStringPercent() : null;
-            if (contextual != null) Label(new Rect(x, y + 66f, 355f, 20f), contextual);
+            string state = "State  " + ("ZF_State_" + data.OperationalState).Translate();
+            if (contextual != null) state += "  ·  " + contextual;
+            Label(new Rect(x, y, 340f, 20f), state);
+            Label(new Rect(x, y + 22f, 340f, 20f), "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
         }
 
         private static void DrawFrameIssues(FrameUiSnapshot data, float x, float y)
         {
-            Label(new Rect(x, y, 260f, 19f), "Frame health");
-            DrawIssues(FrameHealthSummary.For(data.Frame, true), x, y + 18f, 455f, 54f, () =>
+            Rect panel = new Rect(x - 4f, y - 4f, 344f, 102f);
+            Widgets.DrawBoxSolid(panel, new Color(0.12f, 0.16f, 0.19f, 0.46f));
+            Widgets.DrawBox(panel);
+            Label(new Rect(x + 6f, y + 2f, 230f, 20f), "Frame condition", GameFont.Medium);
+            Widgets.DrawLineHorizontal(x + 6f, y + 26f, 230f);
+            DrawIssues(FrameHealthSummary.For(data.Frame, true), x + 6f, y + 32f, 326f, 62f, () =>
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false)));
-            if (Widgets.ButtonText(new Rect(x + 383f, y - 2f, 72f, 23f), "Health"))
+            if (Widgets.ButtonText(new Rect(x + 250f, y + 2f, 82f, 25f), "Health"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(data.Frame, false));
         }
 
@@ -285,26 +292,25 @@ namespace ZenithFrame
             Label(new Rect(x, y, 90f, 20f), "Pilot", GameFont.Medium);
             if (data.Pilot == null)
             {
-                Label(new Rect(x + 115f, y + 31f, 380f, 22f), "No pilot");
+                Label(new Rect(x + 90f, y + 31f, 220f, 22f), "No pilot");
                 return;
             }
             Pawn pilot = data.Pilot;
-            Rect portrait = new Rect(x, y + 20f, 100f, 104f);
+            Rect portrait = new Rect(x, y + 25f, 88f, 82f);
             Widgets.DrawBoxSolid(portrait, new Color(0.14f, 0.14f, 0.14f, 0.8f));
             GUI.DrawTexture(portrait.ContractedBy(5f), PortraitsCache.Get(pilot, portrait.size, Rot4.South,
                 cameraZoom: 0.78f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(portrait);
-            Label(new Rect(x + 113f, y + 19f, 207f, 22f), pilot.LabelShortCap, GameFont.Medium);
-            Label(new Rect(x + 113f, y + 44f, 207f, 20f), pilot.Faction?.Name ?? "No faction");
-            Label(new Rect(x + 113f, y + 65f, 207f, 20f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
+            Label(new Rect(x + 100f, y + 20f, 215f, 22f), pilot.LabelShortCap, GameFont.Medium);
+            Label(new Rect(x + 100f, y + 44f, 215f, 20f), pilot.Faction?.Name ?? "No faction");
+            Label(new Rect(x + 100f, y + 65f, 215f, 20f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
                 pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "Embarked");
-            Label(new Rect(x + 335f, y + 3f, 235f, 20f), "Pilot health");
-            DrawIssues(FrameHealthSummary.For(pilot, false), x + 335f, y + 24f, 325f, 95f,
-                () => Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true)));
-            if (Widgets.ButtonText(new Rect(x + 113f, y + 96f, 86f, 26f), "Bio"))
+            Widgets.DrawLineVertical(x + 358f, y + 15f, 88f);
+            Label(new Rect(x + 388f, y + 14f, 270f, 20f), "Pilot health", GameFont.Medium);
+            DrawIssues(FrameHealthSummary.For(pilot, false), x + 388f, y + 39f, 275f, 70f,
+                () => Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true, FrameInfoPage.Health)));
+            if (Widgets.ButtonText(new Rect(x + 100f, y + 81f, 155f, 27f), "Information"))
                 Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, true));
-            if (Widgets.ButtonText(new Rect(x + 208f, y + 96f, 94f, 26f), "Health"))
-                Find.WindowStack.Add(new Dialog_FramePawnInfo(pilot, false));
         }
 
         private static void DrawIssues(List<FrameHealthIssue> issues, float x, float y, float width, float height,

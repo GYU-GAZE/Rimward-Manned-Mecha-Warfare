@@ -26,6 +26,9 @@ namespace ZenithFrame.Tests
         private int remainingOrders;
         private Dialog_FrameColorPicker picker;
         private int pickerGuiFrames;
+        private Dialog_FramePawnInfo pilotInfo;
+        private int visualStep;
+        private int visualGuiFrames;
 
         private bool Enabled => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "acceptance-suite.txt"));
         private string Report => Path.Combine(GenFilePaths.SaveDataFolderPath, "acceptance.txt");
@@ -111,8 +114,24 @@ namespace ZenithFrame.Tests
                 "worker completes later queued changes with exact Things");
             pilot = SpawnColonist(frame.Position + IntVec3.South, frame.Map);
             Check(frame.Cockpit.TryBoard(pilot), "pilot boards exact Frame");
-            guiAction = CheckManualMenus;
+            guiAction = BeginVisualCheck;
             Next(2);
+        }
+
+        private void BeginVisualCheck()
+        {
+            FrameUiSnapshot snapshot = FrameUiSnapshot.From(frame);
+            Check(ReferenceEquals(snapshot.PilotForInspection, pilot) &&
+                ReferenceEquals(frame.Cockpit.Pilot, pilot), "UI reads exact contained pilot");
+            pilotInfo = new Dialog_FramePawnInfo(pilot, true);
+            Check(pilotInfo.SupportsPage(FrameInfoPage.Bio) &&
+                pilotInfo.SupportsPage(FrameInfoPage.Health) &&
+                pilotInfo.SupportsPage(FrameInfoPage.Gear), "pilot Information exposes Bio Health and Gear");
+            Find.Selector.ClearSelection();
+            Find.Selector.Select(frame);
+            InspectPaneUtility.OpenTab(typeof(ITab_FrameVisual));
+            visualStep = 1;
+            visualGuiFrames = 0;
         }
 
         private void CheckManualMenus()
@@ -189,6 +208,38 @@ namespace ZenithFrame.Tests
             {
                 picker.Close();
                 picker = null;
+            }
+            if (visualStep != 0 && Event.current.type == EventType.Repaint && ++visualGuiFrames >= 4)
+            {
+                visualGuiFrames = 0;
+                try
+                {
+                    if (visualStep == 1)
+                    {
+                        ScreenCapture.CaptureScreenshot(Path.Combine(GenFilePaths.SaveDataFolderPath, "frame-tab.png"));
+                        Check(Find.Selector.SingleSelectedThing == frame, "Frame visual tab remains selected");
+                        Find.WindowStack.Add(pilotInfo);
+                        visualStep = 2;
+                    }
+                    else if (visualStep == 2)
+                    {
+                        pilotInfo.ShowPage(FrameInfoPage.Health);
+                        visualStep = 3;
+                    }
+                    else if (visualStep == 3)
+                    {
+                        pilotInfo.ShowPage(FrameInfoPage.Gear);
+                        visualStep = 4;
+                    }
+                    else
+                    {
+                        pilotInfo.Close();
+                        visualStep = 0;
+                        guiAction = CheckManualMenus;
+                        Check(true, "Frame tab and all pilot Information pages rendered");
+                    }
+                }
+                catch (Exception error) { Fail(error); }
             }
             if (guiAction == null) return;
             Action action = guiAction;
