@@ -62,7 +62,8 @@ $process.WaitForExit()
 $report = "$profile/acceptance.txt"
 if (!(Test-Path $report)) { throw "No acceptance report: $profile/Player.log" }
 Get-Content $report
-if ($process.ExitCode -ne 0 -or (Get-Content $report -Raw) -notmatch '(?m)^PASS acceptance complete$' -or
+Write-Host "Acceptance process exit: $($process.ExitCode)"
+if ($process.ExitCode -ne 0 -or (Get-Content $report -Raw) -notmatch '(?m)^PASS acceptance complete\r?$' -or
     (Get-Content $report -Raw) -match '(?m)^FAIL ') { throw "Acceptance failed: $profile" }
 $errors = Select-String -Path "$profile/Player.log" -Pattern 'Exception|Config error|Could not resolve|XML error|Error while|Error in|Could not execute|Could not load asset bundle|Rect height was too small'
 if ($errors) { throw "Acceptance log contains errors: $($errors.Line -join [Environment]::NewLine)" }

@@ -165,7 +165,7 @@ namespace ZenithFrame.Tests
             Check(StoreUtility.IsInValidStorage(haulItem), "manual Haul delivered exact item");
             Pawn patient = SpawnColonist(frame.Position + IntVec3.South * 4, frame.Map);
             patient.health.AddHediff(DefDatabase<HediffDef>.GetNamed("Anesthetic"));
-            Building_Bed bed = (Building_Bed)GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Bed),
+            Building_Bed bed = (Building_Bed)GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Bed, ThingDefOf.WoodLog),
                 frame.Position + IntVec3.East * 7 + IntVec3.South * 3, frame.Map);
             bed.SetFaction(Faction.OfPlayer);
             guiAction = () =>
