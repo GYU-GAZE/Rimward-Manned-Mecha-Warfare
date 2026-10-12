@@ -367,6 +367,9 @@ namespace ZenithFrame
                 LearnConstruction();
             };
             repair.defaultCompleteMode = ToilCompleteMode.Never;
+            repair.handlingFacing = true;
+            repair.activeSkill = () => SkillDefOf.Construction;
+            repair.WithEffect(EffecterDefOf.ConstructMetal, TargetIndex.A);
             yield return repair;
         }
     }
@@ -439,8 +442,14 @@ namespace ZenithFrame
     public sealed class JobDriver_ServiceFrameModule : JobDriver_FrameServiceBase
     {
         private float workLeft;
+        private float totalWork;
 
-        public override void ExposeData() { base.ExposeData(); Scribe_Values.Look(ref workLeft, "frameModuleServiceWorkLeft"); }
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref workLeft, "frameModuleServiceWorkLeft");
+            Scribe_Values.Look(ref totalWork, "frameModuleServiceTotalWork");
+        }
         public override bool TryMakePreToilReservations(bool errorOnFailed) => base.TryMakePreToilReservations(errorOnFailed) &&
             (!job.targetB.IsValid || pawn.Reserve(job.targetB, job, 1, 1, null, errorOnFailed));
 
@@ -460,10 +469,13 @@ namespace ZenithFrame
             service.initAction = () =>
             {
                 if (!BeginService()) { EndJobWith(JobCondition.Incompletable); return; }
-                if (workLeft <= 0f) workLeft = Frame.Service.Profile?.serviceWork ?? 600f;
+                if (totalWork <= 0f) totalWork = Frame.Service.Profile?.serviceWork ?? 600f;
+                if (workLeft <= 0f) workLeft = totalWork;
             };
             service.tickAction = () => { workLeft -= Speed; LearnConstruction(); if (workLeft <= 0f) ReadyForNextToil(); };
             service.defaultCompleteMode = ToilCompleteMode.Never;
+            service.WithProgressBar(TargetIndex.A, () => totalWork <= 0f ? 0f :
+                Mathf.Clamp01(1f - workLeft / totalWork));
             yield return service;
             Toil complete = ToilMaker.MakeToil("CompleteFrameModuleService");
             complete.initAction = () =>

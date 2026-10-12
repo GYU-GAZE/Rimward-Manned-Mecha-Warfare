@@ -29,8 +29,7 @@ namespace ZenithFrame
             this.FailOn(() => !(job.targetA.Thing is FramePawn frame) || !frame.Cockpit.CanBoard(pawn, false));
             yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
             Toil board = ToilMaker.MakeToil("BoardFrame");
-            board.initAction = () => board.actor.jobs.curDriver.ticksLeftThisToil =
-                DockingBayUtility.BoardingTicks((FramePawn)job.targetA.Thing);
+            board.defaultDuration = DockingBayUtility.BoardingTicks((FramePawn)job.targetA.Thing);
             board.tickAction = () =>
             {
                 if (board.actor.jobs.curDriver.ticksLeftThisToil != 1) return;
