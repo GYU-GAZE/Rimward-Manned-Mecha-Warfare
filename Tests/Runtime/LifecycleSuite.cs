@@ -109,6 +109,7 @@ namespace ZenithFrame.Tests
         private bool SmokeMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "smoke-suite.txt"));
         private bool RepairMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "repair-suite.txt"));
         private bool LiveryMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "livery-suite.txt"));
+        private bool FrameUxMode => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "frame-ux-suite.txt"));
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath,
             (RepairMode ? "repair-phase-" : SmokeMode ? "smoke-phase-" : "phase-") + phase + ".txt");
         public override void ExposeData()
@@ -217,7 +218,7 @@ namespace ZenithFrame.Tests
         }
         public override void GameComponentUpdate()
         {
-            if (LiveryMode) return;
+            if (LiveryMode || FrameUxMode) return;
             if (finished || pendingGuiAction != null || Current.ProgramState != ProgramState.Playing || Find.CurrentMap == null || LongEventHandler.ShouldWaitForEvent) return;
             try
             {
@@ -2424,7 +2425,7 @@ namespace ZenithFrame.Tests
             Check(empty.OperationalState == FrameOperationalState.Unpiloted && !empty.IsReadOnly && empty.CanRename &&
                 !empty.CanDisembark && !empty.CanInspectPilot,
                 "empty player Frame UI derives unpiloted state and only valid player actions");
-            Check(frame.def.inspectorTabs.Contains(typeof(ITab_Frame)), "Frame definition exposes the native compact Frame inspect tab");
+            Check(frame.def.inspectorTabs.Contains(typeof(ITab_FrameVisual)), "Frame definition exposes the native visual Frame inspect tab");
             Check(FrameUiActions.TryRename(frame, "Gespenst-03") && frame.Name.ToStringFull == "Gespenst-03",
                 "Frame rename writes normal Pawn.Name and immediately changes chassis identity");
             Check(!FrameUiActions.TryRename(frame, "") && !FrameUiActions.TryRename(frame, new string('X', 29)),

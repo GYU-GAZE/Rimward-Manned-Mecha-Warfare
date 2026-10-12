@@ -187,18 +187,19 @@ Assert-Static ($moduleCode -match 'FrameAddonCategory\.Weapon.*!\(pawn is FrameP
 Assert-Static (@($moduleDefs.Defs.HediffDef | Where-Object defName -EQ 'ZF_BeamSwordPowered').comps.li.GetAttribute('Class') -eq 'HediffCompProperties_VerbGiver') 'Powered Beam Sword must supply its melee attack through a normal HediffComp verb giver'
 Assert-Static ($coreCode -notmatch 'FrameAbilityManager|FrameModuleAbilityManager|moduleCooldown|Scribe_Values\.Look\(ref.*cooldown') 'Module abilities must not introduce a parallel cooldown manager or serialized cooldown truth'
 $uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
-Assert-Static ($frameDef.inspectorTabs.li -eq 'ZenithFrame.ITab_Frame' -and $uiCode -match 'class ITab_Frame : ITab') 'Frame UI must use a native inspect tab attached to the Frame definition'
+$visualUi = Get-Content "$repo/Source/ZenithFrame/FrameUI.Visual.cs" -Raw
+Assert-Static ($frameDef.inspectorTabs.li -eq 'ZenithFrame.ITab_FrameVisual' -and $visualUi -match 'class ITab_FrameVisual : ITab') 'Frame UI must use its native visual inspect tab'
 Assert-Static ($uiCode -match 'class FrameUiSnapshot' -and $uiCode -match 'Pilot = frame\?\.Cockpit\?\.Pilot' -and @('InstalledWeapon','InstalledUtility','InstalledPower','InstalledHead','InstalledShoulder','InstalledOffhand').Where({$uiCode -match $_}).Count -eq 6) 'Frame UI presentation must read exact cockpit and all physical loadout objects'
-Assert-Static ($uiCode -match 'AvailableAddonPower' -and $uiCode -match 'RequiredAddonPower' -and $uiCode -match 'IsModulePowered') 'Frame UI power display must derive from the live generalized static addon budget'
+Assert-Static ($uiCode -match 'AvailableAddonPower' -and $uiCode -match 'RequiredAddonPower' -and $visualUi -match 'IsModulePowered') 'Frame UI power display must derive from the live generalized static addon budget'
 Assert-Static ($uiCode -match 'summaryHealth.*SummaryHealthPercent' -and $uiCode -match 'IsRecoverablyDisabled' -and $uiCode -match 'IsHackableDisabledChassis') 'Frame UI condition recovery and hacking state must derive from existing authoritative components'
 Assert-Static ($uiCode -match 'Dialog_Rename<Dialog_RenameFrame\.Target>' -and $uiCode -match 'frame\.Name = new NameSingle' -and $uiCode -notmatch 'customFrameName|Scribe_') 'Frame naming must use normal Pawn.Name persistence without parallel UI state'
-Assert-Static ($uiCode -match 'PortraitsCache\.Get\(data\.Pilot' -and $uiCode -match 'CharacterCardUtility\.DrawCharacterCard' -and $uiCode -match 'HealthCardUtility\.DrawPawnHealthCard') 'Contained pilot inspection must reuse vanilla portrait character and health presentation'
-Assert-Static ($uiCode -notmatch 'GenSpawn|\.DeSpawn\(|ThingMaker|PassToWorld') 'Frame UI must never temporarily spawn move or recreate the contained pilot or loadout items'
+Assert-Static ($visualUi -match 'PortraitsCache\.Get\(pilot' -and $uiCode -match 'CharacterCardUtility\.DrawCharacterCard' -and $uiCode -match 'HealthCardUtility\.DrawPawnHealthCard') 'Contained pilot inspection must reuse vanilla portrait character and health presentation'
+Assert-Static (($uiCode + $visualUi) -notmatch 'GenSpawn|\.DeSpawn\(|ThingMaker|PassToWorld') 'Frame UI must never temporarily spawn move or recreate the contained pilot or loadout items'
 Assert-Static ($uiCode -notmatch 'ZF_DebugRifle|ZF_DebugReactor|ZF_DebugMobilityBooster|ZF_DebugFrameOverdrive|ZF_DebugFrame') 'Production Frame UI must remain data-driven with no debug content DefNames'
 Assert-Static ($uiCode -notmatch 'System\.Reflection|GetField\(|GetMethod\(|Coventech|MechanitorUtility|IsColonyMech|Overseer') 'Frame UI must use stable local APIs without reflection Coventech or Biotech control semantics'
 Assert-Static ($uiCode -notmatch 'GainAbility|GiveAbility|StartAbilityJob|QueueCastingJob|GetGizmos\(') 'Frame UI must display ability summaries without recreating commands or entering targeting'
 Assert-Static ($uiCode -match 'IsReadOnly = frame\?\.Faction != Faction\.OfPlayer' -and $uiCode -match 'CanRename = .*Faction == Faction\.OfPlayer' -and $uiCode -match 'CanDisembark = .*Faction == Faction\.OfPlayer') 'Hostile and factionless Frame UI must remain read-only'
-Assert-Static ($uiCode -match 'Text\.WordWrap = false' -and $uiCode -match 'TooltipHandler\.TipRegion' -and $uiCode -match 'BeginScrollView') 'Frame UI must clip long labels with tooltips and remain scrollable at constrained scale'
+Assert-Static ($visualUi -match 'Text\.WordWrap = false' -and $visualUi -match 'TooltipHandler\.TipRegion' -and $visualUi -notmatch 'BeginScrollView') 'Visual Frame UI must clip long labels and avoid a main scroll view'
 $bodyCode = Get-Content "$repo/Source/ZenithFrame/FrameDamage.cs" -Raw
 $pilotHealthCode = Get-Content "$repo/Source/ZenithFrame/FramePilotHealth.cs" -Raw
 [xml]$bodyDefs = Get-Content "$repo/Mod/Defs/FrameBodies.xml" -Raw
@@ -232,8 +233,8 @@ Assert-Static ($hackingCode -match 'SkillDefOf\.Intellectual' -and $hackingCode 
 Assert-Static ($productionCode -notmatch 'Odyssey' -and $releaseContent -notmatch 'ludeon\.rimworld\.odyssey|Odyssey') 'Core production package must not depend on or copy Odyssey content'
 Assert-Static ($serviceCode -match 'GetMissingPartsCommonAncestors' -and $serviceCode -match 'material\.stackCount.*materialCount' -and $serviceCode -match 'material\.Destroy\(\).*RestorePart|material\.stackCount -= materialCount;\s*Frame\.health\.RestorePart') 'Missing-part restoration must consume exact physical material at successful reconstruction completion'
 Assert-Static ($serviceCode -match 'ZF_FrameTorso.*ZF_FrameCore|IsRecoverablePart' -or $bodyCode -match 'IsRecoverablePart.*ZF_FrameTorso.*ZF_FrameCore') 'Torso and Core must remain excluded from living-chassis reconstruction'
-Assert-Static ($uiCode -match 'QueueInstall\(category, candidate\)' -and $uiCode -match 'QueueRemove\(category\)' -and $uiCode -notmatch 'TryInstallWeapon|TryInstallUtility|TryInstallPower') 'Frame UI must queue work against exact Things instead of teleporting modules'
-Assert-Static ($serviceCode -match 'Scribe_References\.Look\(ref pendingModule' -and $serviceCode -notmatch 'pendingModuleDef|GetNamed\(.*pending') 'Service requests must persist exact module references without DefName substitution'
+Assert-Static ($visualUi -match 'QueueInstall\(category, exact\)' -and $visualUi -match 'QueueRemove\(category\)' -and $visualUi -notmatch 'TryInstallWeapon|TryInstallUtility|TryInstallPower') 'Frame UI must queue work against exact Things instead of teleporting modules'
+Assert-Static ($serviceCode -match 'Scribe_Collections\.Look\(ref orders' -and $serviceCode -match 'Scribe_References\.Look\(ref incoming' -and $serviceCode -match 'Scribe_References\.Look\(ref expectedInstalled' -and $serviceCode -notmatch 'pendingModuleDef|GetNamed\(.*pending') 'Service orders must persist exact incoming and expected installed Thing references'
 Assert-Static ($serviceCode -match 'Frame\.Loadout\?\.TryInstall\(category, thing\)' -and $serviceCode -match 'Frame\.Loadout\?\.TryRemove\(category, out removed\)' -and $serviceCode -notmatch 'AddEquipment\(') 'Service must delegate every module category to the canonical generic loadout ownership API'
 Assert-Static ($serviceCode -notmatch 'Scribe_Values\.Look\(ref\s+isDocked|(?:private|public|protected)\s+bool\s+isDocked\s*[;=]' -and $serviceCode -match 'DockingBayFor\(FramePawn frame\)') 'Docking must remain position-derived without a saved isDocked flag'
 Assert-Static ($dockDef.thingClass -eq 'Building' -and $dockDef.passability -eq 'Standable' -and $dockDef.size -eq '(3,3)' -and $serviceCode -notmatch 'ThingOwner<FramePawn>|DeSpawn.*Frame') 'Docking Bay must be a standable building and never a Frame container'
@@ -255,16 +256,18 @@ Assert-Static ($renderCode -match 'InstalledHead' -and $renderCode -match 'Insta
 Assert-Static ($renderCode -notmatch 'Scribe_|OffsetForChassis|OffsetForHelmet|Texture2D\s*\(' -and $renderCode -match 'PawnRenderNodeWorker_Body') 'Frame rendering must remain derived, layer-based and native'
 Assert-Static (@($frameDef.comps.li | Where-Object Class -EQ 'ZenithFrame.CompProperties_FrameLivery').Count -eq 1 -and
     $liveryCode -match 'Scribe_Values\.Look\(ref primary' -and $liveryCode -match 'Scribe_Values\.Look\(ref secondary' -and
-    $liveryCode -match 'SetAllGraphicsDirty\(\)') 'One physical Frame comp must own both saved colors and invalidate native graphics'
+    $liveryCode -match 'Scribe_Values\.Look\(ref visor' -and $liveryCode -match 'SetAllGraphicsDirty\(\)') 'One physical Frame comp must own all three saved colors and invalidate native graphics'
 Assert-Static ($renderCode -match 'ShaderDatabase\.CutoutComplex' -and $renderCode -match 'GraphicDatabase\.Get<Graphic_Single>' -and
     $renderCode -match 'frame\?\.Livery\?\.Primary' -and $renderCode -match 'frame\?\.Livery\?\.Secondary' -and
+    $renderCode -match 'frame\?\.Livery\?\.Visor' -and $renderCode -match 'ShaderDatabase\.Cutout' -and
     $renderCode -notmatch '\.MatSingle\.color\s*=|\.colorTwo\s*=') 'Body layers must request native per-color masked Graphics without mutating shared materials'
 Assert-Static ($heavyWeapon[0].graphicData.drawSize -eq '(2.5,2.5)' -and !$rifleDef.graphicData.drawSize) 'Livery must not change the normal or oversized weapon scale'
 $parts = @('Torso','Head','Helmet','Shoulder')
 $directions = @('South','Sides','North')
 $textures = "$repo/Mod/Textures/ZenithFrame/Frames/Debug/TestFrame"
-Assert-Static (@(Get-ChildItem $textures -File -Filter '*.png' | Where-Object BaseName -NotMatch '_m$').Count -eq 12 -and
-    @(Get-ChildItem $textures -File -Filter '*_m.png').Count -eq 12) 'Test Frame must contain twelve original canvases and twelve matching development masks'
+Assert-Static (@(Get-ChildItem $textures -File -Filter '*.png' | Where-Object BaseName -NotMatch '_(m|v)$').Count -eq 12 -and
+    @(Get-ChildItem $textures -File -Filter '*_m.png').Count -eq 12 -and
+    @(Get-ChildItem $textures -File -Filter '*_v.png').Count -eq 9) 'Test Frame must contain twelve original canvases, twelve paint masks and nine visor overlays'
 Add-Type -AssemblyName System.Drawing
 foreach ($part in $parts) {
     foreach ($direction in $directions) {
@@ -301,6 +304,28 @@ foreach ($part in $parts) {
             (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseFile -Algorithm SHA256).Hash) "Release texture differs from source copy: $file"
         Assert-Static ((Test-Path -LiteralPath $releaseMask) -and
             (Get-FileHash -LiteralPath $maskFile -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseMask -Algorithm SHA256).Hash) "Release mask differs from source copy: $maskFile"
+        if ($part -ne 'Torso') {
+            $visorFile = Join-Path $textures "${part}_${direction}_v.png"
+            $releaseVisor = Join-Path "$repo/artifacts/ZenithFrame/Textures/ZenithFrame/Frames/Debug/TestFrame" "${part}_${direction}_v.png"
+            Assert-Static ((Test-Path -LiteralPath $visorFile) -and (Test-Path -LiteralPath $releaseVisor) -and
+                (Get-FileHash -LiteralPath $visorFile -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $releaseVisor -Algorithm SHA256).Hash) "Release visor overlay differs from source copy: $visorFile"
+            $visorBitmap = [System.Drawing.Bitmap]::new($visorFile)
+            $sourceBitmap = [System.Drawing.Bitmap]::new($file)
+            try {
+                Assert-Static ($visorBitmap.Width -eq 1024 -and $visorBitmap.Height -eq 1024) "Wrong visor canvas: $visorFile"
+                $visible = 0; $escaped = $false
+                for ($y=0; $y -lt 1024; $y+=4) {
+                    for ($x=0; $x -lt 1024; $x+=4) {
+                        $visorPixel = $visorBitmap.GetPixel($x,$y)
+                        if ($visorPixel.A -gt 0) {
+                            $visible++
+                            if ($sourceBitmap.GetPixel($x,$y).A -eq 0) { $escaped = $true }
+                        }
+                    }
+                }
+                Assert-Static ($visible -gt 0 -and !$escaped) "Visor overlay must tint visible source pixels only: $visorFile"
+            } finally { $visorBitmap.Dispose(); $sourceBitmap.Dispose() }
+        }
     }
 }
 Write-Host "PASS: $checks XML/static/package checks"

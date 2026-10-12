@@ -24,6 +24,8 @@ namespace ZenithFrame.Tests
         private static readonly Color Cyan = new Color32(40, 210, 225, 255);
         private static readonly Color Blue = new Color32(50, 90, 230, 255);
         private static readonly Color Yellow = new Color32(245, 185, 35, 255);
+        private static readonly Color Purple = new Color32(180, 55, 230, 255);
+        private static readonly Color Orange = new Color32(245, 120, 25, 255);
 
         private bool Enabled => File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "livery-suite.txt"));
         private string ReportPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "livery-phase-0.txt");
@@ -51,14 +53,14 @@ namespace ZenithFrame.Tests
         private static bool SameColor(Color actual, Color expected) =>
             ((Color32)actual).Equals((Color32)expected);
 
-        private static FrameRenderNode Node(FramePawn frame, FrameVisualPart part) =>
+        private static FrameRenderNode Node(FramePawn frame, FrameVisualPart part, bool visor = false) =>
             frame.Drawer.renderer.renderTree.rootNode.children.OfType<FrameRenderNode>()
-                .Single(node => node.Part == part);
+                .Single(node => node.Part == part && node.VisorOverlay == visor);
 
-        private void CheckPaint(FramePawn frame, Color primary, Color secondary, string stageName)
+        private void CheckPaint(FramePawn frame, Color primary, Color secondary, Color visor, string stageName)
         {
-            Check(SameColor(frame.Livery.Primary, primary) && SameColor(frame.Livery.Secondary, secondary),
-                stageName + " persists two chassis-owned paint colors");
+            Check(SameColor(frame.Livery.Primary, primary) && SameColor(frame.Livery.Secondary, secondary) &&
+                SameColor(frame.Livery.Visor, visor), stageName + " persists three chassis-owned paint colors");
             frame.Drawer.renderer.EnsureGraphicsInitialized();
             foreach (Rot4 facing in Rot4.AllRotations)
             {
@@ -82,6 +84,19 @@ namespace ZenithFrame.Tests
                         Mathf.Approximately(node.Worker.ScaleFor(node, parms).z, 3.5f) &&
                         offset.x == 0f && offset.z == 0f && pivot == Vector3.zero,
                         stageName + " " + part + " masked material, shared canvas and facing " + facing);
+                    FrameVisualSet visorSource = FrameVisualRules.Source(frame, part, true);
+                    if (visorSource != null)
+                    {
+                        FrameRenderNode overlay = Node(frame, part, true);
+                        Graphic visorGraphic = overlay.GraphicAt(facing);
+                        Material visorMaterial = overlay.Worker.GetFinalizedMaterial(overlay, parms);
+                        Check(visorGraphic?.path == visorSource.PathFor(facing) &&
+                            visorGraphic.Shader == ShaderDatabase.Cutout && visorMaterial != null &&
+                            SameColor(visorMaterial.color, visor) &&
+                            MeshPool.GetMetaData(overlay.GetMesh(parms)).flipped == (facing == Rot4.West) &&
+                            Mathf.Approximately(overlay.Worker.ScaleFor(overlay, parms).x, 3.5f),
+                            stageName + " " + part + " independent visor layer facing " + facing);
+                    }
                 }
             }
         }
@@ -111,30 +126,26 @@ namespace ZenithFrame.Tests
                 "both Frames have Helmet and Shoulder on exact physical mounts");
             Check(first.Livery != null && second.Livery != null && !ReferenceEquals(first.Livery, second.Livery),
                 "each physical chassis owns its own livery component");
-            CheckPaint(first, Color.white, Color.white, "default white");
+            CheckPaint(first, Color.white, Color.white, Color.white, "default white");
             ThingWithComps originalWeapon = first.equipment.Primary;
             weaponId = originalWeapon.GetUniqueLoadID();
             Material normalWeaponMaterial = originalWeapon.Graphic.MatSingle;
 
-            Command_Action devPaint = first.GetGizmos().OfType<Command_Action>()
-                .SingleOrDefault(gizmo => gizmo.defaultLabel == "DEV: Cycle Frame livery");
-            Check(devPaint != null, "player Frame exposes the Dev Mode paint control");
-            devPaint.action();
-            CheckPaint(first, Red, Cyan, "red/cyan from Dev Mode paint control");
-            first.Livery.SetColors(Color.white, Color.white);
+            Check(first.def.inspectorTabs.Contains(typeof(ITab_FrameVisual)) &&
+                first.Livery.Defaults != null, "Frame exposes its visual tab and chassis color defaults");
 
             second.Drawer.renderer.EnsureGraphicsInitialized();
             Material untouchedSecond = Node(second, FrameVisualPart.Torso).GraphicAt(Rot4.South).MatSingle;
             IntVec3 stationaryCell = first.Position;
-            first.Livery.SetColors(Red, Cyan);
+            first.Livery.SetColors(Red, Cyan, Purple);
             Check(first.Position == stationaryCell, "livery change leaves first Frame completely stationary");
-            CheckPaint(first, Red, Cyan, "red/cyan after stationary recache");
+            CheckPaint(first, Red, Cyan, Purple, "red/cyan/purple after stationary recache");
             second.Drawer.renderer.EnsureGraphicsInitialized();
             Check(ReferenceEquals(untouchedSecond, Node(second, FrameVisualPart.Torso).GraphicAt(Rot4.South).MatSingle) &&
                 SameColor(second.Livery.Primary, Color.white),
                 "changing first Frame does not change second Frame's cached white material");
-            second.Livery.SetColors(Blue, Yellow);
-            CheckPaint(second, Blue, Yellow, "blue/yellow on second Frame");
+            second.Livery.SetColors(Blue, Yellow, Orange);
+            CheckPaint(second, Blue, Yellow, Orange, "blue/yellow/orange on second Frame");
             Check(!ReferenceEquals(Node(first, FrameVisualPart.Torso).GraphicAt(Rot4.South).MatSingle,
                 Node(second, FrameVisualPart.Torso).GraphicAt(Rot4.South).MatSingle),
                 "same source texture gives different cached materials for different Frame colors");
@@ -144,7 +155,7 @@ namespace ZenithFrame.Tests
                 first.Loadout.TryRemoveShoulder(out Thing removedShoulder) &&
                 removedShoulder.GetUniqueLoadID() == shoulderId && first.Loadout.TryInstallShoulder(removedShoulder),
                 "module removal and reinstall preserve exact items");
-            CheckPaint(first, Red, Cyan, "after module recache");
+            CheckPaint(first, Red, Cyan, Purple, "after module recache");
 
             Pawn oldPilot = SpawnPilot(first.Position + IntVec3.West, map);
             Check(first.Cockpit.TryBoard(oldPilot) && first.Cockpit.TryDisembark(),
@@ -176,8 +187,8 @@ namespace ZenithFrame.Tests
             first.SetFaction(Faction.OfAncientsHostile);
             Check(SameColor(first.Livery.Primary, Red), "faction transfer keeps the same chassis paint");
             first.SetFaction(Faction.OfPlayer);
-            CheckPaint(first, Red, Cyan, "after faction transfer");
-            CheckPaint(second, Blue, Yellow, "second Frame remains isolated");
+            CheckPaint(first, Red, Cyan, Purple, "after faction transfer");
+            CheckPaint(second, Blue, Yellow, Orange, "second Frame remains isolated");
             Check(ReferenceEquals(first.equipment.Primary, originalWeapon) &&
                 ReferenceEquals(originalWeapon.Graphic.MatSingle, normalWeaponMaterial) &&
                 second.equipment.Primary?.def.defName == "ZF_DebugRifle",
@@ -189,21 +200,25 @@ namespace ZenithFrame.Tests
                 first.Loadout.TryRemoveWeapon(out ThingWithComps removedNormal) &&
                 ReferenceEquals(removedNormal, originalWeapon) && first.Loadout.TryInstallWeapon(heavy),
                 "oversized weapon uses the same exact normal equipment slot");
-            first.Livery.SetColors(Blue, Yellow);
+            first.Livery.SetColors(Blue, Yellow, Orange);
             Check(ReferenceEquals(first.equipment.Primary, heavy) &&
                 ReferenceEquals(heavy.Graphic.MatSingle, heavyMaterial) &&
                 heavy.def.graphicData.drawSize == new Vector2(2.5f, 2.5f),
                 "changing chassis paint leaves oversized weapon material and size untouched");
-            first.Livery.SetColors(Red, Cyan);
+            first.Livery.SetColors(Red, Cyan, Purple);
             Check(first.Loadout.TryRemoveWeapon(out ThingWithComps removedHeavy) &&
                 ReferenceEquals(removedHeavy, heavy) && first.Loadout.TryInstallWeapon(originalWeapon),
                 "fixture restores its exact control rifle after weapon paint boundary check");
             heavy.Destroy();
 
+            // The disposable quicktest scenario sometimes has relations to
+            // temporary world pawns that are not serialized with its map.
+            foreach (Pawn mapPawn in map.mapPawns.AllPawnsSpawned.ToList())
+                mapPawn.relations?.ClearAllRelations();
             stage = 1;
             GameDataSaveLoader.SaveGame("ZenithLivery");
             Check(File.Exists(GenFilePaths.FilePathForSavedGame("ZenithLivery")),
-                "two-color two-Frame save written in the same process");
+                "three-color two-Frame save written in the same process");
             finished = true;
             GameDataSaveLoader.LoadGame("ZenithLivery");
         }
@@ -217,11 +232,11 @@ namespace ZenithFrame.Tests
                 first.Loadout.InstalledShoulder?.GetUniqueLoadID() == shoulderId &&
                 first.equipment.Primary?.GetUniqueLoadID() == weaponId,
                 "save/load retains exact Helmet, Shoulder and ordinary weapon");
-            CheckPaint(first, Red, Cyan, "red/cyan after reload");
-            CheckPaint(second, Blue, Yellow, "blue/yellow after reload");
-            first.Livery.SetColors(Color.white, Color.white);
-            CheckPaint(first, Color.white, Color.white, "stationary repaint after reload");
-            CheckPaint(second, Blue, Yellow, "second Frame unaffected by repaint after reload");
+            CheckPaint(first, Red, Cyan, Purple, "red/cyan/purple after reload");
+            CheckPaint(second, Blue, Yellow, Orange, "blue/yellow/orange after reload");
+            first.Livery.ResetColors();
+            CheckPaint(first, Color.white, Color.white, Color.white, "chassis defaults after reload");
+            CheckPaint(second, Blue, Yellow, Orange, "second Frame unaffected by repaint after reload");
             File.AppendAllText(ReportPath, "PASS focused livery session complete" + Environment.NewLine);
             finished = true;
             Application.Quit(0);

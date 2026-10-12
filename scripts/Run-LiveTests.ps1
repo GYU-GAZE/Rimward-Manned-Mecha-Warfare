@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke','Repair','Livery')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
+param([Parameter(Mandatory=$true)][string]$RimWorldDir, [string]$RunName = ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')), [switch]$WithInstalledExpansions, [string]$HarmonyDir, [ValidateSet('Core','Smoke','Repair','Livery','FrameUX')][string]$Suite = 'Core', [int]$StartPhase = 0, [int]$EndPhase = -1, [string]$SeedSave)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 & "$PSScriptRoot/Build.ps1" -RimWorldDir $RimWorldDir
@@ -61,13 +61,15 @@ New-Item -ItemType Directory -Force "$profile/Config","$profile/Saves" | Out-Nul
 if ($Suite -eq 'Smoke') { Set-Content "$profile/smoke-suite.txt" 'manual-qa-regressions' }
 if ($Suite -eq 'Repair') { Set-Content "$profile/repair-suite.txt" 'repair-persistence' }
 if ($Suite -eq 'Livery') { Set-Content "$profile/livery-suite.txt" 'frame-livery' }
+if ($Suite -eq 'FrameUX') { Set-Content "$profile/frame-ux-suite.txt" 'frame-ux-service' }
 @'
 <ModsConfigData><version>1.6.4871</version><activeMods><li>brrainz.harmony</li><li>ludeon.rimworld</li><li>gyugaze.zenithframe.rimward</li><li>gyugaze.zenithframe.tests</li></activeMods><knownExpansions /></ModsConfigData>
 '@ | ForEach-Object { $_.Replace('<li>gyugaze.zenithframe.rimward</li>', $expansionMods + '<li>gyugaze.zenithframe.rimward</li>').Replace('<knownExpansions />', '<knownExpansions>' + $knownExpansionMods + '</knownExpansions>') } | Set-Content "$profile/Config/ModsConfig.xml"
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1024</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
-if ($Suite -eq 'Livery') { $lastPhase = 0; $saveName = 'ZenithLivery'; $reportPrefix = 'livery-phase-' }
+if ($Suite -eq 'FrameUX') { $lastPhase = 0; $saveName = 'ZenithFrameUX'; $reportPrefix = 'frame-ux-phase-' }
+elseif ($Suite -eq 'Livery') { $lastPhase = 0; $saveName = 'ZenithLivery'; $reportPrefix = 'livery-phase-' }
 elseif ($Suite -eq 'Repair') { $lastPhase = 0; $saveName = 'ZenithRepair'; $reportPrefix = 'repair-phase-' }
 elseif ($Suite -eq 'Smoke') { $lastPhase = 2; $saveName = 'ZenithSmoke'; $reportPrefix = 'smoke-phase-' }
 else { $lastPhase = 46; $saveName = 'ZenithLifecycle'; $reportPrefix = 'phase-' }
@@ -76,14 +78,17 @@ if ($StartPhase -lt 0 -or $EndPhase -gt $lastPhase -or $StartPhase -gt $EndPhase
 if ($StartPhase -gt 0 -and !(Test-Path -LiteralPath $SeedSave -PathType Leaf)) { throw 'A saved input from the preceding phase is required with -SeedSave' }
 $phases = $StartPhase..$EndPhase
 foreach ($phase in $phases) {
-    if ($phase -eq $StartPhase -and $StartPhase -gt 0) { Copy-Item -LiteralPath $SeedSave "$profile/Saves/Autostart.rws" -Force }
+    if ($phase -eq $StartPhase -and ($StartPhase -gt 0 -or (![string]::IsNullOrWhiteSpace($SeedSave)))) {
+        if (!(Test-Path -LiteralPath $SeedSave -PathType Leaf)) { throw "Seed save missing: $SeedSave" }
+        Copy-Item -LiteralPath $SeedSave "$profile/Saves/Autostart.rws" -Force
+    }
     elseif ($phase -gt 0) { Copy-Item "$profile/Saves/$saveName.rws" "$profile/Saves/Autostart.rws" -Force }
     # Keep Unity's GUI callbacks active: the suite exercises RimWorld's real
     # FloatMenuOption pipeline, whose text measurement is only valid in OnGUI.
     # A minimized window keeps a real Unity window/event loop without interrupting
     # the desktop; WindowStyle Hidden creates no handle and suppresses OnGUI.
     $arguments = @(('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player-$phase.log" + '"'))
-    if ($phase -eq 0) { $arguments += '-quicktest' }
+    if ($phase -eq 0 -and [string]::IsNullOrWhiteSpace($SeedSave)) { $arguments += '-quicktest' }
     $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Minimized -PassThru
     $null = $process.Handle
     Write-Host "Live phase $phase PID $($process.Id) profile $profile"
