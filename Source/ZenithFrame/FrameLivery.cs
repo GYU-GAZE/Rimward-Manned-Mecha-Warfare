@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -15,51 +13,39 @@ namespace ZenithFrame
     {
         private Color primary = Color.white;
         private Color secondary = Color.white;
+        private Color visor = Color.white;
 
         public Color Primary => primary;
         public Color Secondary => secondary;
+        public Color Visor => visor;
+        public FrameChassisVisualExtension Defaults => parent.def.GetModExtension<FrameChassisVisualExtension>();
 
         public override void PostExposeData()
         {
             base.PostExposeData();
-            Scribe_Values.Look(ref primary, "zenithPaintPrimary", Color.white);
-            Scribe_Values.Look(ref secondary, "zenithPaintSecondary", Color.white);
+            Scribe_Values.Look(ref primary, "zenithPaintPrimary", Defaults?.defaultPrimary ?? Color.white);
+            Scribe_Values.Look(ref secondary, "zenithPaintSecondary", Defaults?.defaultSecondary ?? Color.white);
+            Scribe_Values.Look(ref visor, "zenithPaintVisor", Defaults?.defaultVisor ?? Color.white);
         }
 
-        public void SetColors(Color newPrimary, Color newSecondary)
+        public void SetColors(Color newPrimary, Color newSecondary) => SetColors(newPrimary, newSecondary, visor);
+
+        public void ResetColors() => SetColors(Defaults?.defaultPrimary ?? Color.white,
+            Defaults?.defaultSecondary ?? Color.white, Defaults?.defaultVisor ?? Color.white);
+
+        public void SetColors(Color newPrimary, Color newSecondary, Color newVisor)
         {
-            // GraphicDatabase and MaterialPool quantize colors to Color32 too.
             newPrimary = (Color32)newPrimary;
             newSecondary = (Color32)newSecondary;
+            newVisor = (Color32)newVisor;
             if (((Color32)primary).Equals((Color32)newPrimary) &&
-                ((Color32)secondary).Equals((Color32)newSecondary))
-                return;
+                ((Color32)secondary).Equals((Color32)newSecondary) &&
+                ((Color32)visor).Equals((Color32)newVisor)) return;
             primary = newPrimary;
             secondary = newSecondary;
+            visor = newVisor;
             ((FramePawn)parent).Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
-        public override IEnumerable<Gizmo> CompGetGizmosExtra()
-        {
-            FramePawn frame = (FramePawn)parent;
-            if (!Prefs.DevMode || frame.Faction != Faction.OfPlayer || !frame.Spawned || frame.Dead)
-                yield break;
-
-            yield return new Command_Action
-            {
-                defaultLabel = "DEV: Cycle Frame livery",
-                defaultDesc = "White, red/cyan, blue/yellow. Development-only paint proof on this exact chassis.",
-                icon = TexCommand.Install,
-                action = () =>
-                {
-                    if (primary.r > 0.95f && primary.g > 0.95f)
-                        SetColors(new Color32(230, 40, 55, 255), new Color32(40, 210, 225, 255));
-                    else if (primary.r > 0.75f && primary.g < 0.3f)
-                        SetColors(new Color32(50, 90, 230, 255), new Color32(245, 185, 35, 255));
-                    else
-                        SetColors(Color.white, Color.white);
-                }
-            };
-        }
     }
 }

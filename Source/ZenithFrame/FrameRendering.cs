@@ -25,12 +25,18 @@ namespace ZenithFrame
     {
         public FrameVisualSet torso;
         public FrameVisualSet head;
+        public FrameVisualSet torsoVisor;
+        public FrameVisualSet headVisor;
+        public Color defaultPrimary = Color.white;
+        public Color defaultSecondary = Color.white;
+        public Color defaultVisor = Color.white;
         public float worldDrawSize = 3.5f;
     }
 
     public sealed class FrameModuleVisualExtension : DefModExtension
     {
         public FrameVisualSet visual;
+        public FrameVisualSet visor;
     }
 
     public enum FrameVisualPart
@@ -60,18 +66,19 @@ namespace ZenithFrame
             return null;
         }
 
-        public static FrameVisualSet Source(FramePawn frame, FrameVisualPart part)
+        public static FrameVisualSet Source(FramePawn frame, FrameVisualPart part, bool visor = false)
         {
             if (frame == null) return null;
             FrameChassisVisualExtension chassis = frame.def.GetModExtension<FrameChassisVisualExtension>();
-            if (part == FrameVisualPart.Torso) return chassis?.torso;
-            if (part == FrameVisualPart.Head) return chassis?.head;
-            return PhysicalModule(frame, part)?.def.GetModExtension<FrameModuleVisualExtension>()?.visual;
+            if (part == FrameVisualPart.Torso) return visor ? chassis?.torsoVisor : chassis?.torso;
+            if (part == FrameVisualPart.Head) return visor ? chassis?.headVisor : chassis?.head;
+            FrameModuleVisualExtension module = PhysicalModule(frame, part)?.def.GetModExtension<FrameModuleVisualExtension>();
+            return visor ? module?.visor : module?.visual;
         }
 
-        public static bool Visible(FramePawn frame, FrameVisualPart part)
+        public static bool Visible(FramePawn frame, FrameVisualPart part, bool visor = false)
         {
-            if (frame == null || Source(frame, part) == null) return false;
+            if (frame == null || Source(frame, part, visor) == null) return false;
             if (part == FrameVisualPart.Torso) return true;
             if (part == FrameVisualPart.Head) return HeadState(frame) == FrameHeadVisualState.Present;
             Thing module = PhysicalModule(frame, part);
@@ -84,6 +91,7 @@ namespace ZenithFrame
     public sealed class FrameRenderNodeProperties : PawnRenderNodeProperties
     {
         public FrameVisualPart visualPart;
+        public bool visorOverlay;
 
         public FrameRenderNodeProperties()
         {
@@ -104,21 +112,23 @@ namespace ZenithFrame
         private Graphic northGraphic;
         private Color loadedPrimary;
         private Color loadedSecondary;
+        private Color loadedVisor;
 
         public FrameVisualPart Part => ((FrameRenderNodeProperties)Props).visualPart;
+        public bool VisorOverlay => ((FrameRenderNodeProperties)Props).visorOverlay;
 
         public FrameRenderNode(Pawn pawn, PawnRenderNodeProperties props, PawnRenderTree tree)
             : base(pawn, props, tree) { }
 
         public override bool RecacheRequested => base.RecacheRequested ||
             !ReferenceEquals(cachedModule, FrameVisualRules.PhysicalModule(tree.pawn as FramePawn, Part)) ||
-            cachedVisible != FrameVisualRules.Visible(tree.pawn as FramePawn, Part);
+            cachedVisible != FrameVisualRules.Visible(tree.pawn as FramePawn, Part, VisorOverlay);
 
         protected override IEnumerable<Graphic> GraphicsFor(Pawn pawn)
         {
             FramePawn frame = pawn as FramePawn;
             cachedModule = FrameVisualRules.PhysicalModule(frame, Part);
-            cachedVisible = FrameVisualRules.Visible(frame, Part);
+            cachedVisible = FrameVisualRules.Visible(frame, Part, VisorOverlay);
             RefreshGraphics();
             if (southGraphic != null) yield return southGraphic;
             if (sidesGraphic != null) yield return sidesGraphic;
@@ -128,19 +138,25 @@ namespace ZenithFrame
         private static Graphic Load(string path, Color primary, Color secondary) => path.NullOrEmpty() ? null :
             GraphicDatabase.Get<Graphic_Single>(path, ShaderDatabase.CutoutComplex, Vector2.one, primary, secondary);
 
+        private static Graphic LoadVisor(string path, Color visor) => path.NullOrEmpty() ? null :
+            GraphicDatabase.Get<Graphic_Single>(path, ShaderDatabase.Cutout, Vector2.one, visor);
+
         private void RefreshGraphics()
         {
             FramePawn frame = tree.pawn as FramePawn;
-            FrameVisualSet source = FrameVisualRules.Source(frame, Part);
+            FrameVisualSet source = FrameVisualRules.Source(frame, Part, VisorOverlay);
             Color primary = frame?.Livery?.Primary ?? Color.white;
             Color secondary = frame?.Livery?.Secondary ?? Color.white;
-            if (ReferenceEquals(source, loadedVisualSet) && loadedPrimary == primary && loadedSecondary == secondary) return;
+            Color visor = frame?.Livery?.Visor ?? Color.white;
+            if (ReferenceEquals(source, loadedVisualSet) && loadedPrimary == primary &&
+                loadedSecondary == secondary && loadedVisor == visor) return;
             loadedVisualSet = source;
             loadedPrimary = primary;
             loadedSecondary = secondary;
-            southGraphic = Load(source?.south, primary, secondary);
-            sidesGraphic = Load(source?.sides, primary, secondary);
-            northGraphic = Load(source?.north, primary, secondary);
+            loadedVisor = visor;
+            southGraphic = VisorOverlay ? LoadVisor(source?.south, visor) : Load(source?.south, primary, secondary);
+            sidesGraphic = VisorOverlay ? LoadVisor(source?.sides, visor) : Load(source?.sides, primary, secondary);
+            northGraphic = VisorOverlay ? LoadVisor(source?.north, visor) : Load(source?.north, primary, secondary);
         }
 
         public Graphic GraphicAt(Rot4 facing)
@@ -165,7 +181,8 @@ namespace ZenithFrame
     {
         public override bool CanDrawNow(PawnRenderNode node, PawnDrawParms parms) =>
             base.CanDrawNow(node, parms) &&
-            FrameVisualRules.Visible(parms.pawn as FramePawn, ((FrameRenderNode)node).Part);
+            FrameVisualRules.Visible(parms.pawn as FramePawn, ((FrameRenderNode)node).Part,
+                ((FrameRenderNode)node).VisorOverlay);
 
         protected override Graphic GetGraphic(PawnRenderNode node, PawnDrawParms parms) =>
             ((FrameRenderNode)node).GraphicAt(parms.facing);
