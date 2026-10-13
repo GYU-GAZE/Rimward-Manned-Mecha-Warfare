@@ -6,6 +6,7 @@ param(
     [string]$VEFDir,
     [string]$VPEDir
 )
+throw 'This historical ability matrix is retired. Use Run-LiveTests.ps1 once for the completed candidate.'
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 

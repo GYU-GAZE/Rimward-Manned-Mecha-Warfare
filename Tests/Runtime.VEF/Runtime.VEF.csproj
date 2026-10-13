@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><AssemblyName>ZenithFrame.RuntimeTests.VEF</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Runtime/Runtime.csproj" />
+    <ProjectReference Include="../../Source/ZenithFrame.VEF/ZenithFrame.VEF.csproj" />
+    <Reference Include="VEF"><HintPath>$(VEFDir)/1.6/Assemblies/VEF.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
