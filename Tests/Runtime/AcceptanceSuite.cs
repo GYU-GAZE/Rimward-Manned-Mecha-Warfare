@@ -247,6 +247,9 @@ namespace ZenithFrame.Tests
                 Check(Mathf.Abs(pilot.psychicEntropy.CurrentPsyfocus - initialFocus) < 0.0001f &&
                     !pilot.psychicEntropy.NeedsPsyfocus, "psyfocus follows vanilla unspawned-container pause rule");
             }
+            // The bleeding observation is complete. Do not let this deliberately
+            // untreated fixture disable the pilot during later unrelated stages.
+            Clear(pilot, "Cut");
             Clear(pilot, "ZF_TestPilotSelfEffect");
             self.QueueCastingJob(pilot, LocalTargetInfo.Invalid);
             Wait("pilot second cast", () => Has(pilot, "ZF_TestPilotSelfEffect"), () =>
@@ -255,6 +258,8 @@ namespace ZenithFrame.Tests
                 enemy = (Pawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(new PawnGenerationRequest(
                     PawnKindDefOf.Colonist, Faction.OfPlayer, canGeneratePawnRelations: false)),
                     frame.Position + IntVec3.North * 8, map);
+                enemy.drafter.Drafted = true;
+                enemy.drafter.FireAtWill = false;
                 FrameAbilityContext.BindVanillaAbility(targeted);
                 targeted.QueueCastingJob(enemy, LocalTargetInfo.Invalid);
                 Wait("targeted pilot cast", () => Has(enemy, "ZF_TestPilotTargetEffect"), RoyaltyCast);
