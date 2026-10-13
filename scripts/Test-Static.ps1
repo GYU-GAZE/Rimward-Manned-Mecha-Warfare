@@ -63,9 +63,10 @@ Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[0].GetAttribute('Class') -e
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[1].GetAttribute('Class') -eq 'ZenithFrame.ThinkNode_Conditional_OperationalPlayerFrame') 'Frame think tree requires a narrowly gated drafted-player combat-wait branch'
 Assert-Static ($frameThinkTree.thinkRoot.subNodes.li[2].GetAttribute('Class') -eq 'ZenithFrame.ThinkNode_Conditional_OperationalHostileFrame') 'Frame think tree requires a narrowly gated hostile combat branch'
 $hostileNodes = @($frameThinkTree.thinkRoot.subNodes.li[2].subNodes.li)
-Assert-Static ($hostileNodes[0].GetAttribute('Class') -eq 'ThinkNode_Duty' -and
+Assert-Static ($hostileNodes[0].GetAttribute('Class') -eq 'ThinkNode_ConditionalHasLordDuty' -and
+    $hostileNodes[0].subNodes.li.GetAttribute('Class') -eq 'ThinkNode_Duty' -and
     $hostileNodes[1].GetAttribute('Class') -eq 'ZenithFrame.JobGiver_FramePilotAbility' -and
-    $hostileNodes[2].GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile raid Frames must consume Lord duty then pilot ability AI before the tactical combat fallback'
+    $hostileNodes[2].GetAttribute('Class') -eq 'JobGiver_AIFightEnemies') 'Hostile Frames must consume valid native Lord duty then pilot ability AI before the tactical combat fallback'
 Assert-Static (@($frame.Defs.JobDef | Where-Object defName -EQ 'ZF_FrameIdleJob').driverClass -eq 'ZenithFrame.JobDriver_FrameIdle') 'Frame inert idle JobDef is missing or miswired'
 Assert-Static ($frameDef.race.fleshType -eq 'ZF_FrameMechanical') 'Frame must use its own mechanical flesh type, not Biotech mechanoid classification'
 $frameFlesh = $fleshTypes.Defs.FleshTypeDef | Where-Object defName -EQ 'ZF_FrameMechanical'

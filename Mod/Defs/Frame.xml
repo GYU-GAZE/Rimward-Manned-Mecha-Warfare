@@ -94,7 +94,9 @@
         </li>
         <li Class="ZenithFrame.ThinkNode_Conditional_OperationalHostileFrame">
           <subNodes>
-            <li Class="ThinkNode_Duty" />
+            <li Class="ThinkNode_ConditionalHasLordDuty">
+              <subNodes><li Class="ThinkNode_Duty" /></subNodes>
+            </li>
             <li Class="ZenithFrame.JobGiver_FramePilotAbility" />
             <li Class="JobGiver_AIFightEnemies">
               <targetAcquireRadius>65</targetAcquireRadius>

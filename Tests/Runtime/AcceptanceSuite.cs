@@ -137,7 +137,8 @@ namespace ZenithFrame.Tests
             foreach (IntVec3 cell in CellRect.CenteredOn(center, 27).Cells)
             {
                 foreach (Thing thing in cell.GetThingList(map).ToList())
-                    if (!(thing is Pawn) && (thing.def.category == ThingCategory.Building || thing is Plant))
+                    if (!(thing is Pawn) && thing.def.destroyable &&
+                        (thing.def.category == ThingCategory.Building || thing is Plant))
                         thing.Destroy(DestroyMode.Vanish);
                 map.terrainGrid.SetTerrain(cell, TerrainDefOf.Concrete);
                 map.roofGrid.SetRoof(cell, null);
@@ -610,6 +611,11 @@ namespace ZenithFrame.Tests
         }
         private void Complete()
         {
+            string[] errors;
+            using (Log.LockMessages())
+                errors = Log.Messages.Where(message => message.type == LogMessageType.Error)
+                    .Select(message => message.text).ToArray();
+            Check(errors.Length == 0, "native game log contains zero Error messages");
             File.AppendAllText(Report, "PASS acceptance complete" + Environment.NewLine);
             finished = true; Application.Quit(0);
         }
