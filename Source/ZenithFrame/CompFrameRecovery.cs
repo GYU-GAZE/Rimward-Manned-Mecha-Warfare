@@ -54,7 +54,7 @@ namespace ZenithFrame
 
         public override string CompInspectStringExtra()
         {
-            return IsRecoverablyDisabled ? "Status: Disabled chassis (recoverable)" : null;
+            return IsRecoverablyDisabled ? "ZF_DisabledRecoverable".Translate() : null;
         }
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()
@@ -84,9 +84,9 @@ namespace ZenithFrame
                 action = () =>
                 {
                     if (TryRecover())
-                        Messages.Message("Disabled Frame restored to an unpiloted, inactive state.", Frame, MessageTypeDefOf.PositiveEvent, false);
+                        Messages.Message("ZF_RecoveryComplete".Translate(), Frame, MessageTypeDefOf.PositiveEvent, false);
                     else
-                        Messages.Message("Frame cannot be recovered in its current state.", Frame, MessageTypeDefOf.RejectInput, false);
+                        Messages.Message("ZF_RecoveryUnavailable".Translate(), Frame, MessageTypeDefOf.RejectInput, false);
                 }
             };
         }

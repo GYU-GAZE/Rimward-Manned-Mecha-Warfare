@@ -211,7 +211,7 @@ namespace ZenithFrame
             if (Widgets.ButtonText(new Rect(x, 38f, 130f, 28f), "TabHealth".Translate()))
                 ShowPage(FrameInfoPage.Health);
             x += 136f;
-            if (characterAvailable && Widgets.ButtonText(new Rect(x, 38f, 170f, 28f), "Gear / Inventory"))
+            if (characterAvailable && Widgets.ButtonText(new Rect(x, 38f, 170f, 28f), "ZF_GearInventory".Translate()))
                 ShowPage(FrameInfoPage.Gear);
 
             Rect content = new Rect(0f, 76f, inRect.width, inRect.height - 76f);
@@ -246,7 +246,7 @@ namespace ZenithFrame
             Widgets.ListSeparator(ref y, width, title);
             if (things.Count == 0)
             {
-                Widgets.Label(new Rect(12f, y, width - 12f, 27f), "None");
+                Widgets.Label(new Rect(12f, y, width - 12f, 27f), "ZF_None".Translate());
                 y += 31f;
                 return;
             }

@@ -238,6 +238,6 @@ namespace ZenithFrame
             Scribe_Deep.Look(ref pilots, "zenithPilot", this);
             Scribe_References.Look(ref operationalLord, "zenithOperationalLord");
         }
-        public override string CompInspectStringExtra() => HasPilot ? "Pilot: " + Pilot.LabelShortCap : "No pilot - Frame inactive";
+        public override string CompInspectStringExtra() => HasPilot ? "ZF_PilotInspect".Translate(Pilot.LabelShortCap) : "ZF_NoPilotInactive".Translate();
     }
 }

@@ -81,11 +81,11 @@ Assert-Static ($project.Project.ItemGroup.PackageReference.Include -contains 'Li
 $code = (Get-ChildItem "$repo/Source" -Filter '*.cs' -Recurse | Where-Object FullName -NotMatch '\\obj\\' | Get-Content -Raw) -join "`n"
 $coreCode = (Get-ChildItem "$repo/Source/ZenithFrame" -Filter '*.cs' -Recurse | Where-Object FullName -NotMatch '\\obj\\' | Get-Content -Raw) -join "`n"
 Assert-Static ($code -notmatch 'Coventech') 'Forbidden Coventech coupling in production source'
-Assert-Static ($coreCode -notmatch 'System\.Reflection|\bGetField\(|\bGetMethod\(') 'Reflection leaked outside the isolated optional compatibility boundary'
-Assert-Static ([regex]::Matches($code, 'System\.Reflection').Count -le 2 -and $code -notmatch '\bGetField\(|\bGetMethod\(') 'Optional compatibility reflection must remain cached and isolated to the VPE transpiler'
+Assert-Static ($coreCode -notmatch '\bGetField\(|TypeByName|DisplayClass' -and $code -notmatch 'BindingFlags\.NonPublic') 'Compatibility core must not introspect private/content-mod internals'
+Assert-Static ($code -notmatch 'VanillaPsycastsExpanded|<WarmupToil>|DisplayClass|RunAndGun|Achtung|RimHUD') 'Production code must not couple to named content mods or generated lambdas'
 Assert-Static ($code -notmatch 'HarmonyPatch\(typeof\(ThingWithComps\).*GetComp' -and $code -match 'JobDriver_CastAbilityOnce.*CompAbilities.*MethodType\.Getter') 'VEF routing must patch the exact cast-driver getter and never the shared generic GetComp body'
-Assert-Static ($code -match 'Patch_VPEPsycastWarmup_CompAbilities' -and $code -match '<WarmupToil>b__0') 'VPE warmup requires its narrow generated-method transpiler'
-Assert-Static ($code -match 'Patch_FramePilotAbility_VEFHostileAI' -and $code -match 'ability\.def\.range') 'VEF hostile AI must select validated targets within each ability range'
+Assert-Static ($code -notmatch 'Patch_Thing_Map_PilotAbilityContext|Patch_Thing_Position_PilotAbilityContext|Patch_Pawn_DrawPos_PilotAbilityContext|Patch_Pawn_Drafted_PilotAbilityContext|Patch_Pawn_PlayerControl_PilotAbilityContext|TryGetProjectedFrame') 'Pilot spatial/control getter spoofing must be removed'
+Assert-Static ($code -match 'Patch_FramePilotAbility_VEFHostileAI' -and $code -match 'ability\.GetRangeForPawn\(\)') 'VEF hostile AI must select validated targets within each ability range'
 Assert-Static ($code -notmatch 'catch\s*(\([^)]*\))?\s*\{\s*\}') 'Swallowed exception'
 Assert-Static ($code -notmatch 'MechanitorUtility|IsColonyMech|IsColonyMechPlayerControlled|GetMechControlGroup|OverseerSubject|OutOfCommandRange') 'Biotech mech-control semantics leaked into production Frame code'
 Assert-Static ($code -match 'Patch_Pawn_CanTakeOrder_Frame' -and $code -match 'Patch_FloatMenuOptionProvider_SelectedPawnValid_Frame') 'Pawn-order Harmony bridge is incomplete'
@@ -93,7 +93,7 @@ Assert-Static ($code -match 'Patch_HealthAIUtility_CanRescueNow_Frame' -and $cod
 Assert-Static ($code -match 'class CompFrameHacking' -and $code -match 'class JobDriver_HackFrame' -and $code -match 'class FloatMenuOptionProvider_HackFrame') 'Frame hacking component/job/menu flow is incomplete'
 Assert-Static ($code -match 'IsHackableDisabledChassis' -and $code -match 'Frame\.Faction == null \|\|' -and $code -match 'Frame\.Faction\.HostileTo\(Faction\.OfPlayer\)') 'Hacking must allow factionless or hostile disabled Frames without allowing neutral ownership'
 Assert-Static ($code -match 'class JobDriver_FrameIdle' -and $code -match 'ZF_FrameIdleJob' -and $code -notmatch 'JobMaker\.MakeJob\(RimWorld\.JobDefOf\.Wait') 'Empty Frames must use a Frame-specific idle job without vanilla Wait auto-attack'
-Assert-Static ($code -match 'Patch_Pawn_MeleeVerbs_TryMeleeAttack_Frame' -and $code -match '!frame\.Cockpit\.CanOperate') 'Empty Frames must reject melee at the verb execution boundary'
+Assert-Static ($code -match 'Patch_Pawn_MeleeVerbs_TryMeleeAttack_Frame' -and $code -match '!frame\.Cockpit\.CanExecuteActions') 'Frame action policy must guard melee retaliation'
 Assert-Static ($code -match 'CanTakePlayerOrders' -and $code -match 'CanUseHostileCombatAI') 'Machine operation, player orders, and hostile combat AI must remain separate policies'
 Assert-Static ($code -match 'TryInstallPilot' -and $code -match 'SpawnHostilePilotedFrame' -and $code -match 'Spawn hostile piloted Frame') 'Explicit hostile Frame fixture and pilot installation path are missing'
 Assert-Static ($code -match 'IncidentWorker_DevelopmentEnemyFrameRaid\s*:\s*IncidentWorker_RaidEnemy' -and
@@ -132,7 +132,7 @@ Assert-Static ($overdrive.Count -eq 1 -and $overdrive.abilityClass -eq 'ZenithFr
 Assert-Static ($overdrive.verbProperties.verbClass -eq 'Verb_CastAbility' -and $overdrive.targetRequired -eq 'false' -and $overdrive.verbProperties.targetParams.canTargetSelf -eq 'true') 'Frame Overdrive must remain a vanilla self-cast ability'
 Assert-Static ($overdrive.comps.li.GetAttribute('Class') -eq 'CompProperties_AbilityGiveHediff' -and $overdrive.comps.li.hediffDef -eq 'ZF_FrameOverdrive' -and $overdrive.comps.li.onlyApplyToSelf -eq 'true') 'Frame Overdrive must apply its effect only to its Frame caster through the vanilla comp'
 Assert-Static ($overdriveHediff.Count -eq 1 -and $overdriveHediff.comps.li.disappearsAfterTicks -eq '300' -and $overdriveHediff.stages.li.statOffsets.MoveSpeed -eq '6') 'Frame Overdrive requires the deterministic 300-tick chassis MoveSpeed effect'
-Assert-Static ($abilityCode -match 'frame\.Cockpit\?\.CanOperate' -and $abilityCode -match 'base\.CanCast') 'Frame ability casting must add only the faction-agnostic cockpit operation gate to vanilla CanCast'
+Assert-Static ($abilityCode -match 'frame\.Cockpit\?\.CanExecuteActions' -and $abilityCode -match 'base\.CanCast') 'Frame ability casting must consume the shared action policy and vanilla CanCast'
 Assert-Static ($code -match 'gizmo is Command_Ability' -and $code -match 'ability\.GetGizmos\(\)' -and $code -notmatch 'Use Overdrive') 'Player Frame ability UI must expose normal Command_Ability gizmos without a custom action surrogate'
 Assert-Static ($abilityCode -notmatch 'Scribe_|cooldownEndTick|FrameAbilityManager|FrameAbilityTracker|FrameCooldownManager') 'Frame abilities must use vanilla tracker cooldown and serialization state'
 Assert-Static ($code -notmatch '(Cockpit\.Pilot|\bpilot)\.abilities\.(GainAbility|abilities\.Add)|frame\.abilities\s*=\s*pilot\.abilities') 'Frame abilities must never be copied or granted to the cockpit pilot'
@@ -180,10 +180,10 @@ $moduleCode = Get-Content "$repo/Source/ZenithFrame/FrameModules.cs" -Raw
 Assert-Static ($loadoutCode -match 'installedHediff' -and $loadoutCode -match 'poweredHediff' -and $loadoutCode -match 'IsMountValid' -and $loadoutCode -match 'PartIsMissing' -and $loadoutCode -match 'GetPartHealth') 'Passive and powered projections must derive from installed physical modules and live mount health'
 Assert-Static ($loadoutCode -notmatch 'Hediff_AddedPart' -and $moduleCode -notmatch 'Hediff_AddedPart') 'Modular anatomy must not replace or fabricate chassis body parts'
 Assert-Static ($moduleCode -match 'Scribe_Deep\.Look\(ref ability, "frameModuleAbility"\)' -and $moduleCode -match 'ability\.Module = parent' -and $moduleCode -match 'ability\.pawn = frame') 'The physical Shoulder module must deep-own and rebind its exact vanilla Ability state'
-Assert-Static ($moduleCode -match '!\(pawn is FramePawn frame\)' -and $moduleCode -match 'frame\.Loadout\?\.IsInstalled\(Module\)' -and $moduleCode -match 'frame\.Service\?\.IsServiceLocked') 'Module Ability execution must require its exact powered installed module and normal Frame control gates'
+Assert-Static ($moduleCode -match '!\(pawn is FramePawn frame\)' -and $moduleCode -match 'frame\.Loadout\?\.IsInstalled\(Module\)' -and $moduleCode -match 'CanExecuteActions') 'Module Ability execution must require its exact powered installed module and shared action authority'
 Assert-Static ($moduleCode -match 'HarmonyPatch\(typeof\(ArmorUtility\), nameof\(ArmorUtility\.GetPostArmorDamage\)\)' -and $moduleCode -match '\[ThreadStatic\]' -and $moduleCode -match 'StatPart_FrameModuleArmor') 'Localized module armor must add a narrow per-hit context around vanilla ArmorUtility'
 Assert-Static (@($armorPatch.SelectNodes('//li[@Class="ZenithFrame.StatPart_FrameModuleArmor"]')).Count -eq 6 -and $armorPatch.OuterXml -match 'ArmorRating_Sharp' -and $armorPatch.OuterXml -match 'ArmorRating_Blunt' -and $armorPatch.OuterXml -match 'ArmorRating_Heat') 'Localized module armor StatPart must cover vanilla sharp blunt and heat armor stats'
-Assert-Static ($moduleCode -match 'FrameAddonCategory\.Weapon.*!\(pawn is FramePawn\)' -and $moduleCode -match 'pawn is FramePawn.*FrameAddonCategory\.Weapon') 'Frame weapons must reject human users and Frames must reject unmarked human weapons'
+Assert-Static ($moduleCode -match 'FrameAddonCategory\.Weapon.*!FrameIdentity\.IsFrame' -and $moduleCode -match 'AcceptsDefinition' -and $moduleCode -match 'Pawn_EquipmentTracker.AddEquipment') 'Equipment metadata policy must guard UI and the authoritative AddEquipment boundary'
 Assert-Static (@($moduleDefs.Defs.HediffDef | Where-Object defName -EQ 'ZF_BeamSwordPowered').comps.li.GetAttribute('Class') -eq 'HediffCompProperties_VerbGiver') 'Powered Beam Sword must supply its melee attack through a normal HediffComp verb giver'
 Assert-Static ($coreCode -notmatch 'FrameAbilityManager|FrameModuleAbilityManager|moduleCooldown|Scribe_Values\.Look\(ref.*cooldown') 'Module abilities must not introduce a parallel cooldown manager or serialized cooldown truth'
 $uiCode = Get-Content "$repo/Source/ZenithFrame/FrameUI.cs" -Raw
@@ -221,7 +221,7 @@ Assert-Static ($bodyCode -match 'ShouldBeDeadFromLethalDamageThreshold' -and $bo
 Assert-Static ($bodyCode -match 'HarmonyPatch\(typeof\(Thing\), nameof\(Thing\.TakeDamage\)\)' -and $bodyCode -match '__result\?\.hediffs' -and $bodyCode -match 'ReferenceEquals\(injury\.Part, __state\.Cockpit\)' -and $bodyCode -match '__state\.Pilot\.TakeDamage') 'Cockpit trauma must derive from the resolved exact Cockpit injury and damage the exact pilot normally'
 Assert-Static ($bodyCode -notmatch 'Rand\.|Chance\(|ZF_DebugRifle|ZF_DebugHeavyRifle' -and $bodyCode -match 'pilotTraumaFraction') 'Pilot trauma must be definition-driven without random chance or weapon DefName gates'
 Assert-Static ($bodyCode -match 'Patch_Pawn_Kill_ContainedFramePilot' -and $bodyCode -match 'cockpit\.EmergencyEject\(\)') 'Contained pilot death must detach before vanilla corpse creation'
-Assert-Static ($coreCode -match 'exactPilot\.health\.HealthTick\(\)' -and $coreCode -match 'exactPilot\.health\.HealthTickInterval\(1\)' -and $coreCode -notmatch '\bPilot\?*\.DoTick\(|\bpilot\.DoTick\(') 'Contained pilot must receive per-tick and interval health simulation and never full Pawn.DoTick'
+Assert-Static ($coreCode -match 'pilots\.DoTick\(\)' -and $coreCode -notmatch 'exactPilot\.health\.HealthTick' -and $coreCode -match 'Patch_ContainedPilot_JobTick' -and $coreCode -match 'Patch_ContainedPilot_JobInterval') 'Cockpit must use normal container ticking without manually duplicating trackers or independent pilot jobs'
 Assert-Static ($pilotHealthCode -match 'MedicalTendSpeed' -and $pilotHealthCode -match 'SkillDefOf\.Medicine' -and $pilotHealthCode -match 'TendUtility\.DoTend\(ExactPilot, ExactPilot, Medicine\)') 'Embarked self-tend must use exact pilot speed skill XP and normal TendUtility'
 Assert-Static ($code -match 'class FloatMenuOptionProvider_FramePilotSelfTend' -and $code -notmatch 'defaultLabel = "Pilot self-tend"' -and $code -match 'class FloatMenuOptionProvider_DockFrame') 'Self-tend and docking must be narrow right-click orders without a self-tend gizmo'
 Assert-Static ($frameDef.race.hideTrainingTab -eq 'true' -and $frameDef.race.trainability -eq 'None') 'Frame training tab must be hidden without changing trainability'
@@ -248,7 +248,7 @@ Assert-Static ($serviceCode -notmatch 'Scribe_Values\.Look\(ref\s+isDocked|(?:pr
 Assert-Static ($dockDef.thingClass -eq 'Building' -and $dockDef.passability -eq 'Standable' -and $dockDef.size -eq '(3,3)' -and $serviceCode -notmatch 'ThingOwner<FramePawn>|DeSpawn.*Frame') 'Docking Bay must be a standable building and never a Frame container'
 Assert-Static ($serviceCode -notmatch 'CanOperate\s*=' -and $productionCode -match 'IsServiceLocked') 'Service lock must gate controls without mutating CanOperate truth'
 Assert-Static ($serviceCode -match 'Frame\.Faction == Faction\.OfPlayer' -and $serviceCode -match 'HomeAreaAllows') 'Automatic Construction service must remain player-owned and Home Area aware'
-Assert-Static ($productionCode -notmatch 'Coventech|System\.Reflection|BindingFlags|GetMethod\(') 'Production service slice must contain no Coventech or reflection hacks'
+Assert-Static ($serviceCode -notmatch 'Coventech|System\.Reflection|BindingFlags|GetMethod\(') 'Physical service must not introspect private state or couple to another vehicle mod'
 Assert-Static ($productionCode -notmatch 'catch\s*(\([^)]*\))?\s*\{\s*\}') 'Production code must not swallow exceptions'
 Assert-Static ($productionCode -notmatch 'IFrameSlotProvider|RegisterSlot|ThirdParty|GenericFrameService') 'Service architecture must stay Zenith-specific instead of becoming a generic third-party slot framework'
 $boardingDuration = [int]$frameDef.modExtensions.li.Where({$_.GetAttribute('Class') -eq 'ZenithFrame.FrameServiceExtension'}).normalBoardingTicks
@@ -336,4 +336,31 @@ foreach ($part in $parts) {
         }
     }
 }
+$keys = @{}
+foreach ($file in Get-ChildItem "$repo/Mod/Languages/English/Keyed" -Filter '*.xml') {
+    [xml]$language = Get-Content -LiteralPath $file.FullName -Raw
+    foreach ($node in $language.LanguageData.ChildNodes | Where-Object NodeType -EQ 'Element') {
+        Assert-Static (!$keys.ContainsKey($node.Name)) "Duplicate English keyed string: $($node.Name)"
+        $keys[$node.Name] = $true
+    }
+}
+foreach ($match in [regex]::Matches($coreCode, '"(ZF_[A-Za-z0-9_]+)"\.Translate\(')) {
+    Assert-Static ($keys.ContainsKey($match.Groups[1].Value)) "Missing English translation: $($match.Groups[1].Value)"
+}
+$chassisVisual = $frameDef.modExtensions.li | Where-Object Class -EQ 'ZenithFrame.FrameChassisVisualExtension'
+Assert-Static (![string]::IsNullOrWhiteSpace($chassisVisual.visualFamily) -and [float]$chassisVisual.portraitZoom -gt 0) 'Chassis must author its visual family and preview fit'
+foreach ($module in $frame.Defs.ThingDef | Where-Object {$_.modExtensions.li.Class -contains 'ZenithFrame.FrameModuleVisualExtension'}) {
+    $addon = $module.modExtensions.li | Where-Object Class -EQ 'ZenithFrame.FrameAddonExtension'
+    Assert-Static (@($addon.allowedChassisFamilies.li) -contains $chassisVisual.visualFamily) "Impossible module/chassis visual family: $($module.defName)"
+}
+$anchors = $bodyDefs.SelectNodes('//BodyDef[defName="ZF_HumanoidFrameBody"]//def') | ForEach-Object InnerText
+foreach ($anchor in @('ZF_FrameTorso','ZF_FrameCore','ZF_FrameCockpit','ZF_FrameHeadAssembly')) {
+    Assert-Static (@($anchors | Where-Object {$_ -eq $anchor}).Count -eq 1) "Body must contain one structural anchor $anchor"
+}
+Assert-Static ($liveryCode -match 'zenithPaintInitialized' -and $liveryCode -match 'if \(!initialized\) ResetColors') 'New chassis must initialize livery once without overwriting saved paint'
+Assert-Static ($loadoutCode -match 'finally' -and $loadoutCode -match 'RestoreUnowned' -and $serviceCode -match 'job.countQueue = new List<int>' -and $serviceCode -match 'OrderStillValid\(order, true, worker\)') 'Physical transfers, bound reconstruction and blocked queue selection must have explicit contracts'
+Assert-Static ($visualUi -match 'UI.GUIToScreenRect' -and $visualUi -match 'portraitZoom' -and $visualUi -notmatch '\(MainTabWindow_Inspect\)') 'UI must capture actual rendered geometry and read chassis portrait fit'
+$mode = (Get-Content -LiteralPath "$repo/artifacts/ZenithFrame/PackageMode.txt" -Raw).Trim()
+$adapterExists = Test-Path -LiteralPath "$repo/artifacts/ZenithFrame/Compatibility/VEF/Assemblies/ZenithFrame.VEF.dll"
+Assert-Static ($mode -in @('CoreOnly','WithVEF') -and $adapterExists -eq ($mode -eq 'WithVEF')) 'Release adapter must match explicit package mode'
 Write-Host "PASS: $checks XML/static/package checks"

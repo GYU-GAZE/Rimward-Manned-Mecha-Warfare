@@ -70,7 +70,7 @@ namespace ZenithFrame
         }
 
         public override string CompInspectStringExtra() => IsHackableDisabledChassis
-            ? "Hack progress: " + ProgressFraction.ToStringPercent() : null;
+            ? "ZF_HackProgress".Translate(ProgressFraction.ToStringPercent()) : null;
     }
 
     public sealed class JobDriver_HackFrame : JobDriver
@@ -123,7 +123,7 @@ namespace ZenithFrame
             if (!(clickedPawn is FramePawn frame)) return null;
             Pawn hacker = context.FirstSelectedPawn;
             if (frame.Hacking?.CanHack(hacker, true) != true) return null;
-            return new FloatMenuOption("Hack Frame", () => hacker.jobs.TryTakeOrderedJob(JobMaker.MakeJob(ZenithJobDefOf.ZF_HackFrame, frame)));
+            return new FloatMenuOption("ZF_HackFrame".Translate(), () => hacker.jobs.TryTakeOrderedJob(JobMaker.MakeJob(ZenithJobDefOf.ZF_HackFrame, frame)));
         }
     }
 }

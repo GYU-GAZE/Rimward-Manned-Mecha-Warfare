@@ -21,9 +21,9 @@ namespace ZenithFrame
             if (pilot == null || !frame.Cockpit.CanBoard(pilot, false)) return null;
 
             if (!pilot.CanReach(frame, PathEndMode.Touch, Danger.Deadly))
-                return new FloatMenuOption("Board Frame: Cannot reach", null);
+                return new FloatMenuOption("ZF_BoardNoPath".Translate(), null);
 
-            return new FloatMenuOption("Board Frame", () =>
+            return new FloatMenuOption("ZF_BoardFrame".Translate(), () =>
             {
                 pilot.jobs.TryTakeOrderedJob(
                     JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("ZF_BoardFrame"), frame));
@@ -43,10 +43,10 @@ namespace ZenithFrame
             if (!(context.FirstSelectedPawn is FramePawn frame) || !ReferenceEquals(clickedPawn, frame) ||
                 frame.Faction != Faction.OfPlayer || !frame.Spawned || !frame.Cockpit.HasPilot ||
                 frame.Service?.IsServiceLocked == true) return null;
-            return new FloatMenuOption("Disembark", () =>
+            return new FloatMenuOption("ZF_Disembark".Translate(), () =>
             {
                 if (!frame.Cockpit.TryDisembark())
-                    Messages.Message("No safe exit available.", MessageTypeDefOf.RejectInput, false);
+                    Messages.Message("ZF_NoSafeExit".Translate(), MessageTypeDefOf.RejectInput, false);
             });
         }
     }
@@ -66,7 +66,7 @@ namespace ZenithFrame
             Pawn pilot = frame.Cockpit.Pilot;
             if (pilot?.health?.HasHediffsNeedingTend() != true) return null;
             Medicine medicine = CompPilotableMech.BestPilotMedicine(pilot);
-            return new FloatMenuOption("Pilot self-tend", () =>
+            return new FloatMenuOption("ZF_PilotSelfTend".Translate(), () =>
                 CompPilotableMech.StartPilotSelfTend(frame, pilot, medicine));
         }
     }
@@ -86,8 +86,8 @@ namespace ZenithFrame
             IntVec3 cell = bay.OccupiedRect().Cells.Where(candidate =>
                 candidate.Standable(frame.Map) && frame.CanReach(candidate, PathEndMode.OnCell, Danger.Deadly))
                 .DefaultIfEmpty(IntVec3.Invalid).First();
-            if (!cell.IsValid) return new FloatMenuOption("Dock Frame: Cannot reach", null);
-            return new FloatMenuOption("Dock Frame", () =>
+            if (!cell.IsValid) return new FloatMenuOption("ZF_DockNoPath".Translate(), null);
+            return new FloatMenuOption("ZF_DockFrame".Translate(), () =>
             {
                 if (!frame.Cockpit.CanTakePlayerOrders || !bay.Spawned || bay.Map != frame.Map ||
                     !cell.Standable(frame.Map) || !frame.CanReach(cell, PathEndMode.OnCell, Danger.Deadly)) return;
@@ -115,7 +115,7 @@ namespace ZenithFrame
                 !HaulAIUtility.PawnCanAutomaticallyHaulFast(frame, clickedThing, true)) return null;
             Job candidate = HaulAIUtility.HaulToStorageJob(frame, clickedThing, true);
             if (candidate == null) return null;
-            return new FloatMenuOption("Haul " + clickedThing.LabelCap, () =>
+            return new FloatMenuOption("ZF_HaulItem".Translate(clickedThing.LabelCap), () =>
             {
                 if (!frame.Cockpit.CanTakePlayerOrders || !clickedThing.Spawned) return;
                 Job exact = HaulAIUtility.HaulToStorageJob(frame, clickedThing, true);
@@ -124,4 +124,3 @@ namespace ZenithFrame
         }
     }
 }
-

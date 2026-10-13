@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ZF_PaintTitle>Frame paint</ZF_PaintTitle>
+  <ZF_Done>Done</ZF_Done>
+  <ZF_HexHint>Use RRGGBB or #RRGGBB</ZF_HexHint>
+  <ZF_Copy>Copy</ZF_Copy>
+  <ZF_Paste>Paste</ZF_Paste>
+  <ZF_Default>Default</ZF_Default>
+  <ZF_Favorites>Favorites</ZF_Favorites>
+  <ZF_SaveColor>Save color</ZF_SaveColor>
+  <ZF_Category_Head>Head</ZF_Category_Head>
+  <ZF_Category_Weapon>Primary</ZF_Category_Weapon>
+  <ZF_Category_Utility>Utility</ZF_Category_Utility>
+  <ZF_Category_Shoulder>Shoulder</ZF_Category_Shoulder>
+  <ZF_Category_Offhand>Offhand</ZF_Category_Offhand>
+  <ZF_Category_Power>Power</ZF_Category_Power>
+  <ZF_Rename>Rename</ZF_Rename>
+  <ZF_PreviewTip>Current assembled Frame and livery</ZF_PreviewTip>
+  <ZF_ResetPaint>Reset paint</ZF_ResetPaint>
+  <ZF_Servicing>Servicing</ZF_Servicing>
+  <ZF_Blocked>Blocked</ZF_Blocked>
+  <ZF_RemoveQueued>Remove queued</ZF_RemoveQueued>
+  <ZF_Queued>Queued</ZF_Queued>
+  <ZF_Replacing>Replacing</ZF_Replacing>
+  <ZF_MountLost>Mount lost</ZF_MountLost>
+  <ZF_UnpoweredLabel>Unpowered</ZF_UnpoweredLabel>
+  <ZF_NoneLower>none</ZF_NoneLower>
+  <ZF_Empty>empty</ZF_Empty>
+  <ZF_CancelActiveService>Cancel active service</ZF_CancelActiveService>
+  <ZF_CancelQueuedChange>Cancel queued change</ZF_CancelQueuedChange>
+  <ZF_RemoveInstalled>Remove installed</ZF_RemoveInstalled>
+  <ZF_NoStoredModules>No compatible modules in valid storage</ZF_NoStoredModules>
+  <ZF_Docked>Docked</ZF_Docked>
+  <ZF_BeingServiced>Being serviced</ZF_BeingServiced>
+  <ZF_RecoverableShort>Recoverable</ZF_RecoverableShort>
+  <ZF_NoPilot>No pilot</ZF_NoPilot>
+  <ZF_NoFaction>No faction</ZF_NoFaction>
+  <ZF_Dead>Dead</ZF_Dead>
+  <ZF_Downed>Downed</ZF_Downed>
+  <ZF_Embarked>Embarked</ZF_Embarked>
+  <ZF_Information>Information</ZF_Information>
+  <ZF_NoCriticalIssues>No critical issues</ZF_NoCriticalIssues>
+  <ZF_GearInventory>Gear / Inventory</ZF_GearInventory>
+  <ZF_None>None</ZF_None>
+  <ZF_BoardNoPath>Board Frame: Cannot reach</ZF_BoardNoPath>
+  <ZF_BoardFrame>Board Frame</ZF_BoardFrame>
+  <ZF_Disembark>Disembark</ZF_Disembark>
+  <ZF_NoSafeExit>No safe exit available.</ZF_NoSafeExit>
+  <ZF_PilotSelfTend>Pilot self-tend</ZF_PilotSelfTend>
+  <ZF_DockNoPath>Dock Frame: Cannot reach</ZF_DockNoPath>
+  <ZF_DockFrame>Dock Frame</ZF_DockFrame>
+  <ZF_NoPilotInactive>No pilot - Frame inactive</ZF_NoPilotInactive>
+  <ZF_ActionUnavailable>Frame actions require a valid pilot and an unlocked, unstunned chassis.</ZF_ActionUnavailable>
+  <ZF_ChassisUnavailable>Frame is not a living chassis.</ZF_ChassisUnavailable>
+  <ZF_NoEquipmentTracker>Frame has no equipment tracker.</ZF_NoEquipmentTracker>
+  <ZF_RemoveNeedsMap>Frame must be spawned to remove a physical addon.</ZF_RemoveNeedsMap>
+  <ZF_NotPlayerChassis>Frame is not an available player chassis.</ZF_NotPlayerChassis>
+  <ZF_ServiceDrafted>Drafted Frames cannot be serviced.</ZF_ServiceDrafted>
+  <ZF_ServiceMoving>Moving Frames cannot be serviced.</ZF_ServiceMoving>
+  <ZF_ServiceBusy>Busy Frames cannot be serviced.</ZF_ServiceBusy>
+  <ZF_ServiceNeedsIdle>Frame must be idle before service begins.</ZF_ServiceNeedsIdle>
+  <ZF_ServiceAlreadyActive>Frame is already being serviced.</ZF_ServiceAlreadyActive>
+  <ZF_InvalidModule>invalid module</ZF_InvalidModule>
+  <ZF_NotDocked>Not docked</ZF_NotDocked>
+  <ZF_DisabledRecoverable>Status: Disabled chassis (recoverable)</ZF_DisabledRecoverable>
+  <ZF_HackFrame>Hack Frame</ZF_HackFrame>
+  <ZF_IntrinsicAbilityUnavailable>Frame Overdrive requires a valid operating pilot.</ZF_IntrinsicAbilityUnavailable>
+  <ZF_ModuleAbilityUnavailable>Module ability requires its powered physical module and a valid operating pilot.</ZF_ModuleAbilityUnavailable>
+  <ZF_FrameWeaponRequiresChassis>Zenith Frame weapons require a Frame chassis.</ZF_FrameWeaponRequiresChassis>
+  <ZF_RecoveryComplete>Disabled Frame restored to an unpiloted, inactive state.</ZF_RecoveryComplete>
+  <ZF_RecoveryUnavailable>Frame cannot be recovered in its current state.</ZF_RecoveryUnavailable>
+  <ZF_AbilityUnsupportedEmbarked>This ability requires an owner-based spatial lifecycle unsupported while embarked.</ZF_AbilityUnsupportedEmbarked>
+  <ZF_VEFWarmupUnsupported>This framework ability's warmup requires the logical owner as its actor. Disembark to use it.</ZF_VEFWarmupUnsupported>
+  <ZF_ModuleCategoryUnavailable>Chassis cannot accept the {0} module category.</ZF_ModuleCategoryUnavailable>
+  <ZF_ModuleFamilyMismatch>Module visual family does not match this chassis.</ZF_ModuleFamilyMismatch>
+  <ZF_ModuleMountUnavailable>This chassis body has no matching module mount.</ZF_ModuleMountUnavailable>
+  <ZF_InvalidFrameWeapon>Frames can equip only compatible marked Zenith Frame weapons.</ZF_InvalidFrameWeapon>
+  <ZF_Paint_Primary>Primary</ZF_Paint_Primary>
+  <ZF_Paint_Secondary>Secondary</ZF_Paint_Secondary>
+  <ZF_Paint_Visor>Visor</ZF_Paint_Visor>
+  <ZF_Preset_Neutral>Neutral</ZF_Preset_Neutral>
+  <ZF_Preset_Military>Military</ZF_Preset_Military>
+  <ZF_Preset_Industrial>Industrial</ZF_Preset_Industrial>
+  <ZF_Preset_Ace>Ace</ZF_Preset_Ace>
+  <ZF_Preset_Sensor>Sensor</ZF_Preset_Sensor>
+  <ZF_InstallItem>Install {0}</ZF_InstallItem>
+  <ZF_RemoveCategory>Remove {0}</ZF_RemoveCategory>
+  <ZF_HaulItem>Haul {0}</ZF_HaulItem>
+  <ZF_PilotInspect>Pilot: {0}</ZF_PilotInspect>
+  <ZF_SlotNoCapacity>Chassis has no {0} capacity.</ZF_SlotNoCapacity>
+  <ZF_SlotOccupied>{0} slot is occupied.</ZF_SlotOccupied>
+  <ZF_InvalidSlotItem>{0} item is invalid.</ZF_InvalidSlotItem>
+  <ZF_WrongAddonCategory>Item is not a Zenith Frame {0} addon.</ZF_WrongAddonCategory>
+  <ZF_ItemAlreadyOwned>{0} is already owned by another container.</ZF_ItemAlreadyOwned>
+  <ZF_ItemWrongMap>{0} is not on the Frame's map.</ZF_ItemWrongMap>
+  <ZF_SlotEmpty>{0} slot is empty.</ZF_SlotEmpty>
+  <ZF_InspectSlot>{0}: {1}</ZF_InspectSlot>
+  <ZF_InspectPower>Addon power: {0} required / {1} available</ZF_InspectPower>
+  <ZF_ModuleMountDamaged>{0} [Mount damaged]</ZF_ModuleMountDamaged>
+  <ZF_ModulePowered>{0} [Powered]</ZF_ModulePowered>
+  <ZF_ModuleUnpowered>{0} [Unpowered]</ZF_ModuleUnpowered>
+  <ZF_ModulePassive>{0} [Passive]</ZF_ModulePassive>
+  <ZF_PendingInstall>Install {0}</ZF_PendingInstall>
+  <ZF_InspectDocking>Docking: {0}</ZF_InspectDocking>
+  <ZF_InspectPendingService>Pending service: {0}</ZF_InspectPendingService>
+  <ZF_InspectServiceWorker>Being serviced by {0}</ZF_InspectServiceWorker>
+  <ZF_InstalledTip>Installed: {0}</ZF_InstalledTip>
+  <ZF_ExpectedInstalledTip>Expected installed: {0}</ZF_ExpectedInstalledTip>
+  <ZF_OrderKind_Install>Install</ZF_OrderKind_Install>
+  <ZF_OrderKind_Remove>Remove</ZF_OrderKind_Remove>
+  <ZF_StateLabel>State  {0}</ZF_StateLabel>
+  <ZF_PowerSummary>Addon power  {0} / {1}</ZF_PowerSummary>
+  <ZF_HackProgress>Hack progress: {0}</ZF_HackProgress>
+  <ZF_HackableProgress>Hackable {0}</ZF_HackableProgress>
+  <ZF_PaintColorTip>{0} paint color ({1})</ZF_PaintColorTip>
+  <ZF_ReadOnly>read only</ZF_ReadOnly>
+  <ZF_ClickToEdit>click to edit</ZF_ClickToEdit>
+  <ZF_MoreIssues>+{0} more</ZF_MoreIssues>
+  <ZF_ModuleArmorExplanation>Frame module armor ({0}): {1}</ZF_ModuleArmorExplanation>
+</LanguageData>

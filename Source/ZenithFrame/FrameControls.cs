@@ -142,7 +142,7 @@ namespace ZenithFrame
                     if (Drafted) LessonAutoActivator.TeachOpportunity(ConceptDefOf.QueueOrders, OpportunityType.GoodToKnow);
                 }
             };
-            if (!Cockpit.CanTakePlayerOrders) draft.Disable("Frame or pilot incapacitated.");
+            if (!Cockpit.CanTakePlayerOrders) draft.Disable("ZF_ActionUnavailable".Translate());
             yield return draft;
 
             if (Drafted && equipment.Primary?.def.IsRangedWeapon == true)
@@ -230,4 +230,3 @@ namespace ZenithFrame
         }
     }
 }
-

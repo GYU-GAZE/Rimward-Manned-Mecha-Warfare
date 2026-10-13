@@ -10,7 +10,7 @@ namespace ZenithFrame
 
     public static class FramePaintPresets
     {
-        public static readonly string[] Groups = { "Neutral", "Military", "Industrial", "Ace", "Sensor" };
+        public static readonly string[] Groups = { "ZF_Preset_Neutral", "ZF_Preset_Military", "ZF_Preset_Industrial", "ZF_Preset_Ace", "ZF_Preset_Sensor" };
         public static readonly string[][] Hex =
         {
             new[] { "F0F0EC", "B8BAB7", "6A6D70", "24272B" },
@@ -96,13 +96,13 @@ namespace ZenithFrame
 
         public override void DoWindowContents(Rect rect)
         {
-            Widgets.Label(new Rect(12f, 3f, 280f, 26f), "Frame paint");
-            if (Widgets.ButtonText(new Rect(rect.width - 86f, 3f, 78f, 27f), "Done")) Close();
+            Widgets.Label(new Rect(12f, 3f, 280f, 26f), "ZF_PaintTitle".Translate());
+            if (Widgets.ButtonText(new Rect(rect.width - 86f, 3f, 78f, 27f), "ZF_Done".Translate())) Close();
             for (int i = 0; i < 3; i++)
             {
                 FrameColorChannel selected = (FrameColorChannel)i;
                 Rect tab = new Rect(12f + i * 105f, 34f, 98f, 26f);
-                if (Widgets.ButtonText(tab, selected.ToString())) SelectChannel(selected);
+                if (Widgets.ButtonText(tab, ("ZF_Paint_" + selected).Translate())) SelectChannel(selected);
                 if (selected == channel)
                     Widgets.DrawBoxSolid(new Rect(tab.x + 4f, tab.yMax - 4f, tab.width - 8f, 3f),
                         new Color(0.18f, 0.8f, 0.9f));
@@ -145,12 +145,12 @@ namespace ZenithFrame
                 evt.Use();
             }
             if (!FrameHexColor.TryParse(hex, out _))
-                Widgets.Label(new Rect(211f, 115f, 248f, 20f), "Use RRGGBB or #RRGGBB");
-            if (Widgets.ButtonText(new Rect(211f, 149f, 70f, 27f), "Copy"))
+                Widgets.Label(new Rect(211f, 115f, 248f, 20f), "ZF_HexHint".Translate());
+            if (Widgets.ButtonText(new Rect(211f, 149f, 70f, 27f), "ZF_Copy".Translate()))
                 GUIUtility.systemCopyBuffer = FrameHexColor.Format(color);
-            if (Widgets.ButtonText(new Rect(290f, 149f, 70f, 27f), "Paste") &&
+            if (Widgets.ButtonText(new Rect(290f, 149f, 70f, 27f), "ZF_Paste".Translate()) &&
                 FrameHexColor.TryParse(GUIUtility.systemCopyBuffer, out Color pasted)) Apply(pasted);
-            if (Widgets.ButtonText(new Rect(369f, 149f, rect.width - 381f, 27f), "Default"))
+            if (Widgets.ButtonText(new Rect(369f, 149f, rect.width - 381f, 27f), "ZF_Default".Translate()))
             {
                 FrameChassisVisualExtension defaults = frame.Livery.Defaults;
                 Apply(channel == FrameColorChannel.Primary ? defaults?.defaultPrimary ?? Color.white :
@@ -163,7 +163,7 @@ namespace ZenithFrame
             for (int group = 0; group < FramePaintPresets.Groups.Length; group++)
             {
                 float y = 207f + group * 20f;
-                Widgets.Label(new Rect(14f, y, 80f, 20f), FramePaintPresets.Groups[group]);
+                Widgets.Label(new Rect(14f, y, 80f, 20f), FramePaintPresets.Groups[group].Translate());
                 for (int index = 0; index < 4; index++)
                 {
                     string preset = FramePaintPresets.Hex[group][index];
@@ -178,8 +178,8 @@ namespace ZenithFrame
 
             Widgets.DrawBoxSolid(new Rect(10f, 311f, rect.width - 20f, 70f),
                 new Color(0.12f, 0.16f, 0.19f, 0.5f));
-            Widgets.Label(new Rect(14f, 314f, 180f, 20f), "Favorites");
-            if (Widgets.ButtonText(new Rect(rect.width - 109f, 313f, 99f, 22f), "Save color"))
+            Widgets.Label(new Rect(14f, 314f, 180f, 20f), "ZF_Favorites".Translate());
+            if (Widgets.ButtonText(new Rect(rect.width - 109f, 313f, 99f, 22f), "ZF_SaveColor".Translate()))
             {
                 FrameColorPreferences settings = ZenithFrameMod.Instance?.Colors;
                 string favoriteHex = FrameHexColor.Format(color);
@@ -275,12 +275,12 @@ namespace ZenithFrame
             float conditionY = previewY + previewSize + 54f;
 
             DrawHeader(data);
-            DrawSlot(frame, FrameAddonCategory.Head, "Head", OuterMargin, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Weapon, "Primary", OuterMargin, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Utility, "Utility", OuterMargin, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Shoulder, "Shoulder", rightX, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Offhand, "Offhand", rightX, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
-            DrawSlot(frame, FrameAddonCategory.Power, "Power", rightX, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Head, "ZF_Category_Head".Translate(), OuterMargin, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Weapon, "ZF_Category_Weapon".Translate(), OuterMargin, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Utility, "ZF_Category_Utility".Translate(), OuterMargin, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Shoulder, "ZF_Category_Shoulder".Translate(), rightX, SlotCardTop, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Offhand, "ZF_Category_Offhand".Translate(), rightX, SlotCardTop + slotStep, slotSize, slotStep, data.IsReadOnly);
+            DrawSlot(frame, FrameAddonCategory.Power, "ZF_Category_Power".Translate(), rightX, SlotCardTop + slotStep * 2f, slotSize, slotStep, data.IsReadOnly);
             DrawPreviewAndColors(data, centerX + 18f, previewY, previewSize);
             DrawStatus(data, centerX, previewY + previewSize + 7f, centerWidth);
             DrawFrameIssues(data, centerX, conditionY, centerWidth, mainBottom - conditionY - 3f);
@@ -291,7 +291,7 @@ namespace ZenithFrame
         {
             Label(new Rect(18f, 5f, 430f, 30f), data.Frame.LabelShortCap, GameFont.Medium);
             Label(new Rect(18f, 29f, 480f, 23f), data.Frame.def.LabelCap);
-            if (data.CanRename && Widgets.ButtonText(new Rect(TabWidth - 112f, 9f, 84f, 26f), "Rename"))
+            if (data.CanRename && Widgets.ButtonText(new Rect(TabWidth - 112f, 9f, 84f, 26f), "ZF_Rename".Translate()))
                 Find.WindowStack.Add(new Dialog_RenameFrame(data.Frame));
         }
 
@@ -303,12 +303,12 @@ namespace ZenithFrame
             GUI.DrawTexture(preview, PortraitsCache.Get(data.Frame, preview.size, Rot4.South,
                 cameraZoom: data.Frame.Livery?.Defaults?.portraitZoom ?? 0.43f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(preview);
-            TooltipHandler.TipRegion(preview, "Current assembled Frame and livery");
+            TooltipHandler.TipRegion(preview, "ZF_PreviewTip".Translate());
             float swatchX = x + previewSize + 16f;
             DrawSwatch(data.Frame, FrameColorChannel.Primary, swatchX, y + 10f, data.IsReadOnly);
             DrawSwatch(data.Frame, FrameColorChannel.Secondary, swatchX, y + 58f, data.IsReadOnly);
             DrawSwatch(data.Frame, FrameColorChannel.Visor, swatchX, y + 106f, data.IsReadOnly);
-            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(swatchX, y + previewSize - 29f, 120f, 26f), "Reset paint"))
+            if (!data.IsReadOnly && Widgets.ButtonText(new Rect(swatchX, y + previewSize - 29f, 120f, 26f), "ZF_ResetPaint".Translate()))
                 data.Frame.Livery.ResetColors();
         }
 
@@ -319,8 +319,9 @@ namespace ZenithFrame
             Rect swatch = new Rect(x, y, 29f, 29f);
             Widgets.DrawBoxSolid(swatch, color);
             Widgets.DrawBox(swatch, 2);
-            Label(new Rect(x + 35f, y + 3f, 105f, 23f), channel.ToString());
-            TooltipHandler.TipRegion(swatch, channel + " paint color" + (readOnly ? " (read only)" : " (click to edit)"));
+            Label(new Rect(x + 35f, y + 3f, 105f, 23f), ("ZF_Paint_" + channel).Translate());
+            TooltipHandler.TipRegion(swatch, "ZF_PaintColorTip".Translate(FrameText.Paint(channel),
+                (readOnly ? "ZF_ReadOnly" : "ZF_ClickToEdit").Translate()));
             if (!readOnly && Widgets.ButtonInvisible(swatch))
                 Find.WindowStack.Add(new Dialog_FrameColorPicker(frame, channel));
         }
@@ -345,22 +346,22 @@ namespace ZenithFrame
                 DrawContainedIcon(box.ContractedBy(7f), order.incoming, 0.42f);
             Widgets.DrawBox(box, 2);
             Widgets.DrawHighlightIfMouseover(box);
-            string state = active ? "Servicing" : order != null && frame.Service.IsBlocked(order) ? "Blocked" :
-                order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
-                order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "Queued" : "Replacing") :
-                installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "Mount lost" :
+            string state = active ? "ZF_Servicing".Translate() : order != null && frame.Service.IsBlocked(order) ? "ZF_Blocked".Translate() :
+                order?.kind == FrameServiceOrderKind.Remove ? "ZF_RemoveQueued".Translate() :
+                order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "ZF_Queued".Translate() : "ZF_Replacing".Translate()) :
+                installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "ZF_MountLost".Translate() :
                 !frame.Loadout.IsModulePowered(installed) && (CompFrameLoadout.Extension(installed)?.powerDraw ?? 0) > 0
-                    ? "Unpowered" : null;
+                    ? "ZF_UnpoweredLabel".Translate() : null;
             if (state != null)
             {
                 Rect status = new Rect(x + 4f, box.yMax, SlotCardWidth - 8f, SlotStatusHeight);
                 Label(status, state, GameFont.Tiny, TextAnchor.MiddleCenter);
                 TooltipHandler.TipRegion(status, state);
             }
-            string tip = title + "\nInstalled: " + (installed?.LabelCap ?? "none");
-            if (order != null) tip += "\n" + (active ? "Servicing" : "Queued") + ": " + order.kind +
+            string tip = title + "\n" + "ZF_InstalledTip".Translate(installed?.LabelCap ?? "ZF_NoneLower".Translate());
+            if (order != null) tip += "\n" + (active ? "ZF_Servicing".Translate() : "ZF_Queued".Translate()) + ": " + ("ZF_OrderKind_" + order.kind).Translate() +
                 (order.incoming == null ? "" : " " + order.incoming.LabelCap) +
-                "\nExpected installed: " + (order.expectedInstalled?.LabelCap ?? "empty");
+                "\n" + "ZF_ExpectedInstalledTip".Translate(order.expectedInstalled?.LabelCap ?? "ZF_Empty".Translate());
             TooltipHandler.TipRegion(box, tip);
             // Keep the vanilla InfoCard corner outside both menu hitboxes.
             Rect info = new Rect(box.xMax - 27f, box.yMax - 27f, 25f, 25f);
@@ -390,32 +391,32 @@ namespace ZenithFrame
             bool active = order != null && ReferenceEquals(order, frame.Service.ActiveOrder);
             var options = new List<FloatMenuOption>();
             if (order != null)
-                options.Add(new FloatMenuOption(active ? "Cancel active service" : "Cancel queued change",
+                options.Add(new FloatMenuOption(active ? "ZF_CancelActiveService".Translate() : "ZF_CancelQueuedChange".Translate(),
                     () => frame.Service.CancelOrder(category)));
             if (!active)
             {
                 foreach (Thing candidate in frame.Service.StoredCandidates(category))
                 {
                     Thing exact = candidate;
-                    options.Add(new FloatMenuOption("Install " + exact.LabelCap,
+                    options.Add(new FloatMenuOption("ZF_InstallItem".Translate(exact.LabelCap),
                         () => frame.Service.QueueInstall(category, exact)));
                 }
                 if (frame.Service.Installed(category) != null)
-                    options.Add(new FloatMenuOption("Remove installed", () => frame.Service.QueueRemove(category)));
+                    options.Add(new FloatMenuOption("ZF_RemoveInstalled".Translate(), () => frame.Service.QueueRemove(category)));
             }
-            if (options.Count == 0) options.Add(new FloatMenuOption("No compatible modules in valid storage", null));
+            if (options.Count == 0) options.Add(new FloatMenuOption("ZF_NoStoredModules".Translate(), null));
             return options;
         }
 
         private static void DrawStatus(FrameUiSnapshot data, float x, float y, float width)
         {
-            string contextual = data.IsDocked ? "Docked" : data.ActiveService != null ? "Being serviced" :
-                data.IsRecoverable ? "Recoverable" : data.IsHackable ? "Hackable " + data.HackProgress.ToStringPercent() : null;
-            string state = "State  " + ("ZF_State_" + data.OperationalState).Translate();
+            string contextual = data.IsDocked ? "ZF_Docked".Translate() : data.ActiveService != null ? "ZF_BeingServiced".Translate() :
+                data.IsRecoverable ? "ZF_RecoverableShort".Translate() : data.IsHackable ? "ZF_HackableProgress".Translate(data.HackProgress.ToStringPercent()) : null;
+            string state = "ZF_StateLabel".Translate(("ZF_State_" + data.OperationalState).Translate());
             if (contextual != null) state += "  ·  " + contextual;
             Label(new Rect(x, y, width, RowHeight), state);
             Label(new Rect(x, y + RowHeight, width, RowHeight),
-                "Addon power  " + data.RequiredPower + " / " + data.AvailablePower);
+                "ZF_PowerSummary".Translate(data.RequiredPower, data.AvailablePower));
         }
 
         private static void DrawFrameIssues(FrameUiSnapshot data, float x, float y, float width, float height)
@@ -434,7 +435,7 @@ namespace ZenithFrame
         {
             if (data.Pilot == null)
             {
-                Label(new Rect(20f, y + 10f, 250f, RowHeight), "No pilot");
+                Label(new Rect(20f, y + 10f, 250f, RowHeight), "ZF_NoPilot".Translate());
                 return;
             }
             Pawn pilot = data.Pilot;
@@ -444,10 +445,10 @@ namespace ZenithFrame
                 cameraZoom: 0.95f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(portrait);
             Label(new Rect(95f, y + 3f, 175f, 21f), pilot.LabelShortCap);
-            Label(new Rect(95f, y + 24f, 175f, 21f), pilot.Faction?.Name ?? "No faction");
-            Label(new Rect(95f, y + 45f, 175f, 21f), pilot.Dead ? "Dead" : pilot.Downed ? "Downed" :
-                pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "Embarked");
-            if (Widgets.ButtonText(new Rect(95f, y + 75f, 132f, 22f), "Information"))
+            Label(new Rect(95f, y + 24f, 175f, 21f), pilot.Faction?.Name ?? "ZF_NoFaction".Translate());
+            Label(new Rect(95f, y + 45f, 175f, 21f), pilot.Dead ? "ZF_Dead".Translate() : pilot.Downed ? "ZF_Downed".Translate() :
+                pilot.InMentalState ? pilot.MentalStateDef.LabelCap : "ZF_Embarked".Translate());
+            if (Widgets.ButtonText(new Rect(95f, y + 75f, 132f, 22f), "ZF_Information".Translate()))
                 OpenPilotInformation(pilot);
             Rect health = new Rect(282f, y + 1f, 324f, 100f);
             Widgets.DrawHighlightIfMouseover(health);
@@ -467,7 +468,7 @@ namespace ZenithFrame
         {
             if (issues.Count == 0)
             {
-                Label(new Rect(area.x, area.y, area.width, RowHeight), "No critical issues");
+                Label(new Rect(area.x, area.y, area.width, RowHeight), "ZF_NoCriticalIssues".Translate());
                 return;
             }
             int shown = 0;
@@ -488,7 +489,7 @@ namespace ZenithFrame
             if (issues.Count > shown)
             {
                 Rect overflow = new Rect(area.x, rowY, area.width, RowHeight);
-                Label(overflow, "+" + (issues.Count - shown) + " more");
+                Label(overflow, "ZF_MoreIssues".Translate(issues.Count - shown));
             }
         }
 

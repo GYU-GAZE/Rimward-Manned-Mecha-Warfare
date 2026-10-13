@@ -263,15 +263,15 @@ namespace ZenithFrame
         public bool CanInstall(FrameAddonCategory category, Thing item, out string reason)
         {
             reason = null;
-            if (Frame == null || Frame.Dead || Frame.Destroyed) reason = "Frame is not a living chassis.";
-            else if (category == FrameAddonCategory.Weapon && Frame.equipment == null) reason = "Frame has no equipment tracker.";
-            else if (Capacity(category) < 1) reason = "Chassis has no " + category + " capacity.";
-            else if (Installed(category) != null) reason = category + " slot is occupied.";
-            else if (item == null || item.Destroyed || item.stackCount != 1) reason = category + " item is invalid.";
-            else if (Extension(item)?.category != category) reason = "Item is not a Zenith Frame " + category + " addon.";
+            if (Frame == null || Frame.Dead || Frame.Destroyed) reason = "ZF_ChassisUnavailable".Translate();
+            else if (category == FrameAddonCategory.Weapon && Frame.equipment == null) reason = "ZF_NoEquipmentTracker".Translate();
+            else if (Capacity(category) < 1) reason = "ZF_SlotNoCapacity".Translate(FrameText.Category(category));
+            else if (Installed(category) != null) reason = "ZF_SlotOccupied".Translate(FrameText.Category(category));
+            else if (item == null || item.Destroyed || item.stackCount != 1) reason = "ZF_InvalidSlotItem".Translate(FrameText.Category(category));
+            else if (Extension(item)?.category != category) reason = "ZF_WrongAddonCategory".Translate(FrameText.Category(category));
             else if (!AcceptsDefinition(item.def, category, out reason)) { }
-            else if (!item.Spawned && item.holdingOwner != null) reason = category + " is already owned by another container.";
-            else if (item.Spawned && (!Frame.Spawned || item.Map != Frame.Map)) reason = category + " is not on the Frame's map.";
+            else if (!item.Spawned && item.holdingOwner != null) reason = "ZF_ItemAlreadyOwned".Translate(FrameText.Category(category));
+            else if (item.Spawned && (!Frame.Spawned || item.Map != Frame.Map)) reason = "ZF_ItemWrongMap".Translate(FrameText.Category(category));
             return reason == null;
         }
 
@@ -342,9 +342,9 @@ namespace ZenithFrame
         public bool CanRemove(FrameAddonCategory category, out string reason)
         {
             reason = null;
-            if (Frame == null || Frame.Dead || Frame.Destroyed) reason = "Frame is not a living chassis.";
-            else if (!Frame.Spawned) reason = "Frame must be spawned to remove a physical addon.";
-            else if (Installed(category) == null) reason = category + " slot is empty.";
+            if (Frame == null || Frame.Dead || Frame.Destroyed) reason = "ZF_ChassisUnavailable".Translate();
+            else if (!Frame.Spawned) reason = "ZF_RemoveNeedsMap".Translate();
+            else if (Installed(category) == null) reason = "ZF_SlotEmpty".Translate(FrameText.Category(category));
             return reason == null;
         }
 
@@ -538,23 +538,23 @@ namespace ZenithFrame
         {
             return string.Join("\n", new[]
             {
-                "Head: " + ModuleLabel(InstalledHead),
-                "Shoulder: " + ModuleLabel(InstalledShoulder),
-                "Primary Weapon: " + ModuleLabel(InstalledWeapon),
-                "Offhand: " + ModuleLabel(InstalledOffhand),
-                "Utility: " + ModuleLabel(InstalledUtility),
-                "Power: " + ModuleLabel(InstalledPower),
-                "Addon power: " + RequiredAddonPower + " required / " + AvailableAddonPower + " available"
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Head), ModuleLabel(InstalledHead)).ToString(),
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Shoulder), ModuleLabel(InstalledShoulder)).ToString(),
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Weapon), ModuleLabel(InstalledWeapon)).ToString(),
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Offhand), ModuleLabel(InstalledOffhand)).ToString(),
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Utility), ModuleLabel(InstalledUtility)).ToString(),
+                "ZF_InspectSlot".Translate(FrameText.Category(FrameAddonCategory.Power), ModuleLabel(InstalledPower)).ToString(),
+                "ZF_InspectPower".Translate(RequiredAddonPower, AvailableAddonPower).ToString()
             });
         }
 
         private string ModuleLabel(Thing module)
         {
-            if (module == null) return "None";
+            if (module == null) return "ZF_None".Translate();
             FrameAddonExtension extension = Extension(module);
-            if (!IsMountValid(module)) return module.LabelCap + " [Mount damaged]";
-            if ((extension?.powerDraw ?? 0) > 0) return module.LabelCap + (IsModulePowered(module) ? " [Powered]" : " [Unpowered]");
-            return module.LabelCap + " [Passive]";
+            if (!IsMountValid(module)) return "ZF_ModuleMountDamaged".Translate(module.LabelCap);
+            if ((extension?.powerDraw ?? 0) > 0) return (IsModulePowered(module) ? "ZF_ModulePowered" : "ZF_ModuleUnpowered").Translate(module.LabelCap);
+            return "ZF_ModulePassive".Translate(module.LabelCap);
         }
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()

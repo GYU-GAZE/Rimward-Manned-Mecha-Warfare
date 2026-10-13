@@ -111,7 +111,7 @@ namespace ZenithFrame
                 if (!(pawn is FramePawn frame) || Module == null || Module.Destroyed ||
                     frame.Loadout?.IsInstalled(Module) != true || frame.Loadout.IsModulePowered(Module) != true ||
                     frame.Cockpit?.CanExecuteActions != true)
-                    return "Module ability requires its powered physical module and a valid operating pilot.";
+                    return "ZF_ModuleAbilityUnavailable".Translate();
                 return base.CanCast;
             }
         }
@@ -169,7 +169,7 @@ namespace ZenithFrame
                 !FrameModuleArmorContext.TryGet(frame, out BodyPartRecord part) || frame.Loadout == null)
                 return null;
             float offset = FrameModuleArmorUtility.Contribution(frame, part, parentStat);
-            return offset == 0f ? null : "Frame module armor (" + part.Label + "): " + offset.ToStringPercent();
+            return offset == 0f ? null : "ZF_ModuleArmorExplanation".Translate(part.Label, offset.ToStringPercent());
         }
     }
 
@@ -207,7 +207,7 @@ namespace ZenithFrame
             if (extension?.category == FrameAddonCategory.Weapon && !FrameIdentity.IsFrame(pawn))
             {
                 result = false;
-                reason = "Zenith Frame weapons require a Frame chassis.";
+                reason = "ZF_FrameWeaponRequiresChassis".Translate();
             }
             else if (FrameIdentity.TryGet(pawn, out FramePawn frame))
             {

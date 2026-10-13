@@ -139,16 +139,16 @@ namespace ZenithFrame
         {
             reason = null;
             if (!Frame.Spawned || Frame.Dead || Frame.Destroyed || Frame.Faction != Faction.OfPlayer)
-                reason = "Frame is not an available player chassis.";
-            else if (Frame.Drafted) reason = "Drafted Frames cannot be serviced.";
-            else if (Frame.pather?.Moving == true) reason = "Moving Frames cannot be serviced.";
-            else if (Frame.stances?.FullBodyBusy == true) reason = "Busy Frames cannot be serviced.";
+                reason = "ZF_NotPlayerChassis".Translate();
+            else if (Frame.Drafted) reason = "ZF_ServiceDrafted".Translate();
+            else if (Frame.pather?.Moving == true) reason = "ZF_ServiceMoving".Translate();
+            else if (Frame.stances?.FullBodyBusy == true) reason = "ZF_ServiceBusy".Translate();
             // Vanilla may replace our idle job with a passive wait while the Frame is downed.
             else if (Frame.CurJob != null && Frame.CurJob.def != ZenithJobDefOf.ZF_FrameIdleJob &&
                 !(Frame.Downed && (Frame.CurJob.def == JobDefOf.Wait_MaintainPosture ||
                     Frame.CurJob.def == JobDefOf.Wait_Downed)))
-                reason = "Frame must be idle before service begins.";
-            else if (IsServiceLocked) reason = "Frame is already being serviced.";
+                reason = "ZF_ServiceNeedsIdle".Translate();
+            else if (IsServiceLocked) reason = "ZF_ServiceAlreadyActive".Translate();
             return reason == null;
         }
 
@@ -377,14 +377,14 @@ namespace ZenithFrame
         }
 
         public string PendingLabel => orders.Count == 0 ? null : string.Join(", ", orders.Select(order =>
-            order.kind == FrameServiceOrderKind.Remove ? "Remove " + order.category :
-            "Install " + (order.incoming?.LabelCap ?? "invalid module")));
+            order.kind == FrameServiceOrderKind.Remove ? "ZF_RemoveCategory".Translate(FrameText.Category(order.category)).ToString() :
+            "ZF_PendingInstall".Translate(order.incoming?.LabelCap ?? "ZF_InvalidModule".Translate()).ToString()));
 
         public override string CompInspectStringExtra()
         {
-            string result = "Docking: " + (DockingBayUtility.IsDocked(Frame) ? "Docked" : "Not docked");
-            if (HasPendingOrder) result += "\nPending service: " + PendingLabel;
-            if (IsServiceLocked) result += "\nBeing serviced by " + activeWorker.LabelShortCap;
+            string result = "ZF_InspectDocking".Translate(DockingBayUtility.IsDocked(Frame) ? "ZF_Docked".Translate() : "ZF_NotDocked".Translate());
+            if (HasPendingOrder) result += "\n" + "ZF_InspectPendingService".Translate(PendingLabel);
+            if (IsServiceLocked) result += "\n" + "ZF_InspectServiceWorker".Translate(activeWorker.LabelShortCap);
             return result;
         }
 

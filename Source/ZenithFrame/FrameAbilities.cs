@@ -20,7 +20,7 @@ namespace ZenithFrame
                 AcceptanceReport vanilla = base.CanCast;
                 if (!vanilla.Accepted) return vanilla;
                 if (!FrameIdentity.TryGet(pawn, out FramePawn frame) || frame.Cockpit?.CanExecuteActions != true)
-                    return "Frame Overdrive requires a valid operating pilot.";
+                    return "ZF_IntrinsicAbilityUnavailable".Translate();
                 return true;
             }
         }
