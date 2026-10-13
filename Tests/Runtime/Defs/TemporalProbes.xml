@@ -7,7 +7,7 @@
     <statBases><Mass>1</Mass></statBases>
     <comps><li Class="ZenithFrame.Tests.TemporalProbeProps" /></comps>
   </ThingDef>
-  <GeneCategoryDef MayRequire="ludeon.rimworld.biotech"><defName>ZF_TestGeneCategory</defName><label>acceptance</label></GeneCategoryDef>
+  <GeneCategoryDef MayRequire="ludeon.rimworld.biotech"><defName>ZF_TestGeneCategory</defName><label>acceptance</label><displayPriorityInXenotype>100011</displayPriorityInXenotype></GeneCategoryDef>
   <GeneDef MayRequire="ludeon.rimworld.biotech">
     <defName>ZF_TestTemporalGene</defName><label>temporal probe gene</label><description>Disposable acceptance gene clock.</description>
     <geneClass>ZenithFrame.Tests.TemporalGene</geneClass><iconPath>UI/Commands/DesirePower</iconPath>

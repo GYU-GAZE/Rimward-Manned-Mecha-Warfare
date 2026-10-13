@@ -9,9 +9,11 @@ Keep `FramePawn : Pawn`. The maintained RunAndGun Continued source was inspected
 `MemeGoddess/RunAndGun` commit `f1dc88033d15ae0c0ee4c8d0fc19e5c4b92afc83`.
 Its `Patches/RunAndGun.xml` still selects `ThingDef[thingClass = "Pawn"]/comps`.
 Its generic runtime uses Pawn.GetGizmos, Drafted, FireAtWill, equipment, Goto,
-attack verbs and ordinary stances. A Frame satisfies the runtime surfaces but
-does not receive its injected comp. This is a STRUCTURAL LIMITATION, not a
-Zenith-specific compatibility patch opportunity.
+attack verbs and ordinary stances. The first candidate process proved the Frame
+DOES receive CompRunAndGun: the selector also patches abstract BasePawn and its
+comps are inherited by the Frame def. Thus this canary provides no evidence that
+removing the subclass would improve component delivery. Moving-fire behavior is
+observed separately in the focused runtime canary, without a Zenith patch.
 
 Complete subclass responsibility inventory:
 
@@ -190,7 +192,7 @@ development fixtures, not final production balance.
 
 | Canary | Classification | Evidence and boundary |
 | --- | --- | --- |
-| Current RunAndGun Continued | STRUCTURAL LIMITATION | Exact thingClass Pawn XML injection omits FramePawn comp; runtime otherwise uses ordinary Goto/Verb/stance/drafter APIs |
+| Current RunAndGun Continued | LIKELY NATURAL; inherited comp delivery proven | Exact Pawn selector patches BasePawn; inherited comp delivery was proven in the first candidate process; moving-fire observation is separate |
 | Achtung | LIKELY NATURAL for drafted movement; STRUCTURAL LIMITATION for human work | Current Controller/Colonist use ordinary PawnCanGoto, drafting, jobs and stances; force-work remains deliberately forbidden; not live validated |
 | VEF | Supported framework surface; runtime proof is required for a NATURAL claim | Exact pilot CompAbilities plus explicit physical Caster/job adapter; no Frame proxy |
 | VPE through VEF | UNSUPPORTED while embarked for owner-dependent warmup | Stable WarmupToil gives only physical actor, VPE needs actor-owned CompAbilities; generated patch removed |

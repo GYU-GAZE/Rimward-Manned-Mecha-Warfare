@@ -73,6 +73,7 @@ $profile = Join-Path $repo "artifacts/$RunName"
 if (Test-Path -LiteralPath $profile) { throw "Profile exists: $profile" }
 New-Item -ItemType Directory -Force "$profile/Config" | Out-Null
 Set-Content "$profile/acceptance-suite.txt" 'one-process'
+if ($CanaryDir) { Set-Content -LiteralPath "$profile/architecture-canary.txt" 'unmodified external canary' }
 $modList = ($active | ForEach-Object { '<li>' + [Security.SecurityElement]::Escape($_) + '</li>' }) -join ''
 Set-Content -LiteralPath "$profile/Config/ModsConfig.xml" -Value ('<ModsConfigData><version>1.6.4871</version><activeMods>' + $modList + '</activeMods><knownExpansions /></ModsConfigData>')
 @'

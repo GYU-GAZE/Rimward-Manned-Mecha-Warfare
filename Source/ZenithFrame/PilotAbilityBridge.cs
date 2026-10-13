@@ -153,12 +153,30 @@ namespace ZenithFrame
     [HarmonyPatch(typeof(Ability), nameof(Ability.CanQueueCast), MethodType.Getter)]
     internal static class Patch_Ability_QueueJobActor
     {
-        private static void Postfix(Ability __instance, ref bool __result)
+        private static bool Prefix(Ability __instance, ref bool __result)
         {
-            if (!__result || !FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return;
+            if (!FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return true;
             int queued = frame.jobs.AllJobs().Count(job => ReferenceEquals(job.verbToUse, __instance.verb) ||
-                (__instance.def.groupAbility && job.ability?.def == __instance.def));
-            __result = queued == 0 || (__instance.UsesCharges && queued < __instance.RemainingCharges);
+                (__instance.def.groupDef != null && job.ability?.def.groupDef == __instance.def.groupDef));
+            __result = __instance.CanCast.Accepted &&
+                (queued == 0 || (__instance.UsesCharges && queued < __instance.RemainingCharges));
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(Ability), nameof(Ability.QueueCastingJob), new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) })]
+    internal static class Patch_Ability_QueueCasting_PhysicalActor
+    {
+        private static bool Prefix(Ability __instance, LocalTargetInfo target, LocalTargetInfo destination)
+        {
+            if (!FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return true;
+            if (!__instance.CanQueueCast || !__instance.CanApplyOn(target) || !FrameAbilityContext.BindVanillaAbility(__instance)) return false;
+            if (__instance.verb.verbProps.nonInterruptingSelfCast)
+            { __instance.verb.TryStartCastOn(frame); return false; }
+            Action cast = () => frame.jobs.TryTakeOrderedJob(__instance.GetJob(target, destination), JobTag.Misc);
+            Window confirmation = __instance.ConfirmationDialog(target, cast);
+            if (confirmation != null) Find.WindowStack.Add(confirmation); else cast();
+            return false;
         }
     }
 

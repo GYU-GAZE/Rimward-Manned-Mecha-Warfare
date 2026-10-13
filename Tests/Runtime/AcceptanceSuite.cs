@@ -64,6 +64,10 @@ namespace ZenithFrame.Tests
         private Thing module, shield, sword, cancelled, blocked;
         private ThingWithComps removedWeapon;
         private float meleeBefore, frameBefore, spareBefore;
+        private Pawn movingTarget;
+        private float movingTargetBefore;
+        private bool movingShot;
+        private int moveStarted;
         private FrameServiceOrder blockedOrder;
         private TemporalProbe pilotProbe, inventoryProbe;
         private TemporalGene gene;
@@ -213,7 +217,7 @@ namespace ZenithFrame.Tests
         {
             int elapsed = Find.TickManager.TicksGame - enteredAt;
             Check(ReferenceEquals(frame.Cockpit.Pilot, pilot) && !pilot.Spawned && pilot.Map == null &&
-                pilot.CurJob == null && !pilot.pather.Moving && !pilot.Drafted &&
+                pilot.CurJob == null && pilot.pather?.Moving != true && !pilot.Drafted &&
                 !map.mapPawns.AllPawnsSpawned.Contains(pilot), "contained pilot remains unspawned, non-pathing, non-job-running and single-owned");
             Check(pilotProbe.ticks >= elapsed - 2 && pilotProbe.ticks <= elapsed + 2 && pilotProbe.intervalTicks > 0,
                 "ordinary unknown Pawn comp ticks once and receives interval simulation while contained");
@@ -498,7 +502,34 @@ namespace ZenithFrame.Tests
         {
             Check(hostile.Cockpit.CanUseHostileCombatAI && hostile.CurJob?.ability == null,
                 "hostile Frame enters ordinary physical combat job/verb pipeline");
-            hostile.Cockpit.StopFrame();
+            hostile.ExitMap(false, Rot4.South);
+            if (File.Exists(Path.Combine(GenFilePaths.SaveDataFolderPath, "architecture-canary.txt")))
+            {
+                movingTarget = (Pawn)GenSpawn.Spawn(PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                    PawnKindDefOf.Colonist, Faction.OfAncientsHostile, canGeneratePawnRelations: false)),
+                    spare.Position + IntVec3.North * 8, map);
+                movingTarget.stances.stunner.StunFor(20000, null, false, false);
+                movingTargetBefore = movingTarget.health.summaryHealth.SummaryHealthPercent;
+                spare.SetDrafted(true); spare.drafter.FireAtWill = true;
+                Job move = JobMaker.MakeJob(JobDefOf.Goto, spare.Position + IntVec3.East * 20);
+                move.playerForced = true;
+                Check(spare.jobs.TryTakeOrderedJob(move), "external canary receives normal drafted Frame Goto with ranged primary and FireAtWill");
+                moveStarted = Find.TickManager.TicksGame;
+                Wait("external moving-fire canary", () => Find.TickManager.TicksGame - moveStarted >= 30 &&
+                    (movingShot || spare.CurJobDef != JobDefOf.Goto), () =>
+                {
+                    File.AppendAllText(Report, (movingShot ? "PASS " : "BOUNDARY ") +
+                        "unmodified external canary moving fire; observed=" + movingShot +
+                        " stance=" + spare.stances.curStance.GetType().FullName + Environment.NewLine);
+                    Stop(spare); spare.drafter.FireAtWill = false;
+                    OpenUI();
+                });
+                return;
+            }
+            OpenUI();
+        }
+        private void OpenUI()
+        {
             // UI sees the original pilot now in spare. Core layout is unchanged.
             gui = () => { Find.Selector.ClearSelection(); Find.Selector.Select(spare);
                 InspectPaneUtility.OpenTab(typeof(ITab_FrameVisual)); uiPhase = 1; };
@@ -545,6 +576,8 @@ namespace ZenithFrame.Tests
             {
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
                 if (!started) { Start(); return; }
+                if (movingTarget != null && spare.CurJobDef == JobDefOf.Goto && spare.pather?.Moving == true &&
+                    movingTarget.health.summaryHealth.SummaryHealthPercent < movingTargetBefore) movingShot = true;
                 if (ready != null && Find.TickManager.TicksGame > deadline)
                     throw new TimeoutException(phase + "; job=" + frame.CurJob + "; worker=" + worker.CurJob);
                 if (ready?.Invoke() == true)

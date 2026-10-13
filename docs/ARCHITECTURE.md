@@ -12,7 +12,7 @@ the cockpit comp as the explicit machine marker at shared execution boundaries.
 The subclass keeps local pre-death/destruction custody, map exit, label, draft
 persistence, control ticking and command filtering. Replacing those hooks would
 add several global lifecycle interceptions. Exact-class XML comp injection by
-some mods remains a documented structural limitation.
+some mods remains a potential boundary. Current RunAndGun delivers its comp through BasePawn inheritance, as observed live.
 
 `CompPilotableMech` deep-owns the exact pilot in one `ThingOwner<Pawn>`.
 Boarding stops independent pilot jobs, despawns the Pawn and restores map custody
