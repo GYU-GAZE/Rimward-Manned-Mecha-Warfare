@@ -227,6 +227,8 @@ namespace ZenithFrame
         private const float SlotStatusHeight = 20f;
         private const float HeaderHeight = 40f;
         private const float ColumnGap = 16f;
+        private static Rect drawnBounds;
+        private static int drawnAtFrame = -10;
         private static readonly Texture2D BleedingIcon =
             ContentFinder<Texture2D>.Get("UI/Icons/Medical/Bleeding");
 
@@ -240,22 +242,27 @@ namespace ZenithFrame
 
         internal static Rect CurrentScreenRect()
         {
-            float paneTopY = ((MainTabWindow_Inspect)MainButtonDefOf.Inspect.TabWindow).PaneTopY;
-            float height = Mathf.Min(TabHeight, Mathf.Max(0f, paneTopY - 38f));
-            return new Rect(0f, paneTopY - 30f - height, TabWidth, height);
+            if (Time.frameCount - drawnAtFrame <= 1) return drawnBounds;
+            // Native fallback belongs to InspectTabBase rather than rebuilding
+            // a presumed MainTabWindow_Inspect host and x coordinate here.
+            return new ITab_FrameVisual().TabRect;
         }
 
         protected override void UpdateSize()
         {
             // InspectTabBase positions this tab PaneTopY - 30 - size.y.
             // Keep a small top margin at resolutions below the design height.
-            size = CurrentScreenRect().size;
+            size = new Vector2(TabWidth, Mathf.Min(TabHeight, Mathf.Max(0f, PaneTopY - 38f)));
         }
 
         protected override void FillTab()
         {
             FramePawn frame = SelPawn as FramePawn;
             if (frame == null) return;
+            // Capture the geometry of the GUI group actually drawing this tab.
+            // A host moving that group needs no named-mod bridge.
+            drawnBounds = UI.GUIToScreenRect(new Rect(Vector2.zero, size));
+            drawnAtFrame = Time.frameCount;
             FrameUiSnapshot data = FrameUiSnapshot.From(frame);
             float rightX = size.x - OuterMargin - SlotCardWidth;
             float centerX = OuterMargin + SlotCardWidth + ColumnGap;
@@ -294,7 +301,7 @@ namespace ZenithFrame
             Widgets.DrawBoxSolid(preview, new Color(0.15f, 0.15f, 0.15f, 0.6f));
             // Keep the 3.5-world-unit machine inside its UI portrait camera.
             GUI.DrawTexture(preview, PortraitsCache.Get(data.Frame, preview.size, Rot4.South,
-                cameraZoom: 0.43f), ScaleMode.ScaleToFit);
+                cameraZoom: data.Frame.Livery?.Defaults?.portraitZoom ?? 0.43f), ScaleMode.ScaleToFit);
             Widgets.DrawBox(preview);
             TooltipHandler.TipRegion(preview, "Current assembled Frame and livery");
             float swatchX = x + previewSize + 16f;
@@ -338,7 +345,8 @@ namespace ZenithFrame
                 DrawContainedIcon(box.ContractedBy(7f), order.incoming, 0.42f);
             Widgets.DrawBox(box, 2);
             Widgets.DrawHighlightIfMouseover(box);
-            string state = active ? "Servicing" : order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
+            string state = active ? "Servicing" : order != null && frame.Service.IsBlocked(order) ? "Blocked" :
+                order?.kind == FrameServiceOrderKind.Remove ? "Remove queued" :
                 order?.kind == FrameServiceOrderKind.Install ? (installed == null ? "Queued" : "Replacing") :
                 installed == null ? null : !frame.Loadout.IsMountValid(installed) ? "Mount lost" :
                 !frame.Loadout.IsModulePowered(installed) && (CompFrameLoadout.Extension(installed)?.powerDraw ?? 0) > 0

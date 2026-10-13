@@ -249,10 +249,15 @@ namespace ZenithFrame
 
         public FrameServiceOrder FirstAvailableOrder(Pawn worker)
         {
-            FrameServiceOrder first = orders.FirstOrDefault(order => OrderStillValid(order, false));
-            return first != null && !ReservedForContinuation(first, worker) &&
-                OrderStillValid(first, true, worker) ? first : null;
+            if (worker == null || !worker.CanReserveAndReach(Frame, PathEndMode.Touch, Danger.Some)) return null;
+            return orders.FirstOrDefault(order => !ReservedForContinuation(order, worker) &&
+                OrderStillValid(order, true, worker));
         }
+
+        public bool IsBlocked(FrameServiceOrder order) => order != null && OrderStillValid(order, false) &&
+            !Frame.Map.mapPawns.FreeColonistsSpawned.Any(worker => !worker.Dead && !worker.Downed &&
+                worker.CanReserveAndReach(Frame, PathEndMode.Touch, Danger.Some) &&
+                !ReservedForContinuation(order, worker) && OrderStillValid(order, true, worker));
 
         public Job JobFor(FrameServiceOrder order)
         {
@@ -323,14 +328,20 @@ namespace ZenithFrame
             if (!ReferenceEquals(worker.carryTracker?.CarriedThing, incoming)) return false;
             Thing installed = order.expectedInstalled;
             if (installed != null && !TryRemove(category, out outgoing)) return false;
-            if (!worker.carryTracker.TryDropCarriedThing(Frame.Position, ThingPlaceMode.Near, out Thing dropped) ||
-                !ReferenceEquals(dropped, incoming) || !TryInstall(category, incoming))
+            bool completed = false;
+            try
             {
-                if (outgoing != null && outgoing.Spawned) TryInstall(category, outgoing);
-                return false;
+                if (!worker.carryTracker.TryDropCarriedThing(Frame.Position, ThingPlaceMode.Near, out Thing dropped) ||
+                    !ReferenceEquals(dropped, incoming) || !TryInstall(category, incoming)) return false;
+                orders.Remove(order);
+                completed = true;
+                return true;
             }
-            orders.Remove(order);
-            return true;
+            finally
+            {
+                if (!completed && Installed(category) == null && outgoing?.Spawned == true)
+                    TryInstall(category, outgoing);
+            }
         }
 
         public Thing Installed(FrameAddonCategory category) => Frame.Loadout?.Installed(category);
@@ -348,6 +359,7 @@ namespace ZenithFrame
         {
             if (thing == null || thing.Destroyed || !thing.Spawned || thing.Map != Frame.Map || thing.IsForbidden(Faction.OfPlayer)) return false;
             if (thing.def.GetModExtension<FrameAddonExtension>()?.category != category || thing.stackCount != 1) return false;
+            if (Frame.Loadout?.AcceptsDefinition(thing.def, category, out _) != true) return false;
             return StoreUtility.IsInValidStorage(thing);
         }
 
@@ -452,18 +464,21 @@ namespace ZenithFrame
         {
             FramePawn frame = t as FramePawn;
             Hediff_MissingPart missing = FrameRepairUtility.NextReconstructablePart(frame);
-            Thing material = FindMaterial(pawn, frame);
+            Thing material = FindMaterial(pawn, frame, missing);
             if (missing == null || material == null) return null;
             Job job = JobMaker.MakeJob(ZenithJobDefOf.ZF_ReconstructFramePart, frame, material);
             job.count = FrameRepairUtility.ReconstructionCost(frame, missing.Part);
+            // BodyDef is immutable chassis identity. This job-specific countQueue
+            // stores its exact AllParts index; count owns the corresponding cost.
+            job.countQueue = new List<int> { frame.RaceProps.body.AllParts.IndexOf(missing.Part) };
             job.playerForced = forced;
             return job;
         }
 
-        private static Thing FindMaterial(Pawn worker, FramePawn frame)
+        private static Thing FindMaterial(Pawn worker, FramePawn frame, Hediff_MissingPart intended = null)
         {
             ThingDef material = frame.Service.Profile?.reconstructionMaterial ?? ThingDefOf.Steel;
-            Hediff_MissingPart missing = FrameRepairUtility.NextReconstructablePart(frame);
+            Hediff_MissingPart missing = intended ?? FrameRepairUtility.NextReconstructablePart(frame);
             if (missing == null) return null;
             int count = FrameRepairUtility.ReconstructionCost(frame, missing.Part);
             return GenClosest.ClosestThingReachable(frame.Position, frame.Map, ThingRequest.ForDef(material),
@@ -554,7 +569,12 @@ namespace ZenithFrame
 
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {
+            if (job.countQueue == null || job.countQueue.Count != 1) return false;
+            if (partIndex < 0) partIndex = job.countQueue[0];
             if (materialCount <= 0) materialCount = job.count;
+            if (Part == null || !FrameDamageRules.IsRecoverablePart(Part) ||
+                !Frame.health.hediffSet.PartIsMissing(Part) || materialCount <= 0 ||
+                materialCount != FrameRepairUtility.ReconstructionCost(Frame, Part)) return false;
             return base.TryMakePreToilReservations(errorOnFailed) &&
                 pawn.Reserve(job.targetB, job, 1, materialCount, null, errorOnFailed);
         }
@@ -572,14 +592,11 @@ namespace ZenithFrame
             Toil reconstruct = ToilMaker.MakeToil("ReconstructFramePart");
             reconstruct.initAction = () =>
             {
-                if (materialCount <= 0) materialCount = pawn.carryTracker?.CarriedThing?.stackCount ?? job.count;
-                if (partIndex < 0)
-                {
-                    Hediff_MissingPart missing = FrameRepairUtility.NextReconstructablePart(Frame);
-                    partIndex = missing == null ? -1 : Frame.RaceProps.body.AllParts.IndexOf(missing.Part);
-                    workLeft = missing == null ? 0f : missing.Part.def.GetMaxHealth(Frame) * (Frame.Service.Profile?.reconstructionWorkPerPartHp ?? 30f);
-                }
-                if (Part == null || !Frame.health.hediffSet.PartIsMissing(Part) || !BeginService()) EndJobWith(JobCondition.Incompletable);
+                if (Part == null || !Frame.health.hediffSet.PartIsMissing(Part) ||
+                    materialCount != FrameRepairUtility.ReconstructionCost(Frame, Part) || !BeginService())
+                { EndJobWith(JobCondition.Incompletable); return; }
+                if (workLeft <= 0f) workLeft = Part.def.GetMaxHealth(Frame) *
+                    (Frame.Service.Profile?.reconstructionWorkPerPartHp ?? 30f);
             };
             reconstruct.tickAction = () => { workLeft -= Speed; LearnConstruction(); if (workLeft <= 0f) ReadyForNextToil(); };
             reconstruct.defaultCompleteMode = ToilCompleteMode.Never;
@@ -588,7 +605,6 @@ namespace ZenithFrame
             complete.initAction = () =>
             {
                 Thing material = pawn.carryTracker?.CarriedThing;
-                if (materialCount <= 0) materialCount = material?.stackCount ?? 0;
                 if (Part == null || !Frame.health.hediffSet.PartIsMissing(Part) || material == null ||
                     material.def != (Frame.Service.Profile?.reconstructionMaterial ?? ThingDefOf.Steel) || material.stackCount < materialCount)
                 { EndJobWith(JobCondition.Incompletable); return; }

@@ -33,6 +33,7 @@ namespace ZenithFrame
         public float armorSharp;
         public float armorBlunt;
         public float armorHeat;
+        public List<string> allowedChassisFamilies;
     }
 
     public sealed class CompProperties_FrameLoadout : CompProperties
@@ -56,6 +57,12 @@ namespace ZenithFrame
         public List<ThingDef> developmentShoulders = new List<ThingDef>();
         public List<ThingDef> developmentOffhands = new List<ThingDef>();
         public CompProperties_FrameLoadout() { compClass = typeof(CompFrameLoadout); }
+
+        public override IEnumerable<string> ConfigErrors(ThingDef parentDef)
+        {
+            foreach (string error in base.ConfigErrors(parentDef)) yield return error;
+            foreach (string error in FrameAuthoringContract.Errors(parentDef)) yield return error;
+        }
     }
 
     public sealed class CompFrameLoadout : ThingComp, IThingHolder
@@ -102,6 +109,12 @@ namespace ZenithFrame
         }
 
         public FramePawn Frame => (FramePawn)parent;
+        public override void PostPostMake()
+        {
+            base.PostPostMake();
+            string error = FrameAuthoringContract.Errors(parent.def).FirstOrDefault();
+            if (error != null) throw new InvalidOperationException(error);
+        }
         public CompProperties_FrameLoadout Props => (CompProperties_FrameLoadout)props;
         public ThingWithComps InstalledWeapon => Frame.equipment?.Primary;
         public Thing InstalledUtility => First(utilities);
@@ -256,8 +269,23 @@ namespace ZenithFrame
             else if (Installed(category) != null) reason = category + " slot is occupied.";
             else if (item == null || item.Destroyed || item.stackCount != 1) reason = category + " item is invalid.";
             else if (Extension(item)?.category != category) reason = "Item is not a Zenith Frame " + category + " addon.";
+            else if (!AcceptsDefinition(item.def, category, out reason)) { }
             else if (!item.Spawned && item.holdingOwner != null) reason = category + " is already owned by another container.";
             else if (item.Spawned && (!Frame.Spawned || item.Map != Frame.Map)) reason = category + " is not on the Frame's map.";
+            return reason == null;
+        }
+
+        public bool AcceptsDefinition(ThingDef def, FrameAddonCategory category, out string reason)
+        {
+            reason = null;
+            FrameAddonExtension module = def?.GetModExtension<FrameAddonExtension>();
+            if (module?.category != category || Capacity(category) < 1)
+                reason = "ZF_ModuleCategoryUnavailable".Translate(category.ToString());
+            else if (!FrameAuthoringPolicy.AllowsFamily(Frame.Livery?.Defaults?.visualFamily,
+                module.allowedChassisFamilies, def.GetModExtension<FrameModuleVisualExtension>() != null))
+                reason = "ZF_ModuleFamilyMismatch".Translate();
+            else if (module.mountGroup != null && !Frame.RaceProps.body.AllParts.Any(part => part.groups.Contains(module.mountGroup)))
+                reason = "ZF_ModuleMountUnavailable".Translate();
             return reason == null;
         }
 
@@ -273,31 +301,26 @@ namespace ZenithFrame
             if (!CanInstall(category, item, out _)) return false;
             Map map = item.Spawned ? item.Map : null;
             IntVec3 position = item.Spawned ? item.Position : IntVec3.Invalid;
-            if (category == FrameAddonCategory.Weapon)
+            bool committed = false;
+            try
             {
-                if (!(item is ThingWithComps weapon)) return false;
                 Frame.Cockpit?.StopFrame();
                 if (item.Spawned) item.DeSpawn();
-                Frame.equipment.AddEquipment(weapon);
-                if (ReferenceEquals(InstalledWeapon, item))
+                if (category == FrameAddonCategory.Weapon)
                 {
+                    if (!(item is ThingWithComps weapon)) return false;
+                    Frame.equipment.AddEquipment(weapon);
+                    committed = ReferenceEquals(InstalledWeapon, item);
                     if (ReferenceEquals(rememberedDroppedWeapon, item)) rememberedDroppedWeapon = null;
-                    RefreshAfterMutation(item);
-                    return true;
                 }
+                else committed = OwnerFor(category).TryAdd(item, false);
+                if (committed) RefreshAfterMutation(item);
+                return committed;
             }
-            else
+            finally
             {
-                ThingOwner<Thing> owner = OwnerFor(category);
-                if (item.Spawned) item.DeSpawn();
-                if (owner.TryAdd(item, false))
-                {
-                    RefreshAfterMutation(item);
-                    return true;
-                }
+                if (!committed) RestoreUnowned(item, map, position);
             }
-            Restore(item, map, position);
-            return false;
         }
 
         public bool TryInstallWeapon(ThingWithComps item) => TryInstall(FrameAddonCategory.Weapon, item);
@@ -307,9 +330,13 @@ namespace ZenithFrame
         public bool TryInstallShoulder(Thing item) => TryInstall(FrameAddonCategory.Shoulder, item);
         public bool TryInstallOffhand(Thing item) => TryInstall(FrameAddonCategory.Offhand, item);
 
-        private static void Restore(Thing item, Map map, IntVec3 position)
+        private void RestoreUnowned(Thing item, Map map, IntVec3 position)
         {
-            if (item.holdingOwner == null && !item.Destroyed && map != null && position.IsValid) GenSpawn.Spawn(item, position, map);
+            if (item.Destroyed || item.Spawned || item.holdingOwner != null) return;
+            if (map != null && position.IsValid) GenSpawn.Spawn(item, position, map);
+            else if (Frame.Spawned) GenSpawn.Spawn(item, Frame.Position, Frame.Map);
+            else if (Frame.inventory?.innerContainer.TryAdd(item, false) != true)
+                throw new InvalidOperationException("ZENITH: failed transfer has no recoverable physical owner.");
         }
 
         public bool CanRemove(FrameAddonCategory category, out string reason)
@@ -333,18 +360,22 @@ namespace ZenithFrame
             removed = null;
             if (!CanRemove(category, out _)) return false;
             Thing exact = Installed(category);
-            CancelModuleCast(exact);
-            if (category == FrameAddonCategory.Weapon)
+            try
             {
+                CancelModuleCast(exact);
                 Frame.Cockpit?.StopFrame();
-                if (!Frame.equipment.TryDropEquipment((ThingWithComps)exact, out ThingWithComps weapon, Frame.Position, false)) return false;
-                removed = weapon;
+                if (category == FrameAddonCategory.Weapon)
+                {
+                    if (!Frame.equipment.TryDropEquipment((ThingWithComps)exact, out ThingWithComps weapon, Frame.Position, false)) return false;
+                    removed = weapon;
+                }
+                else if (!OwnerFor(category).TryDrop(exact, Frame.Position, Frame.Map, ThingPlaceMode.Near, out removed))
+                    return false;
+                bool result = ReferenceEquals(removed, exact) && removed.Spawned && Installed(category) == null;
+                if (result) RefreshAfterMutation(removed);
+                return result;
             }
-            else if (!OwnerFor(category).TryDrop(exact, Frame.Position, Frame.Map, ThingPlaceMode.Near, out removed))
-                return false;
-            bool result = ReferenceEquals(removed, exact) && removed.Spawned && Installed(category) == null;
-            if (result) RefreshAfterMutation(removed);
-            return result;
+            finally { RestoreUnowned(exact, Frame.Map, Frame.Position); }
         }
 
         public bool TryRemoveWeapon(out ThingWithComps removed)

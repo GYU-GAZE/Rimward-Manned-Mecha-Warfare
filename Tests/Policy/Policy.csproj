@@ -3,5 +3,6 @@
   <ItemGroup>
     <Compile Include="../../Source/ZenithFrame/PilotRules.cs" Link="PilotRules.cs" />
     <Compile Include="../../Source/ZenithFrame/FrameVisualDirection.cs" Link="FrameVisualDirection.cs" />
+    <Compile Include="../../Source/ZenithFrame/FrameAuthoringPolicy.cs" Link="FrameAuthoringPolicy.cs" />
   </ItemGroup>
 </Project>

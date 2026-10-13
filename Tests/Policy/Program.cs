@@ -25,3 +25,17 @@ for (int facing = 0; facing < 4; facing++)
     assertions++;
 }
 Console.WriteLine($"PASS: {assertions} eligibility and Frame direction cases");
+for (int mask = 0; mask < 8; mask++)
+{
+    bool canOperate = (mask & 1) != 0, service = (mask & 2) != 0, stun = (mask & 4) != 0;
+    if (PilotRules.CanExecuteActions(canOperate, service, stun) != (mask == 1))
+        throw new Exception("Action authorization leaked through lifecycle/service/stun state: " + mask);
+}
+if (!FrameAuthoringPolicy.AllowsFamily("A", null, false) ||
+    FrameAuthoringPolicy.AllowsFamily("A", null, true) ||
+    !FrameAuthoringPolicy.AllowsFamily("A", new[] { "A", "B" }, true) ||
+    !FrameAuthoringPolicy.AllowsFamily("B", new[] { "A", "B" }, true) ||
+    FrameAuthoringPolicy.AllowsFamily("C", new[] { "A", "B" }, false) ||
+    FrameAuthoringPolicy.AllowsFamily(null, new[] { "A" }, true))
+    throw new Exception("Visual family authoring contract violated");
+Console.WriteLine("PASS: action state combinations and explicit shared/restricted visual family cases");

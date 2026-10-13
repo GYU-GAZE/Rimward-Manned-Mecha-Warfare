@@ -8,7 +8,7 @@
     <modExtensions>
       <li Class="ZenithFrame.FrameDamageExtension"><pilotTraumaFraction>0.5</pilotTraumaFraction></li>
       <li Class="ZenithFrame.FrameChassisVisualExtension">
-        <worldDrawSize>3.5</worldDrawSize>
+        <worldDrawSize>3.5</worldDrawSize><visualFamily>debug-testframe</visualFamily><portraitZoom>0.43</portraitZoom>
         <defaultPrimary>(1,1,1,1)</defaultPrimary><defaultSecondary>(1,1,1,1)</defaultSecondary><defaultVisor>(1,1,1,1)</defaultVisor>
         <torso><south>ZenithFrame/Frames/Debug/TestFrame/Torso_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Torso_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Torso_North</north></torso>
         <head><south>ZenithFrame/Frames/Debug/TestFrame/Head_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Head_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Head_North</north></head>
@@ -194,7 +194,7 @@
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Special/SubpersonaCoreTechprof</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
     <statBases><Mass>5</Mass><MarketValue>120</MarketValue></statBases>
     <modExtensions>
-      <li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li>
+      <li Class="ZenithFrame.FrameAddonExtension"><category>Head</category><allowedChassisFamilies><li>debug-testframe</li></allowedChassisFamilies><powerDraw>1</powerDraw><poweredHediff>ZF_SensorHelmetPowered</poweredHediff><mountGroup>ZF_FrameHeadMount</mountGroup></li>
       <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North</north></visual><visor><south>ZenithFrame/Frames/Debug/TestFrame/Helmet_South_v</south><sides>ZenithFrame/Frames/Debug/TestFrame/Helmet_Sides_v</sides><north>ZenithFrame/Frames/Debug/TestFrame/Helmet_North_v</north></visor></li>
     </modExtensions>
   </ThingDef>
@@ -204,7 +204,7 @@
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>9</Mass><MarketValue>180</MarketValue></statBases>
     <modExtensions>
-      <li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li>
+      <li Class="ZenithFrame.FrameAddonExtension"><category>Shoulder</category><allowedChassisFamilies><li>debug-testframe</li></allowedChassisFamilies><powerDraw>1</powerDraw><moduleAbility>ZF_DebugShoulderBurst</moduleAbility><mountGroup>ZF_FrameShoulderMount</mountGroup></li>
       <li Class="ZenithFrame.FrameModuleVisualExtension"><visual><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North</north></visual><visor><south>ZenithFrame/Frames/Debug/TestFrame/Shoulder_South_v</south><sides>ZenithFrame/Frames/Debug/TestFrame/Shoulder_Sides_v</sides><north>ZenithFrame/Frames/Debug/TestFrame/Shoulder_North_v</north></visor></li>
     </modExtensions>
     <comps><li Class="ZenithFrame.CompProperties_FrameModuleAbility"><ability>ZF_DebugShoulderBurst</ability></li></comps>
@@ -222,4 +222,6 @@
     <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Offhand</category><powerDraw>0</powerDraw><installedHediff>ZF_ShieldInstalled</installedHediff><mountGroup>ZF_FrameOffhandMount</mountGroup><armorCoverageGroup>ZF_FrameShieldCoverage</armorCoverageGroup><armorSharp>0.35</armorSharp><armorBlunt>0.25</armorBlunt><armorHeat>0.20</armorHeat></li></modExtensions>
   </ThingDef>
 </Defs>
+
+
 

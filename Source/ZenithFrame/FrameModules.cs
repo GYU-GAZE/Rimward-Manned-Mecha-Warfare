@@ -204,16 +204,32 @@ namespace ZenithFrame
         internal static void Apply(Thing thing, Pawn pawn, ref bool result, ref string reason)
         {
             FrameAddonExtension extension = thing?.def?.GetModExtension<FrameAddonExtension>();
-            if (extension?.category == FrameAddonCategory.Weapon && !(pawn is FramePawn))
+            if (extension?.category == FrameAddonCategory.Weapon && !FrameIdentity.IsFrame(pawn))
             {
                 result = false;
                 reason = "Zenith Frame weapons require a Frame chassis.";
             }
-            else if (pawn is FramePawn && extension?.category != FrameAddonCategory.Weapon)
+            else if (FrameIdentity.TryGet(pawn, out FramePawn frame))
             {
-                result = false;
-                reason = "Frames can equip only marked Zenith Frame weapons.";
+                if (thing == null || thing.Destroyed || thing.stackCount != 1 || frame.Dead || frame.Destroyed ||
+                    frame.Loadout?.AcceptsDefinition(thing.def, FrameAddonCategory.Weapon, out reason) != true)
+                {
+                    result = false;
+                    if (reason == null) reason = "ZF_InvalidFrameWeapon".Translate();
+                }
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Pawn_EquipmentTracker), nameof(Pawn_EquipmentTracker.AddEquipment))]
+    internal static class Patch_FrameEquipment_AuthoritativeGuard
+    {
+        private static void Prefix(Pawn ___pawn, ThingWithComps newEq)
+        {
+            bool allowed = true;
+            string reason = null;
+            FrameWeaponRestriction.Apply(newEq, ___pawn, ref allowed, ref reason);
+            if (!allowed) throw new InvalidOperationException(reason);
         }
     }
 

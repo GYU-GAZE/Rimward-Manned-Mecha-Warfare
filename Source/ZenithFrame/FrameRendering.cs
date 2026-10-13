@@ -31,6 +31,8 @@ namespace ZenithFrame
         public Color defaultSecondary = Color.white;
         public Color defaultVisor = Color.white;
         public float worldDrawSize = 3.5f;
+        public string visualFamily;
+        public float portraitZoom = 0.43f;
     }
 
     public sealed class FrameModuleVisualExtension : DefModExtension
