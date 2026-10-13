@@ -4,6 +4,7 @@ param(
     [string]$HarmonyDir,
     [switch]$WithVEF,
     [switch]$WithInstalledTrackers,
+    [switch]$Visible,
     [string]$CanaryDir
 )
 $ErrorActionPreference = 'Stop'
@@ -82,7 +83,13 @@ Set-Content -LiteralPath "$profile/Config/ModsConfig.xml" -Value ('<ModsConfigDa
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1366</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>
 '@ | Set-Content "$profile/Config/Prefs.xml"
 $arguments = @(('-savedatafolder="' + $profile + '"'), '-logFile', ('"' + "$profile/Player.log" + '"'), '-quicktest')
-$process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Hidden -PassThru
+if ($Visible) {
+    # Explicit opt-in for acceptance stages that need real Unity GUI events.
+    $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Normal -PassThru
+}
+else {
+    $process = Start-Process -FilePath "$runtime/RimWorldWin64.exe" -ArgumentList $arguments -WorkingDirectory $runtime -WindowStyle Hidden -PassThru
+}
 $null = $process.Handle
 Write-Host "Acceptance process PID $($process.Id) profile $profile"
 $expires = (Get-Date).AddMinutes(8)
