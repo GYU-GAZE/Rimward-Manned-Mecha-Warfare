@@ -75,6 +75,10 @@ namespace ZenithFrame
         public static AcceptanceReport ExecutionAllowed(Ability ability)
         {
             Pawn owner = ability?.pawn;
+            if (ability is Ability_FrameModule module &&
+                (!FrameIdentity.TryGet(owner, out FramePawn moduleFrame) || module.Module == null || module.Module.Destroyed ||
+                 moduleFrame.Loadout?.IsInstalled(module.Module) != true || !moduleFrame.Loadout.IsModulePowered(module.Module)))
+                return "ZF_ModuleAbilityUnavailable".Translate();
             if (FrameAbilityContext.TryGetContainingFrame(owner, out FramePawn frame))
             {
                 if (!frame.Cockpit.CanExecuteActions) return "ZF_ActionUnavailable".Translate();
@@ -136,6 +140,40 @@ namespace ZenithFrame
         }
     }
 
+    [HarmonyPatch(typeof(Ability), nameof(Ability.CanCooldown), MethodType.Getter)]
+    internal static class Patch_Ability_CooldownJobActor
+    {
+        private static void Postfix(Ability __instance, ref bool __result)
+        {
+            if (FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame))
+                __result = __instance.HasCooldown && (!__instance.def.waitForJobEnd || frame.CurJobDef != __instance.def.jobDef);
+        }
+    }
+
+    [HarmonyPatch(typeof(Ability), nameof(Ability.CanQueueCast), MethodType.Getter)]
+    internal static class Patch_Ability_QueueJobActor
+    {
+        private static void Postfix(Ability __instance, ref bool __result)
+        {
+            if (!__result || !FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return;
+            int queued = frame.jobs.AllJobs().Count(job => ReferenceEquals(job.verbToUse, __instance.verb) ||
+                (__instance.def.groupAbility && job.ability?.def == __instance.def));
+            __result = queued == 0 || (__instance.UsesCharges && queued < __instance.RemainingCharges);
+        }
+    }
+
+    [HarmonyPatch]
+    internal static class Patch_Psycast_QueuedResourcesActor
+    {
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(PsycastUtility), nameof(PsycastUtility.TotalPsyfocusCostOfQueuedPsycasts));
+            yield return AccessTools.Method(typeof(PsycastUtility), nameof(PsycastUtility.TotalEntropyFromQueuedPsycasts));
+        }
+        private static void Prefix(ref Pawn __0)
+        { if (FrameAbilityContext.TryGetContainingFrame(__0, out FramePawn frame)) __0 = frame; }
+    }
+
     [HarmonyPatch(typeof(Ability), nameof(Ability.GizmoDisabled))]
     internal static class Patch_Ability_GizmoDisabled_EmbarkedPilot
     {
@@ -157,7 +195,7 @@ namespace ZenithFrame
                 reason = "ZF_ActionUnavailable".Translate();
             else if (__instance.def.casterMustBeCapableOfViolence && __instance.pawn.WorkTagIsDisabled(WorkTags.Violent))
                 reason = "IsIncapableOfViolence".Translate(__instance.pawn.LabelShort, __instance.pawn);
-            else if (frame.jobs.AllJobs().Any(job => job.ability == __instance))
+            else if (!__instance.CanQueueCast)
                 reason = "AbilityAlreadyQueued".Translate();
             else
             {
@@ -318,4 +356,3 @@ namespace ZenithFrame
         }
     }
 }
-

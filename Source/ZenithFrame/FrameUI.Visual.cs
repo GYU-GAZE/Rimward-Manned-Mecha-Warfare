@@ -44,6 +44,7 @@ namespace ZenithFrame
             forcePause = true;
             absorbInputAroundWindow = true;
             closeOnClickedOutside = true;
+            closeOnAccept = false;
         }
 
         private Color ChannelColor(FrameColorChannel selected) => selected == FrameColorChannel.Primary

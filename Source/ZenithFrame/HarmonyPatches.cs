@@ -232,7 +232,7 @@ namespace ZenithFrame
                 return false;
 
             Verb verb = primary.TryGetComp<CompEquippable>()?.AllVerbs
-                .FirstOrDefault(candidate => candidate is Verb_FrameShot);
+                .FirstOrDefault(candidate => candidate is Verb_FrameShot) ?? primary.TryGetComp<CompEquippable>()?.PrimaryVerb;
             if (verb == null || verb.verbProps.IsMeleeAttack)
                 return false;
 
@@ -289,4 +289,3 @@ namespace ZenithFrame
         }
     }
 }
-

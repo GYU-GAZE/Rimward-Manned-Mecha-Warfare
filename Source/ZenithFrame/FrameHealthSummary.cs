@@ -50,7 +50,7 @@ namespace ZenithFrame
             HediffSet health = pawn.health.hediffSet;
 
             if (!frame && health.BleedRateTotal > 0f)
-                issues.Add(new FrameHealthIssue(0, "Bleeding", health.BleedRateTotal.ToStringPercent() +
+                issues.Add(new FrameHealthIssue(0, "ZF_BleedRate".Translate(), health.BleedRateTotal.ToStringPercent() +
                     "/" + "LetterDay".Translate(), HealthUtility.RedColor, Color.white, pawn,
                     bleedSummary: true, bleeding: true));
 

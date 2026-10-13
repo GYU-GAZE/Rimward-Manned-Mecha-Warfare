@@ -117,4 +117,5 @@
   <ZF_ClickToEdit>click to edit</ZF_ClickToEdit>
   <ZF_MoreIssues>+{0} more</ZF_MoreIssues>
   <ZF_ModuleArmorExplanation>Frame module armor ({0}): {1}</ZF_ModuleArmorExplanation>
+  <ZF_PilotSkillExplanation>Pilot {0} ({1}): {2}</ZF_PilotSkillExplanation>
 </LanguageData>

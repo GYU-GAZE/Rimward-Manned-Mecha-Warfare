@@ -329,6 +329,8 @@ namespace ZenithFrame
             Thing installed = order.expectedInstalled;
             if (installed != null && !TryRemove(category, out outgoing)) return false;
             bool completed = false;
+            Map transferMap = worker.Map;
+            IntVec3 transferPosition = worker.Position;
             try
             {
                 if (!worker.carryTracker.TryDropCarriedThing(Frame.Position, ThingPlaceMode.Near, out Thing dropped) ||
@@ -339,6 +341,8 @@ namespace ZenithFrame
             }
             finally
             {
+                if (!incoming.Destroyed && !incoming.Spawned && incoming.holdingOwner == null)
+                    GenSpawn.Spawn(incoming, transferPosition, transferMap);
                 if (!completed && Installed(category) == null && outgoing?.Spawned == true)
                     TryInstall(category, outgoing);
             }

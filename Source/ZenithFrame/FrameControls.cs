@@ -161,23 +161,14 @@ namespace ZenithFrame
         }
     }
 
-    public abstract class Verb_FrameShootBase : Verb_Shoot
-    {
-        public override void WarmupComplete()
-        {
-            base.WarmupComplete();
-            FramePilotCombatExperience.LearnShooting(this);
-        }
-    }
-
-    public sealed class Verb_FrameShot : Verb_FrameShootBase
+    public sealed class Verb_FrameShot : Verb_Shoot
     {
         public override bool Available() => base.Available() && CasterPawn is FramePawn frame &&
             frame.Cockpit.CanTakePlayerOrders && frame.Drafted;
         protected override bool TryCastShot() => Available() && base.TryCastShot();
     }
 
-    public sealed class Verb_HostileFrameShot : Verb_FrameShootBase
+    public sealed class Verb_HostileFrameShot : Verb_Shoot
     {
         public override bool Available()
         {

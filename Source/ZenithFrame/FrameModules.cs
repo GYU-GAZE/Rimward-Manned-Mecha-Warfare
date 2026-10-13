@@ -108,10 +108,8 @@ namespace ZenithFrame
         {
             get
             {
-                if (!(pawn is FramePawn frame) || Module == null || Module.Destroyed ||
-                    frame.Loadout?.IsInstalled(Module) != true || frame.Loadout.IsModulePowered(Module) != true ||
-                    frame.Cockpit?.CanExecuteActions != true)
-                    return "ZF_ModuleAbilityUnavailable".Translate();
+                AcceptanceReport allowed = FramePilotAbilitySupport.ExecutionAllowed(this);
+                if (!allowed.Accepted) return allowed;
                 return base.CanCast;
             }
         }

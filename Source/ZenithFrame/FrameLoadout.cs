@@ -360,6 +360,8 @@ namespace ZenithFrame
             removed = null;
             if (!CanRemove(category, out _)) return false;
             Thing exact = Installed(category);
+            Map originalMap = Frame.Map;
+            IntVec3 originalPosition = Frame.Position;
             try
             {
                 CancelModuleCast(exact);
@@ -375,7 +377,7 @@ namespace ZenithFrame
                 if (result) RefreshAfterMutation(removed);
                 return result;
             }
-            finally { RestoreUnowned(exact, Frame.Map, Frame.Position); }
+            finally { RestoreUnowned(exact, originalMap, originalPosition); }
         }
 
         public bool TryRemoveWeapon(out ThingWithComps removed)

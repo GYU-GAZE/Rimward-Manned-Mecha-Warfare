@@ -11,6 +11,8 @@ namespace ZenithFrame
 
         public static IEnumerable<string> Errors(ThingDef chassis)
         {
+            if (chassis?.thingClass == null || !typeof(FramePawn).IsAssignableFrom(chassis.thingClass))
+                yield return "ZENITH chassis currently requires the retained FramePawn lifecycle subclass.";
             BodyDef body = chassis?.race?.body;
             if (body == null) { yield return "ZENITH chassis must declare a BodyDef."; yield break; }
             foreach (string anchor in Anchors)

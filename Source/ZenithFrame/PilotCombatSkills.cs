@@ -22,7 +22,7 @@ namespace ZenithFrame
         {
             if (!TryContribution(req, out Pawn pilot, out float contribution)) return null;
             int level = pilot.skills.GetSkill(skill).Level;
-            return "Pilot " + skill.LabelCap + " (" + level + "): " + contribution.ToString("0.##");
+            return "ZF_PilotSkillExplanation".Translate(skill.LabelCap, level, contribution.ToString("0.##"));
         }
 
         private bool TryContribution(StatRequest req, out Pawn pilot, out float contribution)
@@ -51,7 +51,7 @@ namespace ZenithFrame
     {
         internal static void LearnShooting(Verb verb)
         {
-            if (!(verb?.CasterPawn is FramePawn frame) || frame.Cockpit?.CanOperate != true)
+            if (!FrameIdentity.TryGet(verb?.CasterPawn, out FramePawn frame) || frame.Cockpit?.CanExecuteActions != true)
                 return;
             if (!(verb.CurrentTarget.Thing is Pawn target) || target.Downed)
                 return;
@@ -64,7 +64,7 @@ namespace ZenithFrame
 
         internal static void LearnMelee(Verb_MeleeAttack verb)
         {
-            if (!(verb?.CasterPawn is FramePawn frame) || frame.Cockpit?.CanOperate != true ||
+            if (!FrameIdentity.TryGet(verb?.CasterPawn, out FramePawn frame) || frame.Cockpit?.CanExecuteActions != true ||
                 !frame.Spawned || frame.stances.FullBodyBusy)
                 return;
 
