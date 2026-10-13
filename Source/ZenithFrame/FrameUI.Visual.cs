@@ -212,6 +212,13 @@ namespace ZenithFrame
         }
     }
 
+    [StaticConstructorOnStartup]
+    internal static class FrameHealthTextures
+    {
+        internal static readonly Texture2D Bleeding =
+            ContentFinder<Texture2D>.Get("UI/Icons/Medical/Bleeding");
+    }
+
     // All measurements belong to this one tab; health and loadout values are
     // read again from the selected physical Frame on every redraw.
     public sealed class ITab_FrameVisual : ITab
@@ -230,8 +237,6 @@ namespace ZenithFrame
         private const float ColumnGap = 16f;
         private static Rect drawnBounds;
         private static int drawnAtFrame = -10;
-        private static readonly Texture2D BleedingIcon =
-            ContentFinder<Texture2D>.Get("UI/Icons/Medical/Bleeding");
 
         public ITab_FrameVisual()
         {
@@ -510,7 +515,7 @@ namespace ZenithFrame
             float iconX = row.xMax - iconsWidth;
             if (issue.Bleeding)
             {
-                GUI.DrawTexture(new Rect(iconX, row.y + 2f, 16f, 16f), BleedingIcon);
+                GUI.DrawTexture(new Rect(iconX, row.y + 2f, 16f, 16f), FrameHealthTextures.Bleeding);
                 iconX += 19f;
             }
             if (issue.StateIcon.HasValue)

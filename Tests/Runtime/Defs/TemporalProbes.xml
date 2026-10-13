@@ -3,7 +3,7 @@
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_TestTemporalItem</defName><label>temporal probe</label><description>Disposable acceptance inventory clock.</description>
     <tickerType>Normal</tickerType><stackLimit>1</stackLimit>
-    <graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>1</Mass></statBases>
     <comps><li Class="ZenithFrame.Tests.TemporalProbeProps" /></comps>
   </ThingDef>

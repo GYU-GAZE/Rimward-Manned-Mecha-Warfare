@@ -31,6 +31,19 @@ namespace ZenithFrame.Tests.VEF
         public bool Owned(Pawn pilot, FramePawn frame) => Ability(pilot) is FrameworkTargetAbility ability &&
             ReferenceEquals(ability.pawn, pilot) && ReferenceEquals(ability.Caster, frame) &&
             frame.GetComp<CompAbilities>() == null && ability.ticks > 0;
+        public string Describe(Pawn pilot, FramePawn frame)
+        {
+            FrameworkTargetAbility ability = Ability(pilot);
+            if (ability == null) return "missing original ability";
+            bool allowed = VEFFrameExecution.Allowed(ability, out string actionReason);
+            bool enabled = ability.IsEnabledForPawn(out string enabledReason);
+            return $"owner={ReferenceEquals(ability.pawn, pilot)} caster={ReferenceEquals(ability.Caster, frame)} " +
+                $"verb={ReferenceEquals(ability.verb.caster, frame)} ticks={ability.ticks} " +
+                $"frameComp={frame.GetComp<CompAbilities>() != null} allowed={allowed} ({actionReason}) " +
+                $"enabled={enabled} ({enabledReason}) job={frame.CurJob?.def.defName} " +
+                $"driver={frame.jobs.curDriver?.GetType().FullName} " +
+                $"casting={ReferenceEquals(pilot.GetComp<CompAbilities>().currentlyCasting, ability)}";
+        }
         public bool Start(Pawn pilot, Pawn target)
         {
             Ability(pilot).StartAbilityJob(new[] { new GlobalTargetInfo(target) });

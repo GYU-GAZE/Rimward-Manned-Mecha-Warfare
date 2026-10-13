@@ -15,6 +15,7 @@ namespace ZenithFrame.Tests
         bool Start(Pawn pilot, Pawn target);
         bool Applied(Pawn target);
         bool Owned(Pawn pilot, FramePawn frame);
+        string Describe(Pawn pilot, FramePawn frame);
         bool Blocked(Pawn pilot);
     }
 
@@ -277,7 +278,11 @@ namespace ZenithFrame.Tests
                     "ground ability records exact logical owner and real Frame origin");
                 if (Framework != null)
                 {
-                    Check(Framework.Owned(pilot, frame) && Framework.Start(pilot, enemy), "VEF framework ability keeps exact pilot state and starts Frame job");
+                    File.AppendAllText(Report, "VEF before start: " + Framework.Describe(pilot, frame) + Environment.NewLine);
+                    Check(Framework.Owned(pilot, frame), "VEF framework ability keeps exact pilot owner, physical caster and ticking");
+                    bool startedJob = Framework.Start(pilot, enemy);
+                    File.AppendAllText(Report, "VEF after start: " + Framework.Describe(pilot, frame) + Environment.NewLine);
+                    Check(startedJob, "VEF framework ability starts original driver on Frame");
                     Wait("VEF cast", () => Framework.Applied(enemy), Modules);
                 }
                 else Modules();

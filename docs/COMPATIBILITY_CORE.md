@@ -221,17 +221,32 @@ and interval tick, inventory ticking and food progression. It stopped at the
 health fixture's BloodLoss assertion. Installed HediffGiver_Bleeding only grows
 BloodLoss when BleedRateTotal >= 0.1; the severity-one cut was below that threshold.
 The fixture now uses a severity-five cut and checks that prerequisite explicitly.
-This last fixture correction has NOT been rerun. No manual bleeding simulation
-was added to production code.
+The third process reran this correction after explicit user authorization.
+No manual bleeding simulation was added to production code.
 
-The actual second pilot/module casts, gene/entropy observations, Royalty/VEF cast,
-service lock, transactions, reconstruction binding, combat, moving-fire canary
-and UI bounds remain unexecuted in the completed acceptance flow. Their presence
-in the harness is planned coverage, not passing runtime evidence. RunAndGun comp
-delivery is proven; moving-fire support is still LIKELY NATURAL and unverified.
+The third process (`compatibility-core-extra-20261012`, implementation
+`09e337dffdbf499171fb9e5a88b9b1a6e73b872e`) additionally proved native bleeding,
+gene ticking, entropy recovery, vanilla unspawned psyfocus pause, an actual second
+pilot cast, a real Royalty cast charging the exact pilot, targeted physical caster
+ownership and ground effect origin. It stopped at a compound VEF ownership/start
+assertion. That report does not identify which conjunct failed; it is not proof
+of a successful framework cast or of a specific adapter defect.
+
+On resumption, the VEF assertion was split into ownership/ticking and job-start
+checks, with physical/logical state and enablement reasons captured before and
+after start. The test item now uses vanilla ComponentIndustrial's StackCount
+graphic type. The health icon lives in a separate startup texture cache so tab
+construction during definition loading cannot load it on the background thread.
+These changes build without warnings/errors and pass 760 static checks; no fourth
+game process has been launched at this checkpoint.
+
+Module second cast, VEF cast, service lock, transactions, reconstruction binding,
+combat, moving-fire canary and UI bounds remain unexecuted. Their presence in the
+harness is planned coverage, not passing runtime evidence. RunAndGun comp delivery
+is proven; moving-fire support is still LIKELY NATURAL and unverified.
 
 The candidate must not be considered ready for production chassis work until
 the focused acceptance completes. Installation is held at the accepted baseline.
-An additional game launch requires a new explicit allowance beyond the task's
-one final process plus one rerun budget. Historical matrix evidence cannot fill
-these current-candidate gaps.
+Three launches have been used: the task's two-process budget and one explicitly
+authorized extra. A fourth requires another explicit allowance. Historical matrix
+evidence cannot fill these current-candidate gaps.
