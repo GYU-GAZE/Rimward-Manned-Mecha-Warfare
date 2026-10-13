@@ -31,7 +31,7 @@ Read `docs/PROJECT_CONTEXT.md` and `docs/ARCHITECTURE.md` before changing core b
 - humanoid Frame health uses `ZF_HumanoidFrameBody` and the real `Pawn_HealthTracker`; never add parallel Frame HP, copied pilot HP, or serialized disable/death flags
 - Torso or internal Core destruction kills a Frame; missing Head Assembly, missing internal Cockpit, or incapable Moving downs it; Manipulation, Sight, pain shock, required-capacity lethality, and accumulated injury threshold are nonfatal unless an explicit Hediff independently causes death
 - pilot trauma is permitted only when the resolved Frame `DamageResult` contains positive injury on the internal Cockpit; transferred damage must call normal `Pawn.TakeDamage` on the exact contained pilot
-- contained pilot health advances through `Pawn_HealthTracker.HealthTick`, never a full contained `Pawn.DoTick`; Downed and Kill transitions must detach the exact pilot immediately
+- contained pilots receive normal `ThingOwner.DoTick` temporal simulation once; only their independent JobTracker is suppressed while contained; Downed and Kill transitions detach the exact pilot immediately
 - embarked self-tend runs as a Frame job but doctors and patients the exact pilot, uses only medicine in that pilot's inventory, and awards Medicine XP to that pilot
 - recovery may clear repairable injuries and reclaim the exact dropped Weapon but must never reconstruct missing mechanical body parts; material reconstruction belongs to Frame Service & Docking
 - Construction owns production Frame maintenance: ordinary injury repair costs work only, while a missing recoverable common ancestor costs chassis-defined work plus exact physical material
@@ -81,7 +81,7 @@ Do not recreate basic Pawn controls as custom Move/Fire chess-piece buttons.
 
 Harmony (`brrainz.harmony`) is an accepted runtime dependency when a narrow patch is needed to bridge Frames into vanilla Pawn behavior.
 
-Keep the patch surface minimal and conditional on `FramePawn`.
+Keep the patch surface minimal and conditional on the cockpit identity contract or exact contained-pilot ownership. See `docs/COMPATIBILITY_CORE.md` for retained subclass responsibilities and supported framework adapters.
 
 Do not globally make Frames pretend to be colonists, player-controlled subhumans or Biotech colony mechs.
 

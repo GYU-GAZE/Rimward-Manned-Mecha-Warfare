@@ -2,20 +2,41 @@
 
 ## Active workflow
 
-During implementation run the clean build, static/XML/package check, and pure policy tests as needed. These do not start RimWorld. At the completed milestone run one disposable quicktest game through `scripts/Run-LiveTests.ps1`. It launches one process and writes `acceptance.txt` plus `Player.log` in a unique profile under `artifacts`. No phase selection, seed saves, save/load chain, DLC matrix, or ability matrix is in the active live workflow.
+Use builds, static/XML/package validation and pure policy checks during implementation.
+They do not start RimWorld. At the completed candidate run ONE disposable quicktest
+process. A second process is allowed only after a concrete failure and a fix.
+Do not run historical Full/Smoke/phase/DLC/ability matrices.
 
 ```powershell
-./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -PackageMode CoreOnly -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
 dotnet run --project Tests/Policy -c Release
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -RunName 'acceptance-unique-name'
+# Optional framework release is an explicit package choice
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -PackageMode WithVEF -Clean
+# Execute once at the completed milestone, not on every edit
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithVEF -WithInstalledTrackers -RunName 'architecture-unique-name'
 ```
 
-The one-process acceptance runs at a requested 1366x768 resolution. It checks the compact paint editor and Frame tab in real GUI callbacks, synthetic right/left/1280 placement geometry, and actual on-screen placement of paint, pilot Information, Frame health and pilot health dialogs. It saves `paint-editor.png`, `frame-tab.png`, `pilot-info.png`, `frame-health.png` and `pilot-health.png` for layout review. It also checks three independent paint channels and reset, fixed health summary data, self-right-click pilot self-tend with exact pilot-owned medicine, vanilla Rescue into a bed, vanilla Capture into a prisoner bed with status transition, unarmed drafted melee with actual damage, hidden training tab, and positional Dock Frame/undock with the fivefold timing change. The harness does not simulate actual mouse hit testing, judge visual quality, or replay save/load and DLC combinations; those remain separate human QA or historical gates.
+The current acceptance uses one controlled arena on a generated disposable map.
+It covers truthful unspawned pilot state, health/needs/ordinary comps/inventory
+and installed gene/psychic trackers, actual pilot and module second casts,
+vanilla targeted/ground execution, one real Royalty psycast when installed,
+one generic VEF framework cast/tick when requested, service lock families,
+physical transactions with an injected despawn exception, blocked queue
+selection, reconstruction target/cost invalidation, pilot swap/cancellation,
+Frame-vs-Frame and infantry acquisition, ordinary combat jobs and four popup
+bounds/screenshots. Optional CanaryDir loads an available mod as an unmodified
+external canary in that SAME process; it never changes Zenith packaging.
 
-If the final process fails, preserve its report and log, fix the concrete cause, and rerun once as necessary. Report all launches. Historical results below describe older commits and retired runtime suites; their commands and process counts are not current instructions.
+Acceptance logs and screenshots are evidence, not a claim of complete visual
+quality or universal compatibility. Every launched process must be reported,
+including failures. Human QA owns broad save/load, long-duration gameplay,
+down/death ejection regression, world/transport flows and the user's actual
+mod-list UI. The old ability runner is retired; the historical suites below
+are records for their original commits, not current executable instructions.
 
 ## Historical validation records
+
 
 ## Validated Frame body, damage and pilot trauma
 

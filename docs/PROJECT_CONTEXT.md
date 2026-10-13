@@ -701,7 +701,7 @@ They should not invalidate the rest of RimWorld warfare.
 
 The debug chassis now uses the original 25-part `ZF_HumanoidFrameBody`. Real Pawn body parts and capacities degrade Manipulation, Moving, and Sight. Torso/Core loss destroys; Head/Cockpit loss or incapable Moving disables; accumulated peripheral injury, pain shock, Manipulation, and Sight do not define Frame death.
 
-Internal Cockpit injury can transfer definition-driven damage to the exact contained pilot through normal human damage and armor. Contained pilot health ticks without full Pawn AI, and Downed or Kill transitions eject before ownership or corpse creation can become invalid. A healthy hostile or factionless Frame abandoned by its pilot is inert and hackable.
+Internal Cockpit injury can transfer definition-driven damage to the exact contained pilot through normal human damage and armor. Contained pilots receive normal ThingOwner/Pawn temporal simulation with independent JobTracker execution suppressed, and Downed or Kill transitions eject before ownership or corpse creation can become invalid. A healthy hostile or factionless Frame abandoned by its pilot is inert and hackable.
 
 The exact pilot may self-tend through a save-safe Frame job using only their own inventory and Medicine skill. Development recovery no longer reconstructs missing parts. Construction work, material reconstruction, timed hacking redesign, Docking Bays, and service logistics remain assigned to the next Frame Service & Docking milestone.
 ```
@@ -994,3 +994,8 @@ Module effects derive from the exact installed Thing. Passive projections requir
 The development Sensor Helmet changes real Frame Sight and therefore normal ShootingAccuracy calculation. The Beam Sword retains its Manipulation penalty without power and gains a normal melee verb with power. The zero-draw Shield retains its passive cost and contributes armor only to configured body groups while vanilla `ArmorUtility` owns resolution. The Shoulder System's exact Thing deep-owns its normal Ability and cooldown, so storage, save/load, pilot replacement, and transfer to another Frame preserve state.
 
 Frame weapons are ordinary haulable and storable Things, but central equipment eligibility rejects their use by ordinary Pawns and rejects unmarked human weapons on Frames. Service, hacking, world ownership, mount destruction/reconstruction, downing, and salvage preserve exact physical identities. The Test Frame composes Torso, intrinsic chassis Head, physical Helmet, and physical Shoulder through native render nodes. Primary/secondary masks and separate visor overlays support chassis-owned livery; see `FRAME_RENDERING.md` and `FRAME_ART_TEMPLATE.md`. Weapon sockets remain deferred.
+
+
+## Compatibility-first core candidate
+
+The current implementation contract is in ARCHITECTURE.md and COMPATIBILITY_CORE.md. Frame-native execution and pilot-owned state replace the earlier scoped spatial projection. Contained pilots receive ordinary temporal ticking with independent jobs suppressed. The subclass remains for local lifecycle safety; exact thingClass injection remains a stated compatibility boundary. VEF is an explicitly packaged framework adapter. VPE owner-dependent warmup is unsupported while embarked and its generated-lambda transpiler is removed. No production chassis, research, faction content or new balance is part of this milestone.

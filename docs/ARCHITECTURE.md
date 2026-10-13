@@ -1,300 +1,136 @@
-# Implemented MVP architecture
-
-## Frame identity
-
-`FramePawn : Pawn` is a real custom Pawn representing a humanoid pilotable mecha.
-
-It is deliberately **not** a RimWorld/Biotech controllable mech. The debug Frame uses:
-
-- `ToolUser` intelligence so it has ordinary Pawn equipment support
-- custom non-organic `ZF_FrameMechanical` flesh type
-- the custom `ZF_HumanoidFrameBody`; only the current pawn graphic remains a vanilla lancer placeholder
-- its own idle think trees instead of normal colonist work AI or mechanoid combat/work AI
-
-Because `RaceProps.IsMechanoid` is false, Mechanitor, Overseer, bandwidth, command-range and mech-control-group semantics are not the Frame control model.
-
-The loadout component installs the definition-provided default debug rifle exactly once. It serializes as ordinary Pawn equipment and is never regenerated merely because the Frame later becomes weaponless.
-
-## Pilot ownership
-
-`CompPilotableMech : ThingComp, IThingHolder` owns exactly one `ThingOwner<Pawn>`.
-
-That container is the sole source of pilot identity and is deep-scribed under `zenithPilot`. There is no second saved pilot object or speculative global pilot registry.
-
-`JobDriver_BoardFrame` reserves the Frame, walks the pilot into touch range, revalidates, despawns the pawn and transfers it into the cockpit owner. Failed eligibility never mutates ownership. If insertion throws or fails after despawn, the pilot is restored to the original map when possible and the exception is not swallowed.
-
-Disembarking uses Verse's normal `ThingOwner.TryDrop` contract.
-
-## Pawn-first control model
-
-With a valid pilot aboard, basic input is intended to feel like controlling a drafted colonist:
-
-- select pilot -> right-click Frame -> **Board Frame**
-- select piloted Frame -> **R** / normal draft command
-- right-click ground -> normal drafted-Pawn movement order
-- right-click hostile target -> normal ordered attack
-- multi-select Frames -> ordinary group movement / attack behavior
-
-The old temporary custom `Move` and `Fire rifle` gizmos were removed.
-
-`Disembark` remains a Frame-specific gizmo. Draft/undraft is represented by a small bridge command using the ordinary `Pawn_DraftController`, vanilla draft hotkey, labels, sounds and grouping key. This bridge exists because vanilla only exposes `Pawn_DraftController.GetGizmos()` for its hard-coded player-controlled pawn categories.
-
-The Frame's drafter is explicitly restored on spawn/load because a custom non-humanlike, non-mechanoid Pawn is outside the categories for which vanilla retains a draft controller automatically.
-
-## Pilot combat skill bridge
-
-The cockpit pilot remains the only owner of combat skills and experience. A Frame has no `SkillTracker`, copies no `SkillRecord`, and serializes no duplicate skill state. Replacing the pilot therefore changes combat performance immediately while preserving the same chassis and weapon.
-
-`StatPart_PilotSkill` is attached to `ShootingAccuracyPawn` and `MeleeHitChance`. For an operational Frame it replaces the StatDef's ordinary `noSkillOffset` with the exact `SkillNeed.ValueFor(pilot)` contribution for Shooting or Melee, then leaves vanilla's existing stat post-process curve intact. This preserves chassis and equipment modifiers while excluding the pilot's capacities, traits, genes, ideology, apparel, equipment and hediffs. Empty or inoperable Frames receive no pilot contribution. Normal stat explanations identify the live pilot skill and level.
-
-Ranged experience is awarded at the real `Verb_Shoot.WarmupComplete` execution point through the shared Frame shooting verb, using vanilla's hostile/non-hostile rate and `AdjustedFullCycleTime`. Melee experience is awarded by a narrow `Verb_MeleeAttack.TryCastShot` prefix at the equivalent real attack-execution boundary. Both routes call `pilot.skills.Learn`, leaving passion and learning behavior to vanilla. Player manual fire, Fire At Will, forced melee and hostile AI all teach the exact contained pilot. The chassis never learns and the pilot is never taught twice.
-
-This milestone bridges only Shooting into ranged accuracy and Melee into melee hit chance. It does not add a custom Piloting skill or bridge melee dodge, aim/warmup time, weapon cooldown, movement, abilities, traits, capacities, genes, ideology or other human modifiers.
-
-## Machine-owned Frame abilities
-
-Frame abilities are intrinsic chassis state. The debug `ZF_DebugFrame` declares `ZF_DebugFrameOverdrive` in its normal `PawnKindDef.abilities` list, so vanilla `PawnComponentsUtility` creates `Pawn_AbilityTracker` and `PawnGenerator` grants exactly one ability instance. The Frame Pawn is the ability owner, caster, cooldown owner and effect owner. The contained pilot receives no ability, hediff or copied timer.
-
-`Ability_FrameOverdrive` subclasses the Core `Ability` type and adds only one rule after `base.CanCast`: its pawn must be a `FramePawn` whose cockpit can operate. The rule is faction-independent. Empty, downed, dead or destroyed Frames cannot cast; a valid hostile pilot can operate the same machine ability without gaining player control.
-
-Vanilla `Pawn_AbilityTracker.GetGizmos` hides commands for this deliberately non-colonist, non-Biotech classification. `FramePawn.GetGizmos` bridges only this visibility gap for a valid player-operated Frame by yielding the ability's ordinary `Command_Ability`. Vanilla still supplies its icon, tooltip, drafted disabled state, cooldown display, grouping and `CastAbilityOnThing` job. No parallel ability tracker, command surrogate or cooldown serialization exists.
-
-Frame Overdrive is a development architecture proof. A vanilla `CompAbilityEffect_GiveHediff` self-applies `ZF_FrameOverdrive` for 300 ticks, and its hediff stage carries the provisional MoveSpeed offset. The vanilla ability owns the 900-tick cooldown. Both objects deep-save through the Frame, survive fresh-process load, remain on the chassis during disembark and pilot swaps, and follow the same Pawn through downing, hacking and recovery. Repeated generation, boarding and load cycles retain one ability instance.
-
-Hostile operational Frames expose the same AI-usable ability to vanilla `JobGiver_AIFightEnemy`. The tested ThinkTree path naturally self-casts Overdrive, starts the machine cooldown and returns to ordinary combat without a custom ability AI layer.
-
-These values and the debug presentation are provisional. Abilities owned by the contained pilot, including psycasts, remain a separate later milestone because the real caster Pawn is unspawned while embarked.
-
-## Embarked pilot abilities and psycasts
-
-Pilot abilities remain pilot state. The original vanilla or Royalty `Ability`, VEF `Ability`, cooldown, charge, `Pawn_PsychicEntropyTracker`, VEF `CompAbilities`, VPE implant and psyset stay on the exact contained Pawn. The Frame receives no copied tracker, component, ability or resource. Intrinsic Frame abilities such as Overdrive remain independent chassis state.
-
-When an operational pilot is contained, `FramePawn.GetGizmos` forwards the original pilot commands beside the Frame's own commands. Targeting, range, LOS and warmup use the spawned Frame as the physical caster. Self effects and resource changes still resolve against the pilot. The original cast job runs on `Frame.jobs`, preserving the normal ability object and job driver while the pilot remains exclusively owned by the cockpit.
-
-The core bridge supports RimWorld abilities and Royalty psycasts. It binds already-created verbs to the current Frame, preserves logical self targets in job target C, projects only the exact pilot's ability-time map/position/draw/draft queries and restores the pilot caster on cancellation or cockpit invalidation. Hostile operational Frames use pilot-owned AI-valid abilities through the Frame ThinkTree without exposing player gizmos.
-
-VEF support is a separate conditionally loaded `ZenithFrame.VEF.dll`. It forwards the real configured `Command_Ability`, starts the real VEF job on the Frame and redirects the exact `JobDriver_CastAbilityOnce.CompAbilities` getter to the pilot component during that cast. The shared generic `ThingWithComps.GetComp<T>` body must never be patched because Mono can share that native body across unrelated component types. VPE needs one narrow optional transpiler for its generated warmup lambda, which bypasses the VEF driver property and directly asks the toil actor for `CompAbilities`.
-
-VEF hostile AI evaluates each enabled autocast ability against targets inside that ability's own range and validator. Save/load, pilot replacement, disembark, downing and ejection keep every ability and resource with its original owner. See `docs/PILOT_ABILITY_BRIDGE.md` for the investigated runtime pipelines and compatibility boundary.
-
-## Harmony control bridge
-
-Harmony is a runtime dependency, but the patch surface is intentionally narrow. Frames are **not** reclassified as colonists or Biotech mechs.
-
-Current patch points:
-
-1. `HealthAIUtility.CanRescueNow`
-   - rejects every `FramePawn` from vanilla rescue/capture semantics
-   - also blocks autonomous `WorkGiver_RescueDowned` jobs while leaving ordinary Pawns unchanged
-
-2. `Pawn.CanTakeOrder`
-   - returns true only for an operational player-owned `FramePawn` with a valid player colonist pilot
-   - this property is used by `FloatMenuContext` to decide which selected Pawns enter the ordinary right-click order pipeline
-
-3. `Pawn_MeleeVerbs.TryMeleeAttack`
-   - rejects melee execution for a Frame whose cockpit cannot operate
-   - closes vanilla retaliation paths that can invoke melee outside the current idle `JobDriver`
-
-4. `FloatMenuOptionProvider.SelectedPawnValid`
-   - for Frames, permits only the ordinary drafted movement and drafted attack providers
-   - prevents the `CanTakeOrder` bridge from accidentally exposing colonist work/equip/haul/tend/rescue/etc. orders
-
-5. `FloatMenuUtility.GetRangedAttackAction`
-   - supplies the ordinary `AttackStatic` job for a Frame's equipped ranged weapon
-   - omits Biotech command-range checks because Frames are not Biotech mechs
-
-6. `FloatMenuUtility.GetMeleeAttackAction`
-   - bridges Frames through the same reachability, violence, melee-verb and `AttackMelee` semantics used by ordinary Pawns
-   - removes only the hard-coded vanilla controlled-pawn / Biotech command-range assumptions
-
-7. `PawnAttackGizmoUtility.CanOrderPlayerPawn`
-   - lets vanilla's own melee/squad attack gizmo logic recognize a valid piloted Frame
-   - Frames still remain neither colonists nor Biotech mechs
-
-8. `MapDeiniter.Deinit`
-   - detaches contained pilots before vanilla snapshots the recursively enumerated map-pawn list
-   - routes player colonists to `PilotRecovery` and other pilots to direct world-pawn ownership
-   - leaves the empty chassis to vanilla map-removal handling
-
-9. `Verb_MeleeAttack.TryCastShot`
-   - awards vanilla-formula melee experience to the exact operating pilot at real melee execution
-   - leaves damage, hit resolution and every non-Frame verb unchanged
-
-10. `Pawn_HealthTracker.MakeDowned`
-   - captures the exact installed Frame Weapon immediately before vanilla incapacity handling may drop it
-   - records only a shallow reference after downing and leaves every non-Frame pawn unchanged
-
-`Pawn.IsPlayerControlled` is intentionally **not** patched. Keeping it false avoids globally pretending a Frame is a colonist/mech/subhuman and also avoids `AttackStatic`'s player-controlled automatic retarget behavior.
-
-## Physical Frame loadout
-
-`CompFrameLoadout` owns policy and mutation for the fixed physical vocabulary `Head`, `Shoulder`, `Weapon`, `Offhand`, `Utility`, and `Power`. The debug chassis has one explicit slot for each category. `Chassis` is the permanent `FramePawn` identity and is never an installable category. Serialized enum compatibility preserves `Weapon=0`, `Utility=1`, and `Power=2`, then appends `Head=3`, `Shoulder=4`, and `Offhand=5`.
-
-An installed Weapon is a real `ThingWithComps` held only by the Frame's vanilla `Pawn_EquipmentTracker`. The loadout does not keep a second `ThingOwner`, deep-scribe a duplicate item or reconstruct equipment from `defName`. Installation and removal transfer the exact object through normal equipment/map ownership. Eligibility requires an explicit `FrameAddonExtension` whose category is `Weapon`; ordinary RimWorld weapons and test Utility/Power add-ons are rejected.
-
-`CompProperties_FrameLoadout` declares capacity one, one optional default Weapon and development-only candidate Weapons. The default is initialized once for a newly created Frame. The saved `defaultInitialized` flag prevents respawn, recovery and save/load from replacing a removed, destroyed or intentionally absent Weapon.
-
-Every loadout mutation stops Frame operation first. Current jobs, stance, active verbs, targeters and draft state are cleared before the equipment tracker changes, so neither the old verb nor a stale combat job can survive a swap. The normal `Command_VerbTarget`, right-click attack, Fire At Will and hostile AI pipelines then bind the newly installed weapon immediately. Pilot skill contribution stays independent of weapon physics.
-
-Vanilla downing physically drops equipped weapons. A narrow Frame-only `Pawn_HealthTracker.MakeDowned` patch remembers the exact pre-downing Weapon as one shallow scribed reference because this custom nonhumanlike Pawn does not reliably retain vanilla `mindState.droppedWeapon`. Recovery may reclaim that object only while it still exists, is spawned on the same map and lies within two cells. If it was destroyed or removed, the slot remains empty; an identical nearby item is never substituted. Hacking preserves the same relation, world-owned Frames retain equipped items normally, and destruction leaves no duplicate or ownerless loadout object.
-
-Utility and Power are physical Things held by two independent deep-scribed `ThingOwner<Thing>` containers inside `CompFrameLoadout`. The comp implements `IThingHolder`; a stable child holder exposes the second container so Verse traverses both owners during save/load, world ownership and map cleanup. Neither item is placed in Pawn equipment or mirrored as a DefName/ID field.
-
-Power is a static addon budget. `AvailableAddonPower` comes from the installed Power extension, `RequiredAddonPower` comes from the installed Utility extension and `IsUtilityPowered` is derived on demand. There is no charge, drain, fuel, heat, recharge or tick loop. An over-budget Utility stays physically installed but its effect is inactive. Core operation, weapons, Overdrive and pilot abilities remain independent from addon power.
-
-The development Mobility Booster consumes two points and contributes a local `ThingComp.GetStatOffset` of +1 MoveSpeed only when powered. The debug Reactor provides two points; the weak cell provides one. Utility state belongs to the chassis and survives pilot swaps, while the existing no-pilot operation gate remains absolute.
-
-Every physical category has independent once-only initialization state, so an intentionally empty slot remains empty across load. The debug Frame defaults to Rifle plus Reactor; Head, Shoulder, Offhand, and Utility start empty. Downing keeps all contained modules installed while the weapon follows its exact drop/recovery lifecycle. Spawned destruction attempts to salvage contained modules; off-map destruction deterministically destroys them after pilot safety is resolved.
-
-Installed modules may project passive and powered Hediffs onto the chassis. The physical Thing remains authoritative. Reconciliation removes stale projections, restores missing projections, and never uses a Hediff as ownership. A valid body-part-group mount is required for every projection. Positive-draw powered effects use one global rule: all are active when total output covers total non-Power draw, and all are inactive during a deficit. Passive and zero-draw effects remain active while their mounts exist.
-
-The Sensor Helmet proves Head-to-Sight capacity flow. The Beam Sword proves a passive Manipulation cost plus a powered `HediffComp_VerbGiver` melee tool. The Shield proves localized body-group armor through a Frame-only hit context around vanilla `ArmorUtility`; vanilla still performs the sole armor roll. The Shoulder System's exact physical Thing deep-owns its normal `Ability` object and cooldown, rebinding only its current Frame caster after load, storage, or transfer.
-
-## Frame information UI
-
-Every `FramePawn` exposes the native `ITab_Frame` inspect tab. The tab resolves `SelPawn` on every draw and builds a transient `FrameUiSnapshot` from the selected chassis, its cockpit, loadout, health, recovery and hacking components. It caches no selected Frame, pilot, item or presentation state, so selection changes and every lifecycle transition are visible immediately.
-
-The compact scrollable panel shows chassis name and condition, the exact contained pilot, portrait, live Shooting and Melee skills, and the final order `Chassis`, `Head`, `Shoulder`, `Primary Weapon`, `Offhand`, `Utility`, `Power`. It derives available/required addon power and per-module powered, passive, or mount-damaged state from live ownership and health. Installed item rows open vanilla info cards. The panel summarizes abilities only; casting remains on real command gizmos.
-
-`Inspect Pilot` opens a read-only dialog over the exact contained `Pawn`. It uses `CharacterCardUtility` and `HealthCardUtility`, preserving vanilla skills, passions, traits, health, ideology and Royalty presentation rules without copying state or temporarily spawning the pilot. Portraits come from `PortraitsCache` for the same Pawn object. Player-owned Frames may rename the chassis and disembark; hostile and factionless Frames remain read-only. Disembark delegates to `CompPilotableMech.TryDisembark`.
-
-Frame naming uses normal `Pawn.Name` with a `NameSingle` value and is serialized by vanilla Pawn state. It is independent of pilot identity. Condition and integrity come from real Pawn health, recoverability comes from `CompFrameRecovery`, and hackability is derived from `CompFrameHacking`; the UI adds no health, ownership, loadout or power fields.
-
-## Weapon behavior
-
-The debug rifle uses normal equipped `Verb_Shoot`, projectile, range, LOS, accuracy and cooldown behavior. It has two narrowly gated verb entries because RimWorld's player and AI attack pipelines consult different weapon metadata:
-
-- `Verb_FrameShot` is the manually targeted standard command used by a drafted player Frame on `Misc1` / **B**
-- `Verb_HostileFrameShot` is the primary non-command verb used by vanilla hostile combat AI and by a drafted player Frame while its real `Pawn_DraftController.FireAtWill` state is enabled
-
-The player right-click bridge binds the selected manual verb and marks the resulting `AttackStatic` job as player-forced. The primary execution verb services that exact job because RimWorld's attack driver consults the equipment primary verb while firing. Drafted player Frames also expose the vanilla Fire At Will state through `Misc6`, `TexCommand.FireAtWill` and `Pawn_DraftController`; the guarded `Wait_Combat` branch supplies normal nearby acquisition when the toggle is on. No Frame-specific Fire verb or chess-piece command exists. The debug Frame also has a simple built-in blunt `ZF_FrameStrike` tool so vanilla melee ordering has a real melee verb to use.
-
-A player-issued attack uses RimWorld's ordinary `AttackStatic` job and is no longer capped to one burst. It continues against the chosen target until normal job termination/cancellation conditions apply.
-
-Fire At Will off blocks natural ranged acquisition but leaves explicit right-click and **B** attacks intact. The toggle persists through save/load with draft intent. Every route remains gated by `CanTakePlayerOrders`, so a missing or invalid pilot immediately removes both automatic and explicit combat.
-
-## Hostile piloted Frame operation
-
-`CanOperate` describes machine and pilot state without assuming player ownership: the Frame and pilot must both be functional, the cockpit must contain that exact pilot, and their non-null factions must match. `CanTakePlayerOrders` adds player ownership and player-colonist requirements. `CanUseHostileCombatAI` instead requires an operational Frame whose faction is hostile to the player. Harmony UI/order bridges consume `CanTakePlayerOrders`; machine shutdown, ejection and melee execution boundaries consume `CanOperate`.
-
-The development action **Spawn hostile piloted Frame** generates one hostile debug Frame and one real same-faction human pawn, then transfers that pawn into the existing cockpit `ThingOwner<Pawn>` through the same ownership-safe storage path used by normal boarding. The pilot is neither a fake stat record nor a duplicate world pawn. Faction mismatch, invalid pilot state or pilot loss prevents operation immediately.
-
-The Frame think tree contains one conditional hostile branch before inert idle. It runs only while `CanUseHostileCombatAI` is true. A Lord-owned Frame first consumes its vanilla `ThinkNode_Duty`, allowing `AssaultColony` to approach distant colony targets; the existing `JobGiver_AIFightEnemies` remains the tactical fallback for target acquisition, ranged combat and melee. This AI represents the stored hostile pilot operating the machine. Faction alone never enables combat.
-
-The colonist bar keeps rendering the contained player's portrait. Its selection lookup resolves that portrait through `holdingOwner` to the exact spawned player Frame, including vanilla shift-selection behavior. `FramePawn.DrawGUIOverlay` adds one `GenMapUI` label using `LabelShort`; ordinary Pawn UI does not label this non-humanlike, non-Biotech classification, so the override does not duplicate a vanilla label.
-
-Downing ejects the exact hostile pilot through the ordinary cockpit lifecycle. The same chassis then becomes empty, inert, recoverably disabled and eligible for the existing Hack Frame job. Hacking, recovery and player boarding preserve that Frame's identity and transition it back into the ordinary player control path.
-
-## Development enemy Frame raid lifecycle
-
-`ZF_DevelopmentEnemyFrameRaid` is a zero-chance development incident backed by `IncidentWorker_RaidEnemy`. Its debug action generates exactly one ordinary human raider and one `FramePawn` containing a separately generated same-faction human pilot. The pilot enters the cockpit while both pawns are unspawned. Only the infantry and occupied Frame are passed to vanilla `EdgeWalkIn`, `ImmediateAttack` and `RaidStrategyWorker.MakeLords`, so the pilot is never duplicated as a spawned or Lord-owned pawn.
-
-The cockpit remembers the operational Lord as a saved reference because RimWorld can remove an incapacitated Frame from `pawn.lord` before `ThingComp.Notify_Downed` runs. Ejection consumes that reference: the empty chassis is removed from raid control and the exact spawned pilot is added to the same Lord. Hacking explicitly removes any current hostile Lord membership before `SetFaction` converts the existing chassis.
-
-Retreat remains driven by `LordJob_ExitMapBest` and `JobGiver_ExitMapBest`. RimWorld does not reliably assign an exit `PawnDuty` to this custom Pawn classification, so `FramePawn` supplies that narrow duty bridge only while its saved operational Lord is an exit Lord. The normal exit job passes the Frame into world-pawn handling without ejecting or duplicating the contained pilot. `FramePawn.ExitMap` clears the no-longer-needed Lord reference after the transfer. Empty or disabled Frames cannot enter this path because every bridge is gated by `CanUseHostileCombatAI`.
-
-## Map and world ownership lifecycle
-
-A living pilot has exactly one direct owner at every supported lifecycle point: a spawned map, a spawned Frame cockpit, a world-owned Frame cockpit, direct `WorldPawns` ownership or `PilotRecovery`. The runtime ownership audit enumerates all five locations, including cockpit contents nested inside world pawns.
-
-Vanilla `MapDeiniter.PassPawnsToWorld` begins from `MapPawns.AllPawns`, whose recursive holder traversal includes a pilot inside a spawned Frame. The narrow `MapDeiniter.Deinit` prefix therefore prepares each spawned Frame before that snapshot. A free player colonist in a player Frame transfers atomically into `PilotRecovery`; a non-player pilot detaches into direct world-pawn ownership. Vanilla then passes the now-empty chassis through its normal map-removal path. This also clears saved raid-Lord state.
-
-Ordinary `FramePawn.ExitMap` keeps the cockpit intact. If it contains a free humanlike player pilot, the outer world Frame is added to vanilla's `ForcefullyKeptPawns`, so world garbage collection cannot discard the colonist indirectly. Later off-map destruction of that Frame transfers the same pilot into `PilotRecovery`.
-
-Hostile escaped Frames are not kept forever. If vanilla deliberately garbage-collects a hostile world Frame, the cockpit recognizes the active discard transaction and discards the nested hostile pilot with the chassis, leaving no second world-pawn entry or dangling owner.
-
-The tested map-abandonment/removal core uses a legitimate secondary settlement map created through vanilla world-object and map-generation APIs, then `Game.DeinitAndRemoveMap`. The player pilot survives in recovery while the empty chassis becomes world-owned. Hostile Frame and pilot become separate world pawns. A pilot ejected immediately before shutdown and its disabled chassis also become separate world pawns. The user-facing abandonment confirmation wrapper is not part of the automated fixture.
-
-## Ejection and destruction safety
-
-`Notify_Downed` ejects through the cockpit comp.
-
-`FramePawn.Kill` and `FramePawn.Destroy` detach the pilot **before** entering vanilla destruction cleanup. Ordinary destruction therefore never owns a pilot by the time base cleanup runs.
-
-If the Frame is off-map or a normal drop cannot occur, ownership transfers to `PilotRecovery`, an independently deep-scribed `GameComponent` owner. It retries safe delivery when a home map exists. If no safe owner can accept the pilot, destruction fails loudly instead of silently deleting the pawn.
-
-The game-over bridge remains explicit ownership-based presence logic. It does not fake `Map` or `Position`.
-
-## Disabled-chassis recovery
-
-`CompFrameRecovery` is a focused Frame-only lifecycle component. It does not save a parallel `isDisabled` flag. `IsRecoverablyDisabled` is derived from the existing Pawn and cockpit state:
-
-- the Frame is spawned and downed
-- it is alive and not destroyed
-- its cockpit exists and contains no pilot
-
-The existing downed notification remains responsible for ejecting the pilot. While downed, the same `CanOperate`, `CanBoard`, draft and Harmony order gates keep the chassis inactive. A narrow Frame-only Harmony gate also prevents vanilla Rescue/Capture actions and autonomous rescue jobs from treating the chassis as an injured or imprisonable biological Pawn. The component contributes only a concise inspect status and, in Dev Mode for a player Frame, **DEV: Recover disabled chassis**.
-
-`TryRecover` operates on the existing `FramePawn` as a Dev Mode fixture. It may clear individual repairable injuries largest-first only while needed, but refuses every missing-part reconstruction. It neither destroys nor spawns a replacement Frame, saves no recovery state and performs no faction conversion. It delegates weapon recovery to `CompFrameLoadout`, which reclaims only the exact remembered nearby item and leaves the chassis weaponless when that object is gone. Production recovery belongs to Construction service.
-
-Successful recovery leaves the chassis unpiloted, undrafted and inactive. A pilot must board again through the normal boarding job before Pawn-first controls become available. Dead and destroyed Frames fail recovery.
-
-This is deliberately a technical development action, not the final repair economy. Costs, work, facilities and towing remain future systems.
-
-## Disabled hostile Frame hacking
-
-`CompFrameHacking` owns the acquisition eligibility, persistent progress, and final ownership transition. A target must be the existing spawned, living, empty Frame and may be mechanically disabled or healthy-but-abandoned. Its current faction must be either null or hostile to the player. Player-owned and neutral/friendly faction-owned Frames are never acquisition targets. The actor must be a spawned, player-controlled human colonist on the same map who is alive, mobile, mentally available, free and able to reserve and reach the chassis.
-
-`FloatMenuOptionProvider_HackFrame` adds **Hack Frame** to that colonist's ordinary right-click flow. `JobDriver_HackFrame` reserves the target, uses normal touch-range pathing, and advances persistent progress owned by `CompFrameHacking`. Work scales through Core `HackingSpeed`, awards Intellectual XP, and uses the Core hacking effect and sounds. If eligibility changes, the job stops without clearing progress or changing faction. No Odyssey definition or asset is required.
-
-Successful completion calls the normal `FramePawn.SetFaction(Faction.OfPlayer)` API on the same object. It creates no replacement Frame and saves no separate hacked flag. The chassis remains downed, empty, undrafted and inactive, then proceeds through the existing recovery and boarding systems.
-
-## Empty Frame inertness
-
-An empty or otherwise inoperable Frame receives `ZF_FrameIdleJob`, driven by a minimal delay-only `JobDriver_FrameIdle`. It does not use vanilla `JobDefOf.Wait`, whose wait driver can scan adjacent hostiles and initiate opportunistic melee.
-
-The melee execution boundary also rejects `Pawn_MeleeVerbs.TryMeleeAttack` when the cockpit cannot operate. This covers retaliation paths invoked outside the current job driver. The invariant is faction-independent: player-owned, hostile and factionless Frames cannot move, acquire targets, attack or retaliate without a valid pilot.
-
-The definition-driven hacking defence is provisional tuning. Persistent same-object progress, Intellectual scaling, the same-object ownership conversion, and disabled post-hack state are lifecycle constraints.
-
-## Deliberate MVP boundaries
-
-- Stored pilots are not ticked; needs, injuries and aging pause while embarked.
-- No hostile boarding UI. A focused internal installation path exists only for the deliberate hostile debug fixture.
-- One functional slot for each of Head, Shoulder, Weapon, Offhand, Utility, and Power; no multiweapon support or arbitrary slot grid.
-- Static addon power affects only Utility. Chassis core power requirements, batteries, fuel, heat, charging and drain are deferred.
-- The information UI queues all six physical categories against exact valid-storage items; Construction performs the mutation.
-- The first Steel-based repair/reconstruction economy and placeholder Docking Bay are implemented. Final balance, reload/ammunition, chassis core power, research, chassis variants, and final art remain deferred.
-- No caravan boarding gameplay, gravship integration or transport-pod UI yet. The vanilla temporary-map removal core is covered only to preserve ownership safely.
-- No Combat Extended, multiplayer or broad compatibility guarantee.
-- No general raid generation, faction-wide hostile Frame spawning, frequency tuning, faction composition integration or enemy loadout generation. The current mixed raid is a deterministic Dev-only lifecycle fixture.
-- One debug chassis ability and the pilot ability execution bridge are implemented. Ability loadouts, universal third-party compatibility and final ability balance remain deferred.
-
-## Patch and dependency audit
-
-Production currently uses:
-
-- Harmony as the single third-party runtime dependency
-- ten narrowly scoped Harmony patch points described above, including the Frame-only downing capture used for exact dropped-weapon recovery
-- zero reflection
-- zero Coventech references/dependencies
-- no bundled Harmony DLL
-- no proprietary RimWorld assemblies in the release
-
-Harmony is referenced for compilation through `Lib.Harmony.Ref`. The release itself contains only ZENITH FRAME content and `ZenithFrame.dll`.
-
-The pawn-first control refactor, disabled-chassis recovery, hacking, hostile-pilot lifecycle, development mixed-raid lifecycle, map/world ownership, pilot combat skill bridge, machine-owned Frame ability lifecycle, embarked pilot abilities and physical Frame Weapon loadout were validated in Core-only and all-installed-expansions configurations; see `docs/VALIDATION.md` for exact commits, environments, gates, binary hashes and retained phase reports.
-
-## Frame service and Docking Bay
-
-`CompFrameService` owns only pending order identity and worker reconciliation. The health tracker owns damage and missing parts, the worker job owns partial work, loadout owners own installed modules, and map position owns Dock state. The comp never saves parallel HP, body state, module definitions, or a docking boolean.
-
-Three Construction WorkGivers share a narrow serviceability boundary. The Frame must be a living spawned player chassis that is idle, undrafted, stationary, and not already locked. Automatic repair and reconstruction also require Home Area; direct forced work may bypass that area policy. Each JobDriver reserves the Frame and its exact physical inputs, uses live Construction speed with the live derived Dock multiplier, awards Construction XP, and releases its worker-specific lock through the normal finish path.
-
-Module requests support the six fixed categories through the same specialized service pipeline. The pending incoming object keeps exact world identity through `Scribe_References`, including while carried across save/load. `CompletePendingOrder` delegates every owner transition to `CompFrameLoadout`, rolls back a failed replacement when possible, and never rebuilds a module from its DefName. Dock removal hands an exact spawned outgoing object to a normal same-worker storage haul when a valid nearby cell exists.
-
-See `docs/FRAME_SERVICE.md` for the durable gameplay contract and manual QA.
-
-## Humanoid Frame body and pilot trauma
-
-`ZF_HumanoidFrameBody` replaces the temporary Lancer body with 25 mechanical records. Normal Pawn body-part and capacity code owns all chassis injury truth. Torso and internal Core are fatal. Head Assembly, internal Cockpit, and incapable Moving are disabling. Manipulation and Sight are performance capacities and are not death conditions.
-
-Frame-only health patches suppress vanilla lethal injury accumulation, generic lethal required capacities, and pain-shock downing while preserving explicit Hediff death and Torso core-part death. `FrameDamageRules` centralizes the additional Core, Head, Cockpit, and Moving queries without serialized flags.
-
-Resolved Cockpit injury transfers the chassis definition's fraction to the exact pilot through normal `Pawn.TakeDamage`. Cockpit health ticking calls only the contained pilot's `Pawn_HealthTracker.HealthTick`. Downed and Kill transitions eject the pilot immediately; vanilla then owns map downing, rescue, capture, medical care, and corpse creation.
-
-Embarked self-tend is a Frame job with exact pilot and carried-medicine targets. The pilot supplies MedicalTendSpeed, Medicine XP, wound state, and normal `TendUtility`; map medicine is never searched. See `docs/FRAME_DAMAGE_MODEL.md` for the complete contract and QA sequence.
-
-## Modular Frame rendering
-
-The Frame race points to `ZF_FrameModular`, a native Pawn render tree with dedicated Torso, intrinsic Head, Helmet, and Shoulder nodes plus vanilla carried/equipment drawing. The chassis Def owns Torso and intrinsic Head visuals; the exact Head-slot and Shoulder Things own their overlay definitions. The real Head Assembly and `IsMountValid` determine structural availability. Power never hides a physical overlay. All four layers share a 1024x1024 transparent export canvas, one draw size and origin, and one Sides texture mirrored locally for West. No render-specific Harmony patch or serialized visual inventory exists. See `docs/FRAME_RENDERING.md`.
+# Implemented Frame core architecture
+
+This is the compatibility-first candidate on `refactor/compatibility-first-frame-core`,
+from accepted UI baseline `bd2692cc16004c10d90c111f49ca23df1d0682a3`.
+See [COMPATIBILITY_CORE.md](COMPATIBILITY_CORE.md) for the subclass spike,
+framework API evidence, canary source snapshots and concrete boundaries.
+
+## Identity and custody
+
+The map actor remains a real `FramePawn : Pawn`. `FrameIdentity` recognizes
+the cockpit comp as the explicit machine marker at shared execution boundaries.
+The subclass keeps local pre-death/destruction custody, map exit, label, draft
+persistence, control ticking and command filtering. Replacing those hooks would
+add several global lifecycle interceptions. Exact-class XML comp injection by
+some mods remains a documented structural limitation.
+
+`CompPilotableMech` deep-owns the exact pilot in one `ThingOwner<Pawn>`.
+Boarding stops independent pilot jobs, despawns the Pawn and restores map custody
+in finally if transfer fails. Disembark cancels targeting before dropping the
+same Pawn. Downing ejects through the comp; Kill/Destroy eject before destructive
+base cleanup. Off-map failures transfer to the explicit `PilotRecovery` owner.
+Map removal detaches nested pilots before vanilla recursive snapshots. World
+exit retains free player pilots through their outer Frame; hostile world cleanup
+keeps the existing explicit discard contract.
+
+No pilot clone, proxy Pawn, copied skill tracker, saved machine HP or parallel
+module identity is introduced. Ordinary map, world, cockpit and recovery owners
+remain authoritative.
+
+## Temporal simulation
+
+The installed 1.6 API is `ThingOwner.DoTick()`. The cockpit invokes it once;
+it runs ordinary Pawn.Tick and interval simulation, including comps, health,
+abilities, inventory, genes, needs, skills, psychic entropy and age. Only the
+exact contained pilot's independent JobTracker tick/interval are suppressed.
+Pawn pathing/stances already require Spawned. The contained pilot remains
+unspawned and pilot.Map remains null. Vanilla unspawned rules still apply:
+entropy can recover, while NeedsPsyfocus is false outside map/caravan.
+
+Loadout ticks each non-equipment physical owner once. A module comp ticks its
+original Ability while installed; changing host runs the same vanilla tick once
+to settle an expired cooldown timestamp. The module remains the deep owner.
+Cooldown state is never rebuilt from a DefName.
+
+## Action and order contracts
+
+CanOperate means a physically valid machine/pilot pair. CanExecuteActions adds
+service lock and physical stun. Player/hostile control, combat orders, intrinsic,
+module and pilot abilities, ordinary Verb execution and melee retaliation use
+that action contract. Service cancels in-flight action without ejecting the pilot.
+
+The provider filter accepts generic drafted-only semantics, explicit Zenith
+providers and the two stock rescue/capture carry exceptions. Unknown undrafted
+providers still need an explicit contract because the native provider API does
+not declare the resulting job. The ordered-job and StartJob boundaries accept
+movement, combat, carry, exact owned abilities and explicitly declared
+FrameJobExtension capabilities; human labor/social/survival remains blocked.
+Equipment category/family policy also guards Pawn_EquipmentTracker.AddEquipment,
+before its ownership mutation.
+
+## Abilities
+
+The pilot owns the original Ability, cooldown and psychic resources. The Frame
+supplies the original Verb's physical caster and runs the original cast Job.
+Logical self targets survive in job target C and resolve to the pilot at
+activation. Target validation, AOE enumeration and targeting origin explicitly
+use the Frame. All five old global spatial/control projection getters are gone.
+Two stable vanilla Psycast method call sites adapt cast-VFX map access; ordinary
+Pawn getters remain truthful.
+
+Owner-based warmup/social motes, emitted-fleck abilities, world targeting,
+Jump/ConsumeLeap and custom effects assuming a spawned logical owner are concrete
+boundaries. Supported ordinary local abilities use native commands/jobs/effects.
+
+The optional VEF adapter uses framework Caster/CasterPawn, StartAbilityJob,
+IsEnabledForPawn and JobDriver_CastAbilityOnce.CompAbilities. The Frame does not
+own a CompAbilities. VPE's generated-lambda transpiler was removed. Framework
+warmup extensions which require the actor to own the logical component are
+blocked while embarked; VPE's normal psycast warmup is in that unsupported set.
+
+## Physical machine and service
+
+Weapon stays solely in Pawn equipment. Head, Shoulder, Offhand, Utility and Power
+have exact deep ThingOwners. Install/remove finally restores detached Things to
+their original map, the Frame map or explicit Frame inventory custody. A
+replacement failure preserves both incoming and outgoing identities and restores
+the outgoing slot when possible. Exceptions propagate.
+
+Reconstruction jobs bind one immutable BodyDef AllParts index in job.countQueue
+and its material cost in job.count. The driver validates that exact missing part
+and cost before reservation/work; invalidation fails safely instead of selecting
+another part. Old queued debug jobs without this metadata are rejected.
+
+Service preserves enqueue preference but skips temporarily inaccessible/reserved
+orders. Blocked exact requests remain queued. UI distinguishes Queued, Blocked and
+Servicing. Docking stays position-derived and gives the definition's fivefold
+boarding/work multiplier; it never contains a Frame.
+
+Real Pawn anatomy remains authoritative. Torso/Core destruction is fatal;
+Head/Cockpit/Moving loss is disabling. Only resolved positive Cockpit injury
+transfers trauma to the exact pilot. Human tending remains ordinary pilot health.
+
+## Content authoring and presentation
+
+The minimum BodyDef has exactly one Torso root, Core, Cockpit and Head Assembly,
+plus the groups needed by its selected modules. ConfigErrors and construction
+validation reject malformed chassis loudly without demanding one complete debug
+anatomy. Overlay modules declare allowedChassisFamilies; visualFamily belongs to
+the chassis. Non-overlay modules may remain unrestricted or opt into families.
+
+New physical chassis initialize three livery colors from their own defaults once.
+Saved/customized paint is preserved. Native render-tree layers and shared
+material safety remain unchanged. Structural visibility covers the implemented
+Torso/Head/Helmet/Shoulder rules; complete independent limb-disappearance art is
+not implemented.
+
+The accepted 620x520 Frame layout and 520x420 paint composition remain.
+Popups capture the bounds of the GUI group actually drawing the Frame tab and
+use native TabRect as fallback. Side placement and screen clipping use effective
+UI coordinates. Portrait zoom is a small chassis authoring parameter, with the
+Debug Frame's existing 0.43 retained. A UI overhaul replacing the tab altogether
+cannot be supported by geometry alone.
+
+## Packaging and validation
+
+CoreOnly and WithVEF are explicit package modes. CoreOnly removes the adapter
+load-folder claim and contains no optional DLL. WithVEF fails if the 1.6 framework
+reference or resulting adapter is missing. A package mode marker and static
+validation verify the choice. Core keeps Harmony as its only hard third-party
+runtime dependency; no game, Harmony or test DLL is shipped.
+
+Build/static/policy checks are the implementation loop. One final sequential
+game acceptance exercises the completed candidate; one rerun is allowed after
+a concrete failure and fix. Broad save/load, visual quality, actual mod-list
+interaction and transport/world gameplay remain human QA. Historical suite
+results in VALIDATION.md are evidence for their old commits only.

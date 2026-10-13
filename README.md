@@ -1,87 +1,72 @@
 # ZENITH FRAME: RIMWARD - Mecha Warfare
 
-Experimental RimWorld 1.6 vertical MVP for pilotable humanoid **Frames / mecha**.
+Experimental RimWorld 1.6 mod for pilotable humanoid Frames. The map actor is a
+real Pawn; the exact real pilot is physically held by the cockpit. Physical
+modules, equipment, health, jobs and native rendering provide the machine.
 
-The current target is deliberately small: one debug Frame, real player and hostile human pilots, explicit cockpit ownership, ordinary Pawn-style player input, vanilla hostile combat AI, save/load, safe pilot ejection, disabled-chassis hacking, a Dev-only recovery proof and one deterministic development-only mixed enemy raid. Placeholder vanilla lancer art is still used. There is no general faction-wide Frame spawning, final repair economy, research, progression, chassis library or final loadout UI yet.
+The current content is development proof: Debug Frame, weapons, Reactor/Weak
+Cell, Helmet, Shoulder System, Mobility Booster, Shield, Beam Sword and Overdrive.
+The Reactor is a static addon-capacity fixture, not final core power simulation.
+Production chassis, research, general faction integration and balance are later
+milestones.
 
-## Important terminology
+Frames do not use Mechanitors, bandwidth, Overseers or command range. Harmony
+is the core runtime dependency (brrainz.harmony); it is not bundled. DLC is
+optional. VEF support is a separate explicit framework package mode.
 
-A Zenith Frame is **not** a RimWorld Biotech controllable mech.
-
-Frames do not use Mechanitors, Overseers, command range, bandwidth or mech control groups. The debug Frame is a custom non-organic Pawn with its own mechanical flesh type. A valid piloted Frame is bridged into ordinary drafted-Pawn orders.
-
-## Runtime dependency
-
-The mod now depends on **Harmony**:
-
-- package ID: `brrainz.harmony`
-- Steam Workshop item: `2009463077`
-
-Harmony is a shared RimWorld mod dependency. ZENITH FRAME does **not** bundle its own `0Harmony.dll`.
-
-Biotech is not required.
-
-## Build and automated tests
-
-Windows prerequisites:
-
-- .NET SDK selected by `global.json`
-- .NET Framework 4.7.2 targeting pack
-- a local RimWorld 1.6 installation
-- Harmony installed for live-runtime tests
-
-From the repository root:
+## Build and implementation checks
 
 ```powershell
-./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Clean
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -PackageMode CoreOnly -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
 dotnet run --project Tests/Policy -c Release
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -Suite Smoke
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld'
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithInstalledExpansions
+# Explicit optional framework package, using locally installed VEF
+./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -PackageMode WithVEF -Clean
 ```
 
-`Run-LiveTests.ps1` auto-detects the Steam Workshop Harmony install in the same Steam library. A different install can be supplied with `-HarmonyDir PATH`.
+The package is under artifacts/ZenithFrame. CoreOnly contains no adapter and makes
+no adapter load-folder claim. WithVEF requires its reference and output DLL.
+Neither mode includes game assemblies, Harmony, test assemblies or external mods.
 
-The build produces `artifacts/ZenithFrame`. The release folder contains this mod's data and `ZenithFrame.dll`; it does not copy RimWorld assemblies, Harmony DLLs or the development test harness.
+## Completed-candidate live acceptance
 
-Live tests use a disposable runtime/profile under ignored `artifacts` paths. They do not modify the user's normal save folder or mod configuration.
-Use `-Suite Smoke` during normal development. The 47-phase Core suite, DLC suite, and ability matrices are milestone gates; run the affected focused phases first. Phase selection and saved-input reuse are documented in `docs/VALIDATION.md`.
+Run once after the implementation is complete. A second launch is allowed only
+after a concrete failure and fix. This uses a disposable runtime/profile and
+does not modify normal saves or the user's active mod list.
 
-## Current validation status
+```powershell
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithVEF -WithInstalledTrackers -RunName 'architecture-unique-name'
+```
 
-The original lifecycle candidate on `feat/mvp-pilot-lifecycle` passed its automated lifecycle suite and then passed the user's manual save/load/ejection checks, but its temporary custom Draft/Move/Fire control layer failed the intended game feel.
+WithInstalledTrackers loads installed Royalty/Biotech in that same process.
+WithVEF loads the installed framework and its test probe in that same process.
+Optional CanaryDir loads an available external canary without modifying Zenith.
+Full/Smoke/phase/save-load/DLC/ability matrices are retired from the active loop.
 
-`fix/pawn-first-controls` replaced that temporary control layer and passed the complete automated matrix. `feat/disabled-frame-recovery` proves that the same downed Frame identity persists through save/load, can be restored with a clearly development-only action, and reconnects to normal boarding and Pawn-first controls. `feat/disabled-frame-hacking` adds identity-preserving acquisition of hostile or factionless disabled Frames. `feat/hostile-frame-pilots` proves one deliberately spawned hostile human pilot inside the same cockpit owner. `feat/enemy-frame-raid-lifecycle` adds one Dev-only mixed raid through vanilla incident, arrival, assault Lord and retreat machinery, including active-raid and retreat save/load, ejection handoff, hacking, recovery, reuse and safe map exit. Empty Frames remain inert regardless of faction. Exact evidence is recorded in `docs/VALIDATION.md`.
+See [VALIDATION.md](docs/VALIDATION.md) for current coverage and historical evidence.
+Current results must come from the current candidate, not old matrix records.
 
-## Manual MVP validation after the automated suite is green
+## Compatibility architecture and boundaries
 
-Use a disposable colony with Harmony + ZENITH FRAME enabled and Dev Mode on.
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[COMPATIBILITY_CORE.md](docs/COMPATIBILITY_CORE.md). Frame-native execution and
+pilot-owned state are the contracts. Ordinary Pawn APIs are preferred, but exact
+thingClass XML injection and humanlike-only mods can still exclude Frames.
 
-1. Debug actions -> ZENITH FRAME -> Spawn debug Frame.
-2. Select a colonist, right-click the Frame, choose **Board Frame**. The pawn should walk to it and embark.
-3. Select the piloted Frame and press **R**. It should draft/undraft like an ordinary pawn.
-4. While drafted, right-click clear ground. The Frame should move normally. There must be no Mechanitor/command-range message and no custom **Move** gizmo.
-5. Right-click a hostile target. The Frame should use the normal ordered attack flow and keep attacking that chosen target beyond one burst until the job ends or another order interrupts it. There must be no custom **Fire rifle** gizmo.
-6. Press **B** while the Frame is drafted. The normal equipped-weapon targeting command should appear and fire the same rifle. Disembark and confirm the weapon command becomes unavailable.
-7. Pilot two or more Frames, select them together, then issue one move order and one attack order. Every eligible selected Frame should receive the group command.
-8. Save while pilots are embarked, return to the menu, load, and verify the same pilots remain inside.
-9. Disembark and verify the pawns return normally.
-10. Board again, down a Frame, and verify emergency ejection. Confirm the same chassis remains selectable, shows **Status: Disabled chassis (recoverable)**, refuses normal orders and cannot be boarded.
-11. Select a colonist and right-click the player disabled Frame. **Rescue** and **Hack Frame** must not appear.
-12. Down a hostile empty Frame. **Hack Frame** should appear while **Capture** and **Rescue** remain absent. Repeat with a factionless disabled Frame. Save and reload before hacking, then confirm the same chassis still has the action.
-13. Issue **Hack Frame** from several cells away. The colonist should reserve it, walk into touch range and display work progress. Ownership must remain hostile until the work finishes.
-14. After completion, confirm the same chassis belongs to the player but remains downed, empty, undrafted and inactive. Save and reload again and check the same identity.
-15. With Dev Mode enabled, select it and use **DEV: Recover disabled chassis**. Confirm it becomes mobile but remains empty, undrafted and inactive.
-16. Board the same recovered chassis again and repeat draft, movement, **B**, ranged right-click and forced-melee checks.
-17. Verify **Hack Frame** is absent for operational hostile or factionless Frames, player-owned disabled Frames, neutral/friendly disabled Frames, pilot-containing Frames, dead Frames and destroyed Frames.
-18. Place player-owned, hostile and factionless empty Frames beside adversaries and confirm they neither move nor attack or retaliate without a pilot.
-19. Debug actions -> ZENITH FRAME -> **Spawn hostile piloted Frame**. Confirm it moves and attacks through normal hostile AI while refusing player orders.
-20. Save and reload with the hostile pilot embarked. Down the Frame, verify that exact pilot ejects and the empty chassis immediately becomes inert, then run **Hack Frame** -> Dev recovery -> player boarding on the same chassis.
-21. Debug actions -> ZENITH FRAME -> **Start mixed enemy Frame raid**. Confirm one infantry raider and one piloted Frame arrive under the same assault Lord.
-22. Save and reload during the raid. Down the Frame and confirm the exact pilot ejects into the raid while the empty chassis stops. Hack, recover and board that same chassis.
-23. Trigger or inspect retreat behavior and confirm an operational piloted Frame can leave the map while retaining its cockpit pilot; an empty disabled chassis must never retreat itself.
+The retained subclass preserves local lifecycle safety. The contained pilot
+ticks through ordinary Pawn temporal simulation while independent jobs are
+suppressed. No pilot spatial/control getter is faked. The VEF adapter contains
+no VPE generated-lambda patch; owner-dependent warmup extensions are explicitly
+unsupported while embarked.
 
-Drafted player Frames use RimWorld's normal Fire At Will toggle. Enabled Frames naturally acquire nearby hostiles; disabled Frames still accept explicit right-click and **B** attacks. Every movement and combat route requires a valid contained pilot.
+## Human QA after installation
 
-See [architecture](docs/ARCHITECTURE.md), [baseline](docs/BASELINE.md), [project context](docs/PROJECT_CONTEXT.md) and [validation status](docs/VALIDATION.md).
+Use a disposable colony and the user's actual mod list.
+
+- Board/disembark, draft, group movement, sustained ranged orders and unarmed melee.
+- Long-duration embarked health, needs, gene/component state and ability cooldowns.
+- Save/reload while embarked and after moving a cooldown-bearing module.
+- Down/death ejection, off-map removal and exact pilot/item identity.
+- Queued, blocked, active and cancelled module service; reconstruction target/cost.
+- Frame-vs-Frame combat and desired movement/order canaries.
+- Native Frame tab, paint controls, side popups and portrait fit with UI scaling.

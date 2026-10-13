@@ -32,3 +32,7 @@ The visual Frame tab exposes three swatches, a base-game RGB color picker, and R
 14. Service-remove Helmet and Shoulder and confirm their overlays disappear with their exact physical Things.
 15. Spawn two Frames facing East and West side by side. Their one shared Sides source must render independently, one mirrored.
 16. Kill or destroy a configured Frame. Check for renderer errors and stale overlays; verify existing salvage behavior.
+
+## Per-chassis authoring
+
+visualFamily declares the aligned canvas family and overlay modules declare allowedChassisFamilies. Chassis portraitZoom controls preview fit without changing the accepted UI. Debug retains 3.5 world draw size and 0.43 portrait zoom. Those visual values do not change mechanical BodySize, occupied cells or pathing. Fresh livery uses authored defaults once; saved paint stays intact. Current structural visibility does not provide complete independent limb-disappearance artwork.

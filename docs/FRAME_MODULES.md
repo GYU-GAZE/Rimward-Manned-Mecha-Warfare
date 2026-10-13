@@ -80,3 +80,7 @@ Modular rendering maps the physical Head-slot item as a Helmet overlay and the p
 39. Verify Overdrive remains chassis-owned and pilot abilities remain pilot-owned beside the module command.
 40. Save/load during module cooldown and service work.
 41. Inspect logs for exceptions, XML errors, unresolved references, or missing textures.
+
+## Compatibility-first contracts
+
+Installed non-equipment owners tick normally. Module AbilityTick runs on the exact module while installed; changing host settles expired cooldown flags using that same vanilla API. State and timestamps stay on the module. Overlay modules require allowedChassisFamilies matching chassis visualFamily. Equip eligibility is enforced both in UI and before Pawn_EquipmentTracker.AddEquipment. Install/remove/replacement paths restore detached surviving exact Things through finally; they never recreate by DefName.

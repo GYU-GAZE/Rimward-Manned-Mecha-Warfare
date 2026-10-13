@@ -35,7 +35,7 @@ There is no additional random roll, damage threshold, penetration threshold, or 
 
 ## Contained pilot health and transitions
 
-The cockpit calls only `pilot.health.HealthTick()` and `pilot.health.HealthTickInterval(1)` from its own comp tick, matching both health calls in the vanilla Pawn cadence. This advances Hediffs, interval Hediff givers, bleeding, BloodLoss, immunity, and health state without running contained jobs, pathing, think trees, or other full-Pawn behavior.
+The cockpit invokes the installed 1.6 ThingOwner.DoTick API once. The exact pilot receives normal Pawn health and temporal simulation, including abilities, needs, genes, comps and inventory. Conditional JobTracker gates suppress only independent pilot AI/jobs; vanilla pathing already requires Spawned. There is no additional manual health tick.
 
 The existing narrow `Pawn_HealthTracker.MakeDowned` patch ejects a contained exact pilot immediately after their normal downing transition. A narrow Frame-pilot `Pawn.Kill` prefix ejects before vanilla corpse creation, preventing a corpse from being reinserted into the cockpit's `ThingOwner<Pawn>`. On a map, vanilla then creates the normal reachable corpse near the Frame.
 

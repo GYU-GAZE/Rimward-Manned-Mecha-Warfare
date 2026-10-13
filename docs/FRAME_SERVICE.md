@@ -68,3 +68,7 @@ An operational piloted player Frame accepts selected right-click movement and at
 26. Repeat install, replace, and removal with Utility and Power; inspect their dedicated owners and addon power state.
 27. Queue a stored module then destroy it before pickup; confirm the request invalidates without substituting an identical item.
 28. Interrupt a live service job and confirm the lock clears with pilot, body, loadout, abilities, and cooldowns unchanged.
+
+## Bound target and executable queue contracts
+
+Reconstruction jobs bind their immutable chassis BodyDef AllParts index in job.countQueue and exact material count in job.count at creation. The driver validates that same missing target and cost; it never chooses another part at work start. Old debug jobs lacking metadata fail safely. Queue selection preserves enqueue preference, skips temporarily unexecutable requests and retains their exact references. The UI distinguishes Queued, Blocked and Servicing. Cancellation and failure restore detached incoming/outgoing Things to explicit custody. CanOperate stays true for a valid contained pilot during service; CanExecuteActions is false until the worker lock releases.

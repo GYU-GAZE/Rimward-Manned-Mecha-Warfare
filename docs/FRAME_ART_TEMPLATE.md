@@ -30,3 +30,7 @@ For each paintable base part and facing, author a matching `<Part>_<Direction>_m
 Every source, mask, and visor overlay for a facing uses the exact same full canvas and origin. Export South, Sides authored facing East, and North; the game mirrors Sides for West. Never crop, recenter, or offset one layer independently. Final masks and overlays are manually authored. `Generate-DebugLiveryMasks.ps1` and `Generate-DebugVisorOverlays.ps1` only create technical proofs for the current Debug Frame, with 12 base PNGs, 12 masks, and 9 visor overlays.
 
 Before delivery, check dimensions, alpha, alignment, and independent recoloring in all four game rotations. Inspect installed/removed modules, missing/reconstructed Head, downing, and weapon overlap. Future damaged-state art may supply alternate sets; the current missing Head state simply omits the normal Head and Helmet layers.
+
+## Family and body contract
+
+Full-canvas overlay compatibility is explicit: the chassis visualFamily must appear in the module allowedChassisFamilies list. Compatible chassis may intentionally share a family. A production BodyDef needs exactly one Torso root, Core, Cockpit and Head Assembly plus the groups used by its modules. Config/static validation rejects malformed authoring. Portrait fit is set with chassis portraitZoom; changing draw size never substitutes for mechanical body authoring.
