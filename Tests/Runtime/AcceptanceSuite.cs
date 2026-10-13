@@ -523,6 +523,16 @@ namespace ZenithFrame.Tests
                     target => ReferenceEquals(target, worker), 0f, 65f);
                 Check(frameTarget?.Thing == frame && infantryTarget?.Thing == worker,
                     "ordinary hostile target finder recognizes player Frame and infantry");
+                // Infantry acquisition is proven above. Keep the cast observation
+                // specific to machine targets instead of letting a wandering
+                // worker become the closer valid victim of ordinary hostile AI.
+                foreach (Pawn infantry in map.mapPawns.AllPawnsSpawned
+                    .Where(pawn => pawn.Faction == Faction.OfPlayer && !FrameIdentity.IsFrame(pawn)).ToList())
+                {
+                    infantry.jobs?.StopAll();
+                    if (infantry.drafter != null) { infantry.drafter.Drafted = true; infantry.drafter.FireAtWill = false; }
+                    MovePilot(infantry, CellFinder.StandableCellNear(new IntVec3(3, 0, 3), map, 4));
+                }
                 Wait("hostile pilot ability", () => Has(frame, "ZF_TestPilotTargetEffect") || Has(spare, "ZF_TestPilotTargetEffect"), () =>
                 {
                     Check(hostile.Cockpit.Pilot.abilities.GetAbility(DefDatabase<AbilityDef>.GetNamed("ZF_TestPilotTarget")).CooldownTicksRemaining > 0,
@@ -614,7 +624,9 @@ namespace ZenithFrame.Tests
                 if (movingTarget != null && spare.CurJobDef == JobDefOf.Goto && spare.pather?.Moving == true &&
                     movingTarget.health.summaryHealth.SummaryHealthPercent < movingTargetBefore) movingShot = true;
                 if (ready != null && Find.TickManager.TicksGame > deadline)
-                    throw new TimeoutException(phase + "; job=" + frame.CurJob + "; worker=" + worker.CurJob);
+                    throw new TimeoutException(phase + "; job=" + frame.CurJob + "; worker=" + worker.CurJob +
+                        "; hostile=" + hostile?.CurJob + "; hostile pilot cooldown=" +
+                        hostile?.Cockpit.Pilot?.abilities?.GetAbility(DefDatabase<AbilityDef>.GetNamed("ZF_TestPilotTarget"))?.CooldownTicksRemaining);
                 if (ready?.Invoke() == true)
                 { Action next = continuation; ready = null; continuation = null; next(); }
             }
