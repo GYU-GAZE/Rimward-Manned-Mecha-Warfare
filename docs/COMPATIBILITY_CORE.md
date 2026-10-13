@@ -192,9 +192,9 @@ development fixtures, not final production balance.
 
 | Canary | Classification | Evidence and boundary |
 | --- | --- | --- |
-| Current RunAndGun Continued | LIKELY NATURAL; inherited comp delivery proven | Exact Pawn selector patches BasePawn; inherited comp delivery was proven in the first candidate process; moving-fire observation is separate |
+| Current RunAndGun Continued | NATURAL for the tested moving-fire path | Inherited comp delivered through BasePawn; actual target damage while physical Frame was moving in Goto, with unmodified Stance_RunAndGun_Cooldown; no Zenith content-mod patch |
 | Achtung | LIKELY NATURAL for drafted movement; STRUCTURAL LIMITATION for human work | Current Controller/Colonist use ordinary PawnCanGoto, drafting, jobs and stances; force-work remains deliberately forbidden; not live validated |
-| VEF | Supported framework surface; runtime proof is required for a NATURAL claim | Exact pilot CompAbilities plus explicit physical Caster/job adapter; no Frame proxy |
+| VEF | NATURAL through the supported framework adapter, within documented boundaries | Original pilot component and ticking, original framework cast driver on Frame and actual target effect proven live; no Frame proxy |
 | VPE through VEF | UNSUPPORTED while embarked for owner-dependent warmup | Stable WarmupToil gives only physical actor, VPE needs actor-owned CompAbilities; generated patch removed |
 | RimHUD/native inspect family | LIKELY NATURAL for retained native tab flow | Current InspectPaneTabs calls tab.DoTabGUI and adjusts pane geometry; captured bounds follow actual drawing; not live validated with RimHUD |
 
@@ -268,6 +268,9 @@ All profiles are disposable and all failed reports remain retained in artifacts.
 | 7 | compatibility-core-stationary-target-20261013 | 3d24b69 | VEF cast/module second cast/transactions passed; reconstruction removed both hands and naturally dropped weapon; fixture now re-equips exact surviving weapon |
 | 8 | compatibility-core-service-weapon-20261013 | b9487c1 | RunAndGun prefix consumed null stopped job before core service rejection; core Verb authorization now has generic Priority.First |
 | 9 | compatibility-core-guard-priority-20261013 | d10055f | Service execution families passed; stopped at hidden-window GUI callback stall; explicit opt-in Visible runner prepared |
+| 10 | compatibility-core-visible-20261013 | af0a20c | Swap, targeting cleanup, melee and acquisition passed; machine-effect observation timed out with other eligible nearby infantry; isolated targets for that observation |
+| 11 | compatibility-core-machine-targets-20261013 | 3562680 | Mechanical/UI checks and moving-fire passed, exit 0; screenshot/log review found native no-Lord duty Error messages missed by text filter, so this run was not accepted as a clean release gate |
+| 12 | compatibility-core-clean-log-20261013 | a35a1bd | Full acceptance PASS, exit 0, native Error count zero and runner log gate passed |
 
 ModsConfig.IsActive lowercases its query but its active ID hash set does not
 normalize hand-authored profile IDs. The runner now writes lowercase IDs like
@@ -284,10 +287,48 @@ module, vanilla pilot, VEF, melee, ranged and movement paths. Pilot remains exac
 and contained during service. Core Verb rejection precedes action-changing
 prefixes without naming any third-party mod or changing canary code.
 
-Pilot swap/targeting cleanup, physical melee/ranged hostile combat, moving-fire
-canary and popup geometry are still pending at this checkpoint. The hidden
+At the launch-9 checkpoint, pilot swap/targeting cleanup, physical melee/ranged
+hostile combat, moving-fire canary and popup geometry were pending. The hidden
 Unity window does not deliver the harness's required OnGUI events. Launch 9 was
 stopped and marked failed rather than left consuming CPU or counted as a pass.
 The runner defaults to Hidden and offers explicit -Visible for a user-authorized
-native interface test. Installation remains the accepted bd2692c baseline until
-the complete focused acceptance passes.
+native interface test. Installation remained the accepted bd2692c baseline until
+the complete focused acceptance passed.
+
+### Final accepted evidence
+
+Launch 12 tested implementation `a35a1bd` with Royalty, Biotech, VEF and the
+unmodified maintained RunAndGun canary. The retained report is
+`artifacts/compatibility-core-clean-log-20261013/acceptance.txt`; Player.log and
+four `architecture-popup-{2,4,6,8}.png` captures are beside it. The native log
+queue contains zero Error messages. Warnings about metadata of inactive mods in
+the disposable mod inventory remain distinguishable from runtime errors.
+
+The final flow proves all previously listed temporal, ability, service,
+transaction and reconstruction checks, plus safe targeting cancellation,
+exact pilot swap, commands following the logical owner, ordinary unarmed melee
+damage, hostile Frame/infantry acquisition, an exact pilot-owned hostile cast
+against a player Frame and subsequent real ranged damage between Frames.
+RunAndGun naturally caused real target damage while the drafted Frame was
+following Goto and moving; the observed stance was Stance_RunAndGun_Cooldown.
+This does not claim every RunAndGun weapon/settings combination is validated.
+
+All four popups anchor beside actual rendered native tab bounds and remain
+inside the 1366x768 test viewport. The captures were visually reviewed: paint,
+pilot Bio, Frame health and pilot health are readable and do not cover the
+Frame tab. This is evidence at that viewport/mod set, not an exhaustive UI-scale
+or inspect-overhaul matrix. Debug art remains the existing development fixture.
+
+The hostile tree now uses vanilla ThinkNode_ConditionalHasLordDuty before
+ThinkNode_Duty, matching vanilla's duty subtree. Standalone hostile Frames use
+the normal fallback without logging an invalid no-Lord duty call. Existing Lord
+duty precedence and exit lifecycle are retained; no new faction/raid integration
+or custom Lord was added.
+
+No more game launch is needed for the documentation-only release commit. Build
+the final CoreOnly and WithVEF packages, validate them, then install WithVEF and
+compare source/destination manifests and SHA-256 independently. Record final
+DLL hashes outside this commit because the SDK ProductVersion embeds its SHA.
+The architecture is ready for human gameplay/save-load regression before the
+first production chassis. This task stops at the verified installation; it does
+not begin content, balance, art, research or faction work.

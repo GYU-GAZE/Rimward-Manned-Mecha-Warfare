@@ -13,8 +13,9 @@ Do not run historical Full/Smoke/phase/DLC/ability matrices.
 dotnet run --project Tests/Policy -c Release
 # Optional framework release is an explicit package choice
 ./scripts/Build.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -PackageMode WithVEF -Clean
-# Execute once at the completed milestone, not on every edit
-./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithVEF -WithInstalledTrackers -RunName 'architecture-unique-name'
+# Execute once at the completed milestone, with an authorized visible window
+# for native Unity GUI events; Hidden cannot finish the current GUI stages.
+./scripts/Run-LiveTests.ps1 -RimWorldDir 'G:/SteamLibrary/steamapps/common/RimWorld' -WithVEF -WithInstalledTrackers -Visible -RunName 'architecture-unique-name'
 ```
 
 The current acceptance uses one controlled arena on a generated disposable map.
@@ -34,6 +35,14 @@ including failures. Human QA owns broad save/load, long-duration gameplay,
 down/death ejection regression, world/transport flows and the user's actual
 mod-list UI. The old ability runner is retired; the historical suites below
 are records for their original commits, not current executable instructions.
+
+The 2026-10-13 compatibility-core milestone required twelve focused launches
+after explicit additional user allowances. Every attempt and its concrete
+failure/correction is recorded in COMPATIBILITY_CORE.md. The final a35a1bd
+process passed the full flow, native Error count zero and the runner log gate.
+The preceding process had passed mechanical assertions but was rejected after
+image/log review found no-Lord duty errors which the old text filter missed.
+Acceptance now checks the native error queue before declaring success.
 
 ## Historical validation records
 

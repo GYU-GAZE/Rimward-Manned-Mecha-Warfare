@@ -125,7 +125,13 @@ Keep iteration cheap. Build, static/XML/package validation and pure policy check
 ./scripts/Build.ps1 -RimWorldDir PATH -Clean
 ./scripts/Test-Static.ps1 -RimWorldDir PATH
 dotnet run --project Tests/Policy -c Release
-./scripts/Run-LiveTests.ps1 -RimWorldDir PATH
+./scripts/Run-LiveTests.ps1 -RimWorldDir PATH -Visible
 ```
 
 Do not claim visual correctness from a mechanical harness. Record every live launch and preserve its report/log. Historical validation records are evidence for their old commits only.
+
+The current acceptance has native GUI stages and requires a user-authorized
+visible window. Hidden Unity processes do not deliver the needed OnGUI callbacks.
+The runner retains Hidden as its default and requires explicit -Visible opt-in.
+Manually authored disposable ModsConfig IDs must be lowercase, like native UI
+writes, so conditional load folders and active-mod checks agree with loading.
