@@ -119,6 +119,15 @@ namespace ZenithFrame.Tests
         {
             started = true;
             File.WriteAllText(Report, "ZENITH compatibility-first architecture acceptance" + Environment.NewLine);
+            foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading
+                .Where(pack => pack.PackageId == "gyugaze.zenithframe.rimward"))
+            {
+                File.AppendAllText(Report, "Zenith load folders: " + string.Join(", ", pack.foldersToLoadDescendingOrder) + Environment.NewLine);
+                File.AppendAllText(Report, "Zenith loaded assemblies: " + string.Join(", ", pack.assemblies.loadedAssemblies.Select(a => a.FullName + " at " + a.Location)) + Environment.NewLine);
+                ModMetaData metadata = ModLister.GetModWithIdentifier(pack.PackageId);
+                File.AppendAllText(Report, "Zenith metadata folders: " + string.Join(", ",
+                    metadata.LoadFoldersForVersion("1.6")?.Select(folder => folder.folderName + " shouldLoad=" + folder.ShouldLoad) ?? Enumerable.Empty<string>()) + Environment.NewLine);
+            }
             map = Find.CurrentMap;
             IntVec3 center = map.Center;
             // Dispose only generated disposable arena obstacles, never user saves.
