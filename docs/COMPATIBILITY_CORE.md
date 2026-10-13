@@ -61,6 +61,71 @@ Unbound modules retain their timestamp and are not executed with a null caster.
 
 ## Compatibility evidence references
 
+## Ability execution and action authority
+
+The exact pilot owns its Ability, cooldown, entropy, skills and component state.
+The existing Ability Verb is bound to the Frame; its original GetJob result runs
+on Frame.jobs. Logical self targets are retained in target C and restored only
+at activation. Target validation, AOE enumeration and hostile AOE selection use
+the physical actor explicitly. The stock commands, Ability objects and job
+drivers remain in use. Disembark cancels targeting and restores caster bindings
+before dropping the pilot.
+
+Removed all five projected Pawn/Thing getters: Map, Position, DrawPos, Drafted,
+IsColonistPlayerControlled. Removed transient projection stacks and casting
+registries. Ordinary pilot.Map remains null and ordinary Spawned remains false.
+Two stable vanilla Psycast method bodies (Activate and ApplyEffects) adapt their
+direct Map calls for cast/immune VFX through ExecutionMap. This is a narrow
+vanilla API call-site adaptation, not a Pawn property patch. No private or
+compiler-generated content-mod method is patched.
+
+Vanilla owner-based warmupMote/social bubble, emitted-fleck and world-target
+abilities, and actor-moving Jump/ConsumeLeap verbs, are explicitly unsupported
+while embarked. Custom effects which assume ability.pawn is spawned also remain
+a compatibility boundary. Their logical state is retained; the command reports
+the limitation rather than temporarily spawning or impersonating the pilot.
+
+VEF retains its own logical pawn and uses its separate Caster/CasterPawn API for
+physical execution. StartAbilityJob is adapted to the Frame, and the framework
+JobDriver_CastAbilityOnce.CompAbilities getter resolves the exact pilot comp.
+The Frame does not acquire a CompAbilities. Framework jobs declare an Ability
+capability to the core order policy. No per-content-mod patch exists.
+
+Removed the VPE generated-lambda transpiler entirely. Extensions overriding
+the framework WarmupToil API, and owner-based warmup mote/sound definitions, are
+rejected while embarked. The VPE psycast extension falls into this boundary:
+its warmup expects toil.actor.GetComp<CompAbilities>, but the actor is a Frame
+and the comp belongs to the pilot. VEF currently offers no separate logical
+component argument to that extension hook. Consequently VPE's normal warmup
+psycasts are UNSUPPORTED while embarked; they retain their original state and
+work according to VPE's ordinary rules after disembark. This deliberate boundary
+replaces fragile fake support.
+
+CanOperate describes a valid physical machine/pilot pair. CanExecuteActions
+adds service lock and physical stun. Orders, player/hostile AI, ability CanCast,
+activation, module casting, Verb.TryStartCastOn and melee retaliation consume
+that shared rule. Service preserves the pilot and cancels in-flight execution.
+
+## Order provider contract
+
+Generic drafted-only providers now pass the semantic provider gate. Existing
+undrafted Zenith providers implement IFrameOrderProvider; stock Rescue/Capture
+are the two explicit carry exceptions because their API declares no capability.
+This removes the previous closed list of concrete movement/attack providers.
+Protected Drafted/Undrafted metadata is read through cached Harmony delegates
+to those stable properties; this is reflection and is not described as zero
+reflection. Unknown undrafted providers still need an explicit contract.
+
+The authoritative ordered-job and StartJob boundaries admit normal movement,
+combat, carry/rescue/capture, exact owned Ability jobs, pilot self-care and
+JobDefs declaring a FrameJobExtension capability. Human labor/social/survival
+jobs remain rejected. An arbitrary menu action cannot be safely previewed to
+discover its job without executing it; unknown custom jobs need the small
+explicit capability extension. Achtung-style force-work stays blocked while
+normal drafted movement/combat jobs can pass. This is a STRUCTURAL LIMITATION
+for unrestricted force-work, and LIKELY NATURAL for movement/formation paths
+which use the normal job/drafter APIs; no live Achtung compatibility is claimed.
+
 - [RunAndGun Continued source](https://github.com/MemeGoddess/RunAndGun/tree/f1dc88033d15ae0c0ee4c8d0fc19e5c4b92afc83)
 - Achtung source snapshot: `pardeike/Achtung2` at `69b48943fbe90549cbb3dcf5b73b12f73259ed1d`
 - RimHUD source snapshot: `Jaxe-Dev/RimHUD` at `6f1dbfc3ba1196ab081ee4d382101ddd6b23badb`

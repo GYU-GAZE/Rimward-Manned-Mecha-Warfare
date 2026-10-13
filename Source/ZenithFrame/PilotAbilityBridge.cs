@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -8,86 +11,46 @@ using Verse.AI;
 
 namespace ZenithFrame
 {
-    // An ability remains owned by the contained pilot. This context only marks
-    // the short UI/targeting/cast interval in which the spawned Frame supplies
-    // the physical origin required by vanilla and supported ability frameworks.
+    // Logical state never leaves the owner. Only the existing Verb and Job use
+    // the physical machine. No Pawn property is projected or globally faked.
     public static class FrameAbilityContext
     {
-        [ThreadStatic] private static Stack<Pawn> transientPilots;
-        private static readonly HashSet<Pawn> castingPilots = new HashSet<Pawn>();
         private static Pawn targetingPilot;
 
-        public static bool TryGetOperationalFrame(Pawn pilot, out FramePawn frame)
+        public static bool TryGetContainingFrame(Pawn pilot, out FramePawn frame)
         {
             frame = null;
-            if (pilot == null || pilot.Destroyed || pilot.Dead ||
-                !(pilot.holdingOwner?.Owner is CompPilotableMech cockpit) ||
-                !ReferenceEquals(cockpit.Pilot, pilot) ||
-                !(cockpit.Frame is FramePawn candidate) ||
-                !candidate.Spawned || candidate.Destroyed || candidate.Dead || candidate.Downed ||
-                !cockpit.CanOperate)
-                return false;
-
-            frame = candidate;
-            return true;
+            if (!FrameIdentity.IsContainedPilot(pilot)) return false;
+            frame = ((CompPilotableMech)pilot.holdingOwner.Owner).Frame as FramePawn;
+            return frame != null;
         }
 
-        public static Scope EnterTransient(Pawn pilot)
-        {
-            if (!TryGetOperationalFrame(pilot, out FramePawn _)) return default(Scope);
-            if (transientPilots == null) transientPilots = new Stack<Pawn>();
-            transientPilots.Push(pilot);
-            return new Scope(pilot);
-        }
-
-        public static bool TryGetProjectedFrame(Pawn pilot, out FramePawn frame)
-        {
-            bool transient = transientPilots != null && transientPilots.Contains(pilot);
-            bool active = ReferenceEquals(targetingPilot, pilot) || castingPilots.Contains(pilot);
-            if ((transient || active) && TryGetOperationalFrame(pilot, out frame)) return true;
-            if (active && !TryGetOperationalFrame(pilot, out frame)) Cancel(pilot);
-            frame = null;
-            return false;
-        }
-
-        public static void BeginTargeting(Pawn pilot)
-        {
-            if (TryGetOperationalFrame(pilot, out FramePawn _)) targetingPilot = pilot;
-        }
-
-        public static void EndTargeting()
-        {
-            targetingPilot = null;
-        }
-
-        public static bool IsTargeting(Pawn pilot) => ReferenceEquals(targetingPilot, pilot);
-
-        public static void BeginCast(Pawn pilot)
-        {
-            if (TryGetOperationalFrame(pilot, out FramePawn _)) castingPilots.Add(pilot);
-        }
-
-        public static void EndCast(Pawn pilot)
-        {
-            if (pilot != null) castingPilots.Remove(pilot);
-        }
-
-        public static bool IsCasting(Pawn pilot) => pilot != null && castingPilots.Contains(pilot);
+        public static bool TryGetOperationalFrame(Pawn pilot, out FramePawn frame) =>
+            TryGetContainingFrame(pilot, out frame) && frame.Cockpit.CanExecuteActions;
 
         public static bool BindVanillaAbility(Ability ability)
         {
-            if (ability == null || !TryGetOperationalFrame(ability.pawn, out FramePawn frame)) return false;
+            if (ability?.verb == null || !TryGetOperationalFrame(ability.pawn, out FramePawn frame)) return false;
             ability.verb.caster = frame;
             return true;
         }
 
+        public static void BeginTargeting(Pawn pilot)
+        {
+            if (TryGetOperationalFrame(pilot, out _)) targetingPilot = pilot;
+        }
+
+        public static void EndTargeting() => targetingPilot = null;
+        public static bool IsTargeting(Pawn pilot) => ReferenceEquals(targetingPilot, pilot);
+        public static bool IsCasting(Pawn pilot) => TryGetContainingFrame(pilot, out FramePawn frame) &&
+            ReferenceEquals(frame.CurJob?.ability?.pawn, pilot);
+
         public static void Cancel(Pawn pilot)
         {
             if (pilot == null) return;
-            castingPilots.Remove(pilot);
             if (pilot.abilities != null)
                 foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
-                    if (ability?.verb != null && ability.verb.caster is FramePawn)
+                    if (ability?.verb != null && FrameIdentity.IsFrame(ability.verb.CasterPawn))
                         ability.verb.caster = pilot;
             if (ReferenceEquals(targetingPilot, pilot))
             {
@@ -96,20 +59,44 @@ namespace ZenithFrame
             }
         }
 
-        private static void ExitTransient(Pawn pilot)
+        // Spatial presentation inside the two stable Psycast methods only.
+        // Ordinary callers of pilot.Map still observe null.
+        public static Map ExecutionMap(Thing owner) =>
+            owner is Pawn pilot && TryGetContainingFrame(pilot, out FramePawn frame) ? frame.Map : owner.Map;
+    }
+
+    public static class FramePilotAbilitySupport
+    {
+        public static bool Supported(Ability ability) => ability?.def != null &&
+            !ability.def.targetWorldCell && ability.def.warmupMote == null &&
+            ability.def.WarmupMoteSocialSymbol == null && ability.def.emittedFleck == null &&
+            !(ability.verb is Verb_CastAbilityJump) && !(ability.verb is Verb_CastAbilityConsumeLeap);
+
+        public static AcceptanceReport ExecutionAllowed(Ability ability)
         {
-            if (transientPilots == null || transientPilots.Count == 0) return;
-            Pawn popped = transientPilots.Pop();
-            if (!ReferenceEquals(popped, pilot))
-                throw new InvalidOperationException("ZENITH: pilot ability context stack was corrupted.");
+            Pawn owner = ability?.pawn;
+            if (FrameAbilityContext.TryGetContainingFrame(owner, out FramePawn frame))
+            {
+                if (!frame.Cockpit.CanExecuteActions) return "ZF_ActionUnavailable".Translate();
+                if (!Supported(ability)) return "ZF_AbilityUnsupportedEmbarked".Translate();
+            }
+            else if (FrameIdentity.IsFrame(owner) && FrameIdentity.Cockpit(owner).CanExecuteActions != true)
+                return "ZF_ActionUnavailable".Translate();
+            return true;
         }
 
-        public struct Scope : IDisposable
+        internal static IEnumerable<LocalTargetInfo> AffectedTargets(Ability ability, FramePawn frame, LocalTargetInfo target)
         {
-            private readonly Pawn pilot;
-            internal Scope(Pawn pilot) { this.pilot = pilot; }
-            public void Dispose() { if (pilot != null) ExitTransient(pilot); }
+            if (!ability.def.HasAreaOfEffect || !ability.def.canUseAoeToGetTargets)
+            { yield return target; yield break; }
+            foreach (Thing thing in GenRadial.RadialDistinctThingsAround(target.Cell, frame.Map,
+                ability.def.EffectRadius, true))
+                if (ValidAffected(ability, thing)) yield return thing;
         }
+
+        internal static bool ValidAffected(Ability ability, Thing thing) =>
+            ability.verb.targetParams.CanTarget(thing) && !thing.Fogged() &&
+            ability.EffectComps.All(effect => effect.Valid(new LocalTargetInfo(thing), false));
     }
 
     internal static class PilotAbilityGizmos
@@ -118,21 +105,15 @@ namespace ZenithFrame
         {
             Pawn pilot = frame.Cockpit?.Pilot;
             if (pilot?.abilities == null || !frame.Cockpit.CanTakePlayerOrders) yield break;
-
-            using (FrameAbilityContext.EnterTransient(pilot))
+            foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
             {
-                foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
-                {
-                    FrameAbilityContext.BindVanillaAbility(ability);
-                    bool visible = (frame.Drafted || ability.def.displayGizmoWhileUndrafted) && ability.GizmosVisible();
-                    if (!visible) continue;
-                    foreach (Command command in ability.GetGizmos()) yield return command;
-                    foreach (Gizmo extra in ability.GetGizmosExtra()) yield return extra;
-                }
-
-                Pawn_PsychicEntropyTracker tracker = pilot.psychicEntropy;
-                if (tracker?.NeedToShowGizmo() == true) yield return tracker.GetGizmo();
+                FrameAbilityContext.BindVanillaAbility(ability);
+                if ((!frame.Drafted && !ability.def.displayGizmoWhileUndrafted) ||
+                    (frame.Drafted && !ability.def.showWhenDrafted) || !ability.GizmosVisible()) continue;
+                foreach (Command command in ability.GetGizmos()) yield return command;
+                foreach (Gizmo extra in ability.GetGizmosExtra()) yield return extra;
             }
+            if (pilot.HasPsylink && pilot.psychicEntropy != null) yield return pilot.psychicEntropy.GetGizmo();
         }
     }
 
@@ -141,81 +122,136 @@ namespace ZenithFrame
     {
         private static void Postfix(Ability __instance, ref Thing __result)
         {
-            if (FrameAbilityContext.TryGetOperationalFrame(__instance?.pawn, out FramePawn frame))
-                __result = frame;
+            if (FrameAbilityContext.TryGetOperationalFrame(__instance?.pawn, out FramePawn frame)) __result = frame;
         }
     }
 
-    // Vanilla queues the original ability job through ability.pawn.jobs. Only
-    // that exact call is redirected; the Job still stores the pilot Ability and
-    // its Verb now resolves the Frame through ConstantCaster.
+    [HarmonyPatch(typeof(Ability), nameof(Ability.CanCast), MethodType.Getter)]
+    internal static class Patch_Ability_CanCast_FrameExecution
+    {
+        private static void Postfix(Ability __instance, ref AcceptanceReport __result)
+        {
+            AcceptanceReport allowed = FramePilotAbilitySupport.ExecutionAllowed(__instance);
+            if (!allowed.Accepted) __result = allowed;
+        }
+    }
+
+    [HarmonyPatch(typeof(Ability), nameof(Ability.GizmoDisabled))]
+    internal static class Patch_Ability_GizmoDisabled_EmbarkedPilot
+    {
+        private static bool Prefix(Ability __instance, ref bool __result, out string reason)
+        {
+            reason = null;
+            if (!FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return true;
+            AcceptanceReport allowed = FramePilotAbilitySupport.ExecutionAllowed(__instance);
+            if (!allowed.Accepted) reason = allowed.Reason;
+            else if (!__instance.CanCast.Accepted) reason = __instance.CanCast.Reason ?? "ZF_ActionUnavailable".Translate();
+            else if (__instance.EffectComps.Any(effect => effect.GizmoDisabled(out _)))
+            {
+                foreach (CompAbilityEffect effect in __instance.EffectComps)
+                    if (effect.GizmoDisabled(out reason)) break;
+            }
+            else if (!frame.Drafted && __instance.def.disableGizmoWhileUndrafted)
+                reason = "AbilityDisabledUndrafted".Translate();
+            else if (__instance.pawn.Downed || __instance.pawn.Deathresting || __instance.pawn.DevelopmentalStage.Baby())
+                reason = "ZF_ActionUnavailable".Translate();
+            else if (__instance.def.casterMustBeCapableOfViolence && __instance.pawn.WorkTagIsDisabled(WorkTags.Violent))
+                reason = "IsIncapableOfViolence".Translate(__instance.pawn.LabelShort, __instance.pawn);
+            else if (frame.jobs.AllJobs().Any(job => job.ability == __instance))
+                reason = "AbilityAlreadyQueued".Translate();
+            else
+            {
+                AcceptanceReport lord = frame.Cockpit.OperationalLord?.AbilityAllowed(__instance) ?? true;
+                if (!lord.Accepted) reason = lord.Reason;
+            }
+            __result = reason != null;
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
     internal static class Patch_PawnJobTracker_TryTakeOrderedJob_PilotAbility
     {
         private static bool Prefix(Pawn ___pawn, Job job, JobTag? tag, bool requestQueueing, ref bool __result)
         {
-            Pawn owner = job?.ability?.pawn;
-            if (!ReferenceEquals(___pawn, owner) ||
-                !FrameAbilityContext.TryGetOperationalFrame(owner, out FramePawn frame)) return true;
-
-            FrameAbilityContext.BindVanillaAbility(job.ability);
-            FrameAbilityContext.BeginCast(owner);
-            __result = frame.jobs.TryTakeOrderedJob(job, tag, requestQueueing);
-            if (!__result) FrameAbilityContext.EndCast(owner);
+            if (!FrameAbilityContext.TryGetContainingFrame(___pawn, out FramePawn frame)) return true;
+            __result = false;
+            if (job?.ability?.pawn == ___pawn && FramePilotAbilitySupport.ExecutionAllowed(job.ability).Accepted &&
+                FrameAbilityContext.BindVanillaAbility(job.ability))
+                __result = frame.jobs.TryTakeOrderedJob(job, tag, requestQueueing);
             return false;
         }
     }
 
-    // A self ability still targets its owning pilot. The spawned Frame is kept
-    // in target A solely so the stock JobDriver has a valid actor/target for its
-    // despawn checks; target C records the real logical target across save/load.
     [HarmonyPatch(typeof(Ability), nameof(Ability.GetJob))]
     internal static class Patch_Ability_GetJob_EmbarkedSelfTarget
     {
         private static void Postfix(Ability __instance, LocalTargetInfo target, Job __result)
         {
-            Pawn pilot = __instance?.pawn;
-            if (__result == null || !ReferenceEquals(target.Thing, pilot) ||
-                !FrameAbilityContext.TryGetOperationalFrame(pilot, out FramePawn frame)) return;
+            if (__result == null || !FrameAbilityContext.TryGetOperationalFrame(__instance.pawn, out FramePawn frame)) return;
             FrameAbilityContext.BindVanillaAbility(__instance);
-            __result.targetA = frame;
-            __result.targetC = pilot;
+            if (ReferenceEquals(target.Thing, __instance.pawn))
+            { __result.targetA = frame; __result.targetC = __instance.pawn; }
         }
     }
 
-    [HarmonyPatch(typeof(Ability), nameof(Ability.Activate),
-        new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) })]
-    internal static class Patch_Ability_Activate_EmbarkedSelfTarget
+    [HarmonyPatch(typeof(Ability), nameof(Ability.Activate), new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) })]
+    internal static class Patch_Ability_Activate_FrameExecution
     {
-        private static void Prefix(Ability __instance, ref LocalTargetInfo target, ref LocalTargetInfo dest)
+        private static bool Prefix(Ability __instance, ref LocalTargetInfo target, ref bool __result)
         {
-            Pawn pilot = __instance?.pawn;
-            if (!FrameAbilityContext.TryGetOperationalFrame(pilot, out FramePawn frame) ||
-                !ReferenceEquals(target.Thing, frame) || frame.CurJob?.ability != __instance ||
-                !ReferenceEquals(frame.CurJob.targetC.Thing, pilot)) return;
-            target = pilot;
+            if (!FramePilotAbilitySupport.ExecutionAllowed(__instance).Accepted) { __result = false; return false; }
+            if (FrameAbilityContext.TryGetOperationalFrame(__instance.pawn, out FramePawn frame) &&
+                ReferenceEquals(target.Thing, frame) &&
+                (!__instance.def.targetRequired || (frame.CurJob?.ability == __instance &&
+                 ReferenceEquals(frame.CurJob.targetC.Thing, __instance.pawn)))) target = __instance.pawn;
+            return true;
         }
     }
 
-    [HarmonyPatch(typeof(JobDriver_CastAbility), nameof(JobDriver_CastAbility.Notify_Starting))]
-    internal static class Patch_JobDriverCastAbility_Starting_EmbarkedPilot
+    [HarmonyPatch(typeof(Verb_CastAbility), nameof(Verb_CastAbility.ValidateTarget))]
+    internal static class Patch_VerbCastAbility_ValidateTarget_PhysicalFrame
     {
-        private static void Postfix(JobDriver_CastAbility __instance)
+        private static bool Prefix(Verb_CastAbility __instance, LocalTargetInfo target, bool showMessages, ref bool __result)
         {
-            Pawn owner = __instance?.job?.ability?.pawn;
-            if (owner != null && __instance.GetActor() is FramePawn)
-                FrameAbilityContext.BeginCast(owner);
+            Ability ability = __instance.ability;
+            if (!FrameAbilityContext.TryGetContainingFrame(ability?.pawn, out FramePawn frame)) return true;
+            __result = false;
+            if (!FramePilotAbilitySupport.ExecutionAllowed(ability).Accepted) return false;
+            FrameAbilityContext.BindVanillaAbility(ability);
+            bool self = ReferenceEquals(target.Thing, ability.pawn) && !ability.def.targetRequired;
+            if (!self && (__instance.EffectiveRange > 0f ? !__instance.CanHitTarget(target) :
+                !frame.CanReach(target, PathEndMode.Touch, frame.NormalMaxDanger()))) return false;
+            __result = __instance.IsApplicableTo(target, showMessages) &&
+                ability.EffectComps.All(effect => effect.Valid(target, showMessages));
+            return false;
         }
     }
 
-    [HarmonyPatch(typeof(JobDriver), nameof(JobDriver.Cleanup))]
-    internal static class Patch_JobDriver_Cleanup_PilotAbility
+    [HarmonyPatch(typeof(Ability), nameof(Ability.GetAffectedTargets))]
+    internal static class Patch_Ability_AffectedTargets_PhysicalFrame
     {
-        private static void Postfix(JobDriver __instance)
+        private static void Postfix(Ability __instance, LocalTargetInfo target, ref IEnumerable<LocalTargetInfo> __result)
         {
-            Pawn owner = __instance?.job?.ability?.pawn;
-            if (owner != null && __instance.GetActor() is FramePawn)
-                FrameAbilityContext.EndCast(owner);
+            if (FrameAbilityContext.TryGetOperationalFrame(__instance.pawn, out FramePawn frame))
+                __result = FramePilotAbilitySupport.AffectedTargets(__instance, frame, target);
+        }
+    }
+
+    [HarmonyPatch(typeof(Ability), nameof(Ability.AIGetAOETarget))]
+    internal static class Patch_Ability_AOETarget_PhysicalFrame
+    {
+        private static bool Prefix(Ability __instance, ref LocalTargetInfo __result)
+        {
+            if (!FrameAbilityContext.TryGetContainingFrame(__instance.pawn, out FramePawn frame)) return true;
+            __result = LocalTargetInfo.Invalid;
+            if (!frame.Cockpit.CanExecuteActions || !__instance.def.ai_SearchAOEForTargets) return false;
+            foreach (Thing thing in GenRadial.RadialDistinctThingsAround(frame.Position, frame.Map,
+                __instance.verb.EffectiveRange, true))
+                if (FramePilotAbilitySupport.ValidAffected(__instance, thing) &&
+                    __instance.EffectComps.All(effect => effect.AICanTargetNow(thing)))
+                { __result = thing; break; }
+            return false;
         }
     }
 
@@ -226,157 +262,60 @@ namespace ZenithFrame
     {
         private static void Postfix(ITargetingSource source)
         {
-            if (source is Verb_CastAbility verb && verb.ability != null &&
-                FrameAbilityContext.TryGetOperationalFrame(verb.ability.pawn, out FramePawn _))
-                FrameAbilityContext.BeginTargeting(verb.ability.pawn);
+            if (source is Verb_CastAbility verb) FrameAbilityContext.BeginTargeting(verb.ability?.pawn);
         }
     }
-
     [HarmonyPatch(typeof(Targeter), nameof(Targeter.StopTargeting))]
     internal static class Patch_Targeter_StopTargeting_PilotAbility
-    {
-        private static void Postfix() => FrameAbilityContext.EndTargeting();
-    }
+    { private static void Postfix() => FrameAbilityContext.EndTargeting(); }
 
-    internal static class AbilityContextScopePatch
+    // The public Psycast implementation directly reads owner.Map for cast VFX.
+    // Adapt those call sites to an explicit execution map; owner getters remain
+    // truthful. No content-mod or compiler-generated method is targeted.
+    [HarmonyPatch]
+    internal static class Patch_Psycast_ExecutionMap
     {
-        internal static void Prefix(Ability __instance, out FrameAbilityContext.Scope __state) =>
-            __state = FrameAbilityContext.EnterTransient(__instance?.pawn);
-
-        internal static Exception Finalizer(Exception __exception, FrameAbilityContext.Scope __state)
+        private static IEnumerable<MethodBase> TargetMethods()
         {
-            __state.Dispose();
-            return __exception;
+            yield return AccessTools.Method(typeof(Psycast), nameof(Psycast.Activate),
+                new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
+            yield return AccessTools.Method(typeof(Psycast), "ApplyEffects",
+                new[] { typeof(IEnumerable<CompAbilityEffect>), typeof(LocalTargetInfo), typeof(LocalTargetInfo) });
+        }
+        private static bool Prefix(Psycast __instance) => FramePilotAbilitySupport.ExecutionAllowed(__instance).Accepted;
+        private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo map = AccessTools.PropertyGetter(typeof(Thing), nameof(Thing.Map));
+            MethodInfo explicitMap = AccessTools.Method(typeof(FrameAbilityContext), nameof(FrameAbilityContext.ExecutionMap));
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.Calls(map)) { instruction.opcode = OpCodes.Call; instruction.operand = explicitMap; }
+                yield return instruction;
+            }
         }
     }
 
-    [HarmonyPatch(typeof(Ability), nameof(Ability.GizmoDisabled))]
-    internal static class Patch_Ability_GizmoDisabled_EmbarkedPilot
-    {
-        private static void Prefix(Ability __instance, out FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Prefix(__instance, out __state);
-        private static Exception Finalizer(Exception __exception, FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Finalizer(__exception, __state);
-    }
-
-    [HarmonyPatch(typeof(Ability), nameof(Ability.AICanTargetNow))]
-    internal static class Patch_Ability_AICanTargetNow_EmbarkedPilot
-    {
-        private static void Prefix(Ability __instance, out FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Prefix(__instance, out __state);
-        private static Exception Finalizer(Exception __exception, FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Finalizer(__exception, __state);
-    }
-
-    [HarmonyPatch(typeof(Ability), nameof(Ability.AIGetAOETarget))]
-    internal static class Patch_Ability_AIGetAOETarget_EmbarkedPilot
-    {
-        private static void Prefix(Ability __instance, out FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Prefix(__instance, out __state);
-        private static Exception Finalizer(Exception __exception, FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Finalizer(__exception, __state);
-    }
-
-    [HarmonyPatch(typeof(Ability), nameof(Ability.OnGizmoUpdate))]
-    internal static class Patch_Ability_OnGizmoUpdate_EmbarkedPilot
-    {
-        private static void Prefix(Ability __instance, out FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Prefix(__instance, out __state);
-        private static Exception Finalizer(Exception __exception, FrameAbilityContext.Scope __state) =>
-            AbilityContextScopePatch.Finalizer(__exception, __state);
-    }
-
-    // Evidence-driven scoped compatibility: installed vanilla/VEF code reads
-    // owner Pawn spatial getters directly during an ability operation. These
-    // patches never activate outside a marked command/target/cast interval and
-    // never alter Spawned or authoritative stored coordinates.
-    [HarmonyPatch(typeof(Thing), nameof(Thing.Map), MethodType.Getter)]
-    internal static class Patch_Thing_Map_PilotAbilityContext
-    {
-        private static void Postfix(Thing __instance, ref Map __result)
-        {
-            if (__instance is Pawn pilot && FrameAbilityContext.TryGetProjectedFrame(pilot, out FramePawn frame))
-                __result = frame.Map;
-        }
-    }
-
-    [HarmonyPatch(typeof(Thing), nameof(Thing.Position), MethodType.Getter)]
-    internal static class Patch_Thing_Position_PilotAbilityContext
-    {
-        private static void Postfix(Thing __instance, ref IntVec3 __result)
-        {
-            if (__instance is Pawn pilot && FrameAbilityContext.TryGetProjectedFrame(pilot, out FramePawn frame))
-                __result = frame.Position;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.DrawPos), MethodType.Getter)]
-    internal static class Patch_Pawn_DrawPos_PilotAbilityContext
-    {
-        private static void Postfix(Pawn __instance, ref Vector3 __result)
-        {
-            if (FrameAbilityContext.TryGetProjectedFrame(__instance, out FramePawn frame))
-                __result = frame.DrawPos;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.Drafted), MethodType.Getter)]
-    internal static class Patch_Pawn_Drafted_PilotAbilityContext
-    {
-        private static void Postfix(Pawn __instance, ref bool __result)
-        {
-            if (FrameAbilityContext.TryGetProjectedFrame(__instance, out FramePawn frame))
-                __result = frame.Drafted;
-        }
-    }
-
-    [HarmonyPatch(typeof(Pawn), nameof(Pawn.IsColonistPlayerControlled), MethodType.Getter)]
-    internal static class Patch_Pawn_PlayerControl_PilotAbilityContext
-    {
-        private static void Postfix(Pawn __instance, ref bool __result)
-        {
-            if (FrameAbilityContext.TryGetProjectedFrame(__instance, out FramePawn frame))
-                __result = frame.Cockpit.CanTakePlayerOrders;
-        }
-    }
-
-    // Hostile Frames already use vanilla target acquisition and combat. This
-    // node only asks the pilot's stock ability tracker whether an offensive
-    // ability can target that same enemy, then returns the ordinary ability Job.
     public sealed class JobGiver_FramePilotAbility : ThinkNode_JobGiver
     {
         protected override Job TryGiveJob(Pawn pawn)
         {
-            if (!(pawn is FramePawn frame) || frame.Cockpit?.CanUseHostileCombatAI != true)
-                return null;
+            if (!FrameIdentity.TryGet(pawn, out FramePawn frame) || !frame.Cockpit.CanUseHostileCombatAI) return null;
+            foreach (Ability module in frame.Loadout.ActiveModuleAbilities())
+                if (module.def.aiCanUse && module.CanCast.Accepted && module.AICanTargetNow(frame))
+                    return module.GetJob(frame, frame);
             Pawn pilot = frame.Cockpit.Pilot;
             if (pilot?.abilities == null || frame.CurJob?.ability != null) return null;
-
-            foreach (Ability moduleAbility in frame.Loadout.ActiveModuleAbilities())
+            IAttackTarget enemy = AttackTargetFinder.BestAttackTarget(frame,
+                TargetScanFlags.NeedThreat | TargetScanFlags.NeedAutoTargetable, null, 0f, 65f);
+            if (enemy?.Thing == null) return null;
+            foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
             {
-                if (!moduleAbility.def.aiCanUse || !moduleAbility.CanCast.Accepted) continue;
-                LocalTargetInfo self = frame;
-                if (!moduleAbility.AICanTargetNow(self)) continue;
-                return moduleAbility.GetJob(self, self);
-            }
-
-            IAttackTarget attackTarget = AttackTargetFinder.BestAttackTarget(frame,
-                TargetScanFlags.NeedThreat | TargetScanFlags.NeedAutoTargetable,
-                target => target is Pawn, 0f, 65f);
-            if (attackTarget?.Thing == null) return null;
-
-            LocalTargetInfo target = attackTarget.Thing;
-            using (FrameAbilityContext.EnterTransient(pilot))
-            {
-                foreach (Ability ability in pilot.abilities.AllAbilitiesForReading)
-                    FrameAbilityContext.BindVanillaAbility(ability);
-                foreach (Ability ability in pilot.abilities.AICastableAbilities(target, true))
-                {
-                    if (!ability.CanCast.Accepted || !ability.AICanTargetNow(target)) continue;
-                    return ability.GetJob(target, target);
-                }
+                FrameAbilityContext.BindVanillaAbility(ability);
+                if (ability.def.aiCanUse && ability.CanCast.Accepted && ability.AICanTargetNow(enemy.Thing))
+                    return ability.GetJob(enemy.Thing, enemy.Thing);
             }
             return null;
         }
     }
 }
+

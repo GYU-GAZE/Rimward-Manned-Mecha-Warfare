@@ -117,8 +117,8 @@ namespace ZenithFrame
         public bool TryDisembark()
         {
             if (!HasPilot || !Frame.Spawned) return false;
-            if (!pilots.TryDrop(Pilot, Frame.Position, Frame.Map, ThingPlaceMode.Near, out Pawn _)) return false;
             StopFrame();
+            if (!pilots.TryDrop(Pilot, Frame.Position, Frame.Map, ThingPlaceMode.Near, out Pawn _)) return false;
             return true;
         }
 

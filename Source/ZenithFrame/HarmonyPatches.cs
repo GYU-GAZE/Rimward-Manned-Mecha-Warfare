@@ -133,15 +133,7 @@ namespace ZenithFrame
             if (!(pawn is FramePawn))
                 return;
 
-            bool allowed =
-                __instance is FloatMenuOptionProvider_DraftedMove ||
-                __instance is FloatMenuOptionProvider_DraftedAttack ||
-                __instance is FloatMenuOptionProvider_RescuePawn ||
-                __instance is FloatMenuOptionProvider_CapturePawn ||
-                __instance is FloatMenuOptionProvider_FrameHaul ||
-                __instance is FloatMenuOptionProvider_FrameDisembark ||
-                __instance is FloatMenuOptionProvider_FramePilotSelfTend ||
-                __instance is FloatMenuOptionProvider_DockFrame;
+            bool allowed = FrameOrderPolicy.ProviderAllowed(__instance);
 
             __result = __result && allowed;
         }
@@ -297,3 +289,4 @@ namespace ZenithFrame
         }
     }
 }
+

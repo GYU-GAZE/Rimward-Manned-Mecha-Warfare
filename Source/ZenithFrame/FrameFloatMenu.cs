@@ -31,7 +31,7 @@ namespace ZenithFrame
         }
     }
 
-    public sealed class FloatMenuOptionProvider_FrameDisembark : FloatMenuOptionProvider
+    public sealed class FloatMenuOptionProvider_FrameDisembark : FloatMenuOptionProvider, IFrameOrderProvider
     {
         protected override bool Drafted => true;
         protected override bool Undrafted => true;
@@ -51,7 +51,7 @@ namespace ZenithFrame
         }
     }
 
-    public sealed class FloatMenuOptionProvider_FramePilotSelfTend : FloatMenuOptionProvider
+    public sealed class FloatMenuOptionProvider_FramePilotSelfTend : FloatMenuOptionProvider, IFrameOrderProvider
     {
         protected override bool Drafted => true;
         protected override bool Undrafted => true;
@@ -71,7 +71,7 @@ namespace ZenithFrame
         }
     }
 
-    public sealed class FloatMenuOptionProvider_DockFrame : FloatMenuOptionProvider
+    public sealed class FloatMenuOptionProvider_DockFrame : FloatMenuOptionProvider, IFrameOrderProvider
     {
         protected override bool Drafted => true;
         protected override bool Undrafted => true;
@@ -101,7 +101,7 @@ namespace ZenithFrame
     // WorkGivers is deliberately NOT allowed for Frames: it exposes every
     // colonist work order and requires a colonist work think tree. This provider
     // creates only an explicit vanilla storage-haul job for the clicked Thing.
-    public sealed class FloatMenuOptionProvider_FrameHaul : FloatMenuOptionProvider
+    public sealed class FloatMenuOptionProvider_FrameHaul : FloatMenuOptionProvider, IFrameOrderProvider
     {
         protected override bool Drafted => true;
         protected override bool Undrafted => true;
@@ -124,3 +124,4 @@ namespace ZenithFrame
         }
     }
 }
+
