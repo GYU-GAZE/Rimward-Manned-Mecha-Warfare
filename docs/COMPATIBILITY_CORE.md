@@ -204,3 +204,34 @@ restores detached surviving Things after exceptions; it cannot resurrect an exac
 Thing that arbitrary external code deliberately destroys. Old debug reconstruction
 jobs without bound part metadata fail safely. Broad old-save compatibility is a
 human regression task, not a reason to retain unsafe architecture.
+
+## Candidate acceptance status (2026-10-12)
+
+Two game processes have been launched, both with Royalty, Biotech, VEF and the
+unmodified maintained RunAndGun canary. Neither completed the full acceptance.
+The first confirmed authored livery, exact boarding, Frame drafter, original
+pilot Ability execution, pilot-owned self effect/cooldown and inherited canary
+comp delivery, then a fixture dereferenced the normally removed pilot pather.
+That optional tracker query was corrected. Ability queueing now directly uses
+the physical Frame job actor rather than requiring owner map trackers.
+
+The second additionally confirmed truthful contained pilot state, absence of
+independent jobs/pathing/map registration, exactly-once ordinary Pawn comp tick
+and interval tick, inventory ticking and food progression. It stopped at the
+health fixture's BloodLoss assertion. Installed HediffGiver_Bleeding only grows
+BloodLoss when BleedRateTotal >= 0.1; the severity-one cut was below that threshold.
+The fixture now uses a severity-five cut and checks that prerequisite explicitly.
+This last fixture correction has NOT been rerun. No manual bleeding simulation
+was added to production code.
+
+The actual second pilot/module casts, gene/entropy observations, Royalty/VEF cast,
+service lock, transactions, reconstruction binding, combat, moving-fire canary
+and UI bounds remain unexecuted in the completed acceptance flow. Their presence
+in the harness is planned coverage, not passing runtime evidence. RunAndGun comp
+delivery is proven; moving-fire support is still LIKELY NATURAL and unverified.
+
+The candidate must not be considered ready for production chassis work until
+the focused acceptance completes. Installation is held at the accepted baseline.
+An additional game launch requires a new explicit allowance beyond the task's
+one final process plus one rerun budget. Historical matrix evidence cannot fill
+these current-candidate gaps.

@@ -164,8 +164,10 @@ namespace ZenithFrame.Tests
             foreach (BodyPartRecord part in pilot.health.hediffSet.GetNotMissingParts().Where(p => p.def == BodyPartDefOf.Arm).Take(1))
             {
                 Hediff cut = HediffMaker.MakeHediff(DefDatabase<HediffDef>.GetNamed("Cut"), pilot, part);
-                cut.Severity = 1f; pilot.health.AddHediff(cut, part);
+                cut.Severity = 5f; pilot.health.AddHediff(cut, part);
             }
+            Check(pilot.health.hediffSet.BleedRateTotal >= 0.1f,
+                "health fixture exceeds vanilla BloodLoss bleeding threshold");
             pilotProbe = new TemporalProbe { parent = pilot, props = new TemporalProbeProps() };
             pilot.AllComps.Add(pilotProbe);
             Thing clock = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("ZF_TestTemporalItem"));
