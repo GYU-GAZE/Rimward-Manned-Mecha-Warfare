@@ -205,9 +205,9 @@ Thing that arbitrary external code deliberately destroys. Old debug reconstructi
 jobs without bound part metadata fail safely. Broad old-save compatibility is a
 human regression task, not a reason to retain unsafe architecture.
 
-## Candidate acceptance status (2026-10-12)
+## Historical checkpoint (2026-10-12, superseded below)
 
-Two game processes have been launched, both with Royalty, Biotech, VEF and the
+The first two game processes requested Royalty, Biotech, VEF and the
 unmodified maintained RunAndGun canary. Neither completed the full acceptance.
 The first confirmed authored livery, exact boarding, Frame drafter, original
 pilot Ability execution, pilot-owned self effect/cooldown and inherited canary
@@ -250,3 +250,44 @@ the focused acceptance completes. Installation is held at the accepted baseline.
 Three launches have been used: the task's two-process budget and one explicitly
 authorized extra. A fourth requires another explicit allowance. Historical matrix
 evidence cannot fill these current-candidate gaps.
+
+## Resumed acceptance record (2026-10-13)
+
+The user first authorized a fourth process, then explicitly authorized as many
+focused processes as necessary. No broad lifecycle suite or DLC matrix was run.
+All profiles are disposable and all failed reports remain retained in artifacts.
+
+| Launch | Profile | Candidate | Outcome and correction |
+| --- | --- | --- | --- |
+| 1 | compatibility-core-final-20261012 | 8a58936 | Optional contained pather fixture dereference; corrected nullable tracker handling |
+| 2 | compatibility-core-rerun-20261012 | 5c30737 | Bleeding fixture below native threshold; corrected injury severity and prerequisite |
+| 3 | compatibility-core-extra-20261012 | 09e337d | Compound VEF assertion did not identify failed conjunct; separated assertions and state diagnostics |
+| 4 | compatibility-core-vef-diagnostic-20261013 | 4c3c619 | VEF adapter type not loaded; added actual native folder/assembly diagnostics |
+| 5 | compatibility-core-load-diagnostic-20261013 | 15dc100 | Native optional folder ShouldLoad=false; confirmed profile IDs had mixed case |
+| 6 | compatibility-core-active-ids-20261013 | 4415377 | Adapter loaded; Royalty target wandered out of fixture range; drafted stationary target and ended bleeding fixture after its observation |
+| 7 | compatibility-core-stationary-target-20261013 | 3d24b69 | VEF cast/module second cast/transactions passed; reconstruction removed both hands and naturally dropped weapon; fixture now re-equips exact surviving weapon |
+| 8 | compatibility-core-service-weapon-20261013 | b9487c1 | RunAndGun prefix consumed null stopped job before core service rejection; core Verb authorization now has generic Priority.First |
+| 9 | compatibility-core-guard-priority-20261013 | d10055f | Service execution families passed; stopped at hidden-window GUI callback stall; explicit opt-in Visible runner prepared |
+
+ModsConfig.IsActive lowercases its query but its active ID hash set does not
+normalize hand-authored profile IDs. The runner now writes lowercase IDs like
+the native mod UI. Earlier VEF probe reports must not be interpreted as adapter
+behavior: the optional assembly was not loaded in those profiles. The corrected
+profiles explicitly record the native folder decision and loaded assembly.
+
+Runtime evidence through launch 9 proves native contained health/needs/gene/
+component/inventory/entropy progression, actual second pilot and transferred
+module casts, Royalty and original VEF target effects, exact physical exception
+restoration, equipment rejection, blocked-order skipping, replacement/removal/
+cancellation, bound reconstruction invalidation, and lock/release of intrinsic,
+module, vanilla pilot, VEF, melee, ranged and movement paths. Pilot remains exact
+and contained during service. Core Verb rejection precedes action-changing
+prefixes without naming any third-party mod or changing canary code.
+
+Pilot swap/targeting cleanup, physical melee/ranged hostile combat, moving-fire
+canary and popup geometry are still pending at this checkpoint. The hidden
+Unity window does not deliver the harness's required OnGUI events. Launch 9 was
+stopped and marked failed rather than left consuming CPU or counted as a pass.
+The runner defaults to Hidden and offers explicit -Visible for a user-authorized
+native interface test. Installation remains the accepted bd2692c baseline until
+the complete focused acceptance passes.
