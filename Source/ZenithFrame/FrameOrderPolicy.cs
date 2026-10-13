@@ -77,6 +77,9 @@ namespace ZenithFrame
         new[] { typeof(LocalTargetInfo), typeof(LocalTargetInfo), typeof(bool), typeof(bool), typeof(bool), typeof(bool) })]
     internal static class Patch_FrameVerb_Authority
     {
+        // Reject inactive machine execution before ordinary action-changing
+        // prefixes consume a stopped job/stance or start their own cast.
+        [HarmonyPriority(Priority.First)]
         private static bool Prefix(Verb __instance, ref bool __result)
         {
             if (!FrameIdentity.TryGet(__instance.CasterPawn, out FramePawn frame) || frame.Cockpit.CanExecuteActions) return true;
