@@ -100,7 +100,7 @@
               <targetAcquireRadius>65</targetAcquireRadius>
               <targetKeepRadius>72</targetKeepRadius>
               <chaseTarget>true</chaseTarget>
-              <humanlikesOnly>true</humanlikesOnly>
+              <humanlikesOnly>false</humanlikesOnly>
             </li>
           </subNodes>
         </li>
@@ -200,6 +200,7 @@
   </ThingDef>
   <ThingDef ParentName="ResourceBase">
     <defName>ZF_DebugShoulderSystem</defName><label>debug shoulder system</label><description>Development Shoulder module carrying its own persistent Shoulder Burst ability state.</description>
+    <tickerType>Normal</tickerType>
     <stackLimit>1</stackLimit><thingCategories><li>ItemsMisc</li></thingCategories><graphicData><texPath>Things/Item/Resource/ComponentSpacer</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
     <statBases><Mass>9</Mass><MarketValue>180</MarketValue></statBases>
     <modExtensions>

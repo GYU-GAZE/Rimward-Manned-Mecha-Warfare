@@ -101,7 +101,7 @@ namespace ZenithFrame
     {
         private static bool Prefix(Pawn_MeleeVerbs __instance, ref bool __result)
         {
-            if (__instance.Pawn is FramePawn frame && !frame.Cockpit.CanOperate)
+            if (FrameIdentity.TryGet(__instance.Pawn, out FramePawn frame) && !frame.Cockpit.CanExecuteActions)
             {
                 __result = false;
                 return false;

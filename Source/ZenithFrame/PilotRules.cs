@@ -9,5 +9,8 @@ namespace ZenithFrame
 
         public static bool CanOperate(bool hasPilot, bool frameReady, bool pilotReady, bool sameFaction)
             => hasPilot && frameReady && pilotReady && sameFaction;
+
+        public static bool CanExecuteActions(bool canOperate, bool serviceLocked, bool stunned)
+            => canOperate && !serviceLocked && !stunned;
     }
 }

@@ -33,6 +33,15 @@ namespace ZenithFrame
             EnsureAbility(null);
         }
 
+        public override void CompTick()
+        {
+            base.CompTick();
+            // Unbound modules retain their saved timestamp. Binding runs the
+            // same vanilla tick before offering a command, clearing expired
+            // cooldown state without manufacturing another Ability.
+            if (InstalledFrame() != null) ability?.AbilityTick();
+        }
+
         public override void PostExposeData()
         {
             base.PostExposeData();
@@ -58,9 +67,11 @@ namespace ZenithFrame
         public void Bind(FramePawn frame)
         {
             EnsureAbility(frame);
+            bool changedHost = !ReferenceEquals(ability.pawn, frame);
             ability.Module = parent;
             ability.pawn = frame;
             if (ability.verb != null) ability.verb.caster = frame;
+            if (frame != null && changedHost) ability.AbilityTick();
         }
 
         private void EnsureAbility(FramePawn frame)
@@ -75,6 +86,8 @@ namespace ZenithFrame
 
         private FramePawn InstalledFrame()
         {
+            if (parent?.holdingOwner?.Owner is CompFrameLoadout loadout &&
+                ReferenceEquals(loadout.InstalledUtility, parent)) return loadout.Frame;
             if (parent?.holdingOwner?.Owner is CompFrameLoadout.SlotHolder holder &&
                 ReferenceEquals(holder.loadout.Installed(holder.category), parent))
                 return holder.loadout.Frame;
@@ -97,7 +110,7 @@ namespace ZenithFrame
             {
                 if (!(pawn is FramePawn frame) || Module == null || Module.Destroyed ||
                     frame.Loadout?.IsInstalled(Module) != true || frame.Loadout.IsModulePowered(Module) != true ||
-                    frame.Cockpit?.CanOperate != true || frame.Service?.IsServiceLocked == true)
+                    frame.Cockpit?.CanExecuteActions != true)
                     return "Module ability requires its powered physical module and a valid operating pilot.";
                 return base.CanCast;
             }

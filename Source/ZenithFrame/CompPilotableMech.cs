@@ -28,18 +28,18 @@ namespace ZenithFrame
         // IsColonistPlayerControlled becomes false while the pilot is held in
         // the cockpit because that Pawn is no longer spawned. Colonist status
         // and faction remain stable across containment and save/load.
-        public bool CanTakePlayerOrders => CanOperate && Frame.Faction == Faction.OfPlayer &&
-            Pilot?.IsColonist == true && !Pilot.IsPrisoner && !Pilot.IsSlave &&
-            (!(Frame is FramePawn playerFrame) || playerFrame.Service?.IsServiceLocked != true);
-        public bool CanUseHostileCombatAI => CanOperate && Frame.Faction != null &&
-            Frame.Faction.HostileTo(Faction.OfPlayer) &&
-            (!(Frame is FramePawn hostileFrame) || hostileFrame.Service?.IsServiceLocked != true);
+        public bool CanExecuteActions => PilotRules.CanExecuteActions(CanOperate,
+            Frame.GetComp<CompFrameService>()?.IsServiceLocked == true, Frame.stances?.stunner.Stunned == true);
+        public bool CanTakePlayerOrders => CanExecuteActions && Frame.Faction == Faction.OfPlayer &&
+            Pilot?.IsColonist == true && !Pilot.IsPrisoner && !Pilot.IsSlave;
+        public bool CanUseHostileCombatAI => CanExecuteActions && Frame.Faction != null &&
+            Frame.Faction.HostileTo(Faction.OfPlayer);
         public ThingOwner GetDirectlyHeldThings() => pilots;
         public void GetChildHolders(List<IThingHolder> children) => ThingOwnerUtility.AppendThingHoldersFromThings(children, pilots);
 
         public bool CanBoard(Pawn pawn, bool requireAdjacent = true)
         {
-            return pawn != null && pawn != Frame && !(pawn is FramePawn) && PilotRules.CanBoard(HasPilot,
+            return pawn != null && pawn != Frame && !FrameIdentity.IsFrame(pawn) && PilotRules.CanBoard(HasPilot,
                 Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed,
                 pawn.Spawned && pawn.RaceProps.Humanlike && pawn.IsColonistPlayerControlled && !pawn.Dead && !pawn.Downed && !pawn.InMentalState && !pawn.IsPrisoner && !pawn.IsSlave && pawn.carryTracker.CarriedThing == null,
                 pawn.Faction == Frame.Faction && Frame.Faction == Faction.OfPlayer,
@@ -55,7 +55,7 @@ namespace ZenithFrame
 
         internal bool CanInstallPilot(Pawn pawn, bool requireAdjacent = true)
         {
-            return pawn != null && pawn != Frame && !(pawn is FramePawn) && PilotRules.CanBoard(HasPilot,
+            return pawn != null && pawn != Frame && !FrameIdentity.IsFrame(pawn) && PilotRules.CanBoard(HasPilot,
                 Frame.Spawned && !Frame.Dead && !Frame.Downed && !Frame.Destroyed,
                 pawn.Spawned && pawn.RaceProps.Humanlike && !pawn.Dead && !pawn.Downed && !pawn.InMentalState && pawn.carryTracker.CarriedThing == null,
                 Frame.Faction != null && pawn.Faction == Frame.Faction,
@@ -71,7 +71,7 @@ namespace ZenithFrame
 
         internal bool TryInstallGeneratedPilot(Pawn pawn)
         {
-            if (pawn == null || pawn == Frame || pawn is FramePawn || HasPilot ||
+            if (pawn == null || pawn == Frame || FrameIdentity.IsFrame(pawn) || HasPilot ||
                 Frame.Spawned || pawn.Spawned || Frame.Destroyed || pawn.Destroyed ||
                 pawn.holdingOwner != null || !pawn.RaceProps.Humanlike || pawn.Dead ||
                 Frame.Faction == null || pawn.Faction != Frame.Faction)
@@ -98,6 +98,7 @@ namespace ZenithFrame
             IntVec3 position = pawn.Position;
             Rot4 rotation = pawn.Rotation;
             if (pawn.drafter != null) pawn.drafter.Drafted = false;
+            pawn.jobs?.StopAll();
             pawn.pather.StopDead();
             pawn.DeSpawn();
             try
@@ -201,13 +202,10 @@ namespace ZenithFrame
         public override void CompTick()
         {
             base.CompTick();
-            Pawn exactPilot = Pilot;
-            if (exactPilot != null && !exactPilot.Dead)
-            {
-                exactPilot.health.HealthTick();
-                if (!exactPilot.Dead)
-                    exactPilot.health.HealthTickInterval(1);
-            }
+            // RimWorld 1.6.4871 renamed ThingOwnerTick to DoTick. Pawn's own
+            // holder traversal excludes ThingComp holders, so this owner needs
+            // one explicit tick here. Pawn.DoTick owns all temporal trackers.
+            pilots.DoTick();
             Lord currentLord = Frame.GetLord();
             bool preservingExplicitExitControl = operationalLord?.LordJob is LordJob_ExitMapBest &&
                 currentLord != operationalLord;

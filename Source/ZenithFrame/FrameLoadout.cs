@@ -192,6 +192,7 @@ namespace ZenithFrame
         public override void CompTick()
         {
             base.CompTick();
+            foreach (ThingOwner<Thing> owner in ContainedOwners()) owner.DoTick();
             if (Frame.IsHashIntervalTick(60))
             {
                 RebindModuleAbilities();
