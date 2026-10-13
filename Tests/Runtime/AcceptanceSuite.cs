@@ -300,7 +300,11 @@ namespace ZenithFrame.Tests
                     bool startedJob = Framework.Start(pilot, enemy);
                     File.AppendAllText(Report, "VEF after start: " + Framework.Describe(pilot, frame) + Environment.NewLine);
                     Check(startedJob, "VEF framework ability starts original driver on Frame");
-                    Wait("VEF cast", () => Framework.Applied(enemy), Modules);
+                    Wait("VEF cast", () => Framework.Applied(enemy), () =>
+                    {
+                        File.AppendAllText(Report, "PASS original VEF framework cast applies real target effect" + Environment.NewLine);
+                        Modules();
+                    });
                 }
                 else Modules();
             });
@@ -445,6 +449,8 @@ namespace ZenithFrame.Tests
         }
         private void ReconstructionBinding()
         {
+            ThingWithComps exactWeapon = frame.equipment.Primary;
+            Check(exactWeapon != null, "reconstruction starts with an exact physical primary weapon");
             BodyPartRecord[] parts = frame.RaceProps.body.AllParts
                 .Where(part => part.def.defName == "ZF_FrameManipulator").Take(2).ToArray();
             Check(parts.Length == 2, "reconstruction fixture has two independent hand parts");
@@ -461,6 +467,11 @@ namespace ZenithFrame.Tests
             Check(!reconstruction.GetCachedDriver(worker).TryMakePreToilReservations(false),
                 "invalidated reconstruction target fails instead of choosing another missing part");
             foreach (BodyPartRecord part in parts) frame.health.RestorePart(part);
+            // Losing both manipulators naturally drops native equipment. Restore
+            // that same surviving Thing for the following ranged service check.
+            if (!ReferenceEquals(frame.equipment.Primary, exactWeapon))
+                Check(!exactWeapon.Destroyed && frame.Loadout.TryInstallWeapon(exactWeapon),
+                    "restored manipulators re-equip the exact dropped weapon without fabrication");
         }
         private void MovePilot(Pawn pawn, IntVec3 cell)
         {
