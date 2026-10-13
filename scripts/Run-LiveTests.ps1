@@ -74,7 +74,9 @@ if (Test-Path -LiteralPath $profile) { throw "Profile exists: $profile" }
 New-Item -ItemType Directory -Force "$profile/Config" | Out-Null
 Set-Content "$profile/acceptance-suite.txt" 'one-process'
 if ($CanaryDir) { Set-Content -LiteralPath "$profile/architecture-canary.txt" 'unmodified external canary' }
-$modList = ($active | ForEach-Object { '<li>' + [Security.SecurityElement]::Escape($_) + '</li>' }) -join ''
+# ModsConfig.IsActive lowercases its query, but its loaded hash set does not
+# normalize manually authored IDs. Match the native mod UI's lowercase writes.
+$modList = ($active | ForEach-Object { '<li>' + [Security.SecurityElement]::Escape($_.ToLowerInvariant()) + '</li>' }) -join ''
 Set-Content -LiteralPath "$profile/Config/ModsConfig.xml" -Value ('<ModsConfigData><version>1.6.4871</version><activeMods>' + $modList + '</activeMods><knownExpansions /></ModsConfigData>')
 @'
 <PrefsData><devMode>True</devMode><logVerbose>False</logVerbose><pauseOnLoad>False</pauseOnLoad><runInBackground>True</runInBackground><screenWidth>1366</screenWidth><screenHeight>768</screenHeight><fullscreen>False</fullscreen><volumeGame>0</volumeGame><volumeMusic>0</volumeMusic></PrefsData>

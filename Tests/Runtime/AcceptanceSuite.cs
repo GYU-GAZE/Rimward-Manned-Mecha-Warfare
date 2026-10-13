@@ -127,6 +127,9 @@ namespace ZenithFrame.Tests
                 ModMetaData metadata = ModLister.GetModWithIdentifier(pack.PackageId);
                 File.AppendAllText(Report, "Zenith metadata folders: " + string.Join(", ",
                     metadata.LoadFoldersForVersion("1.6")?.Select(folder => folder.folderName + " shouldLoad=" + folder.ShouldLoad) ?? Enumerable.Empty<string>()) + Environment.NewLine);
+                if (Framework != null)
+                    Check(pack.assemblies.loadedAssemblies.Any(a => a.GetName().Name == "ZenithFrame.VEF"),
+                        "optional VEF adapter is actually loaded by native conditional folder policy");
             }
             map = Find.CurrentMap;
             IntVec3 center = map.Center;
