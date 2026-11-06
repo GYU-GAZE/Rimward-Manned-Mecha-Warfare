@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="ResourceBase">
+    <defName>ZF_TestTemporalItem</defName><label>temporal probe</label><description>Disposable acceptance inventory clock.</description>
+    <tickerType>Normal</tickerType><stackLimit>1</stackLimit>
+    <graphicData><texPath>Things/Item/Resource/ComponentIndustrial</texPath><graphicClass>Graphic_StackCount</graphicClass></graphicData>
+    <statBases><Mass>1</Mass></statBases>
+    <comps><li Class="ZenithFrame.Tests.TemporalProbeProps" /></comps>
+  </ThingDef>
+  <GeneCategoryDef MayRequire="ludeon.rimworld.biotech"><defName>ZF_TestGeneCategory</defName><label>acceptance</label><displayPriorityInXenotype>100011</displayPriorityInXenotype></GeneCategoryDef>
+  <GeneDef MayRequire="ludeon.rimworld.biotech">
+    <defName>ZF_TestTemporalGene</defName><label>temporal probe gene</label><description>Disposable acceptance gene clock.</description>
+    <geneClass>ZenithFrame.Tests.TemporalGene</geneClass><iconPath>UI/Commands/DesirePower</iconPath>
+    <displayCategory>ZF_TestGeneCategory</displayCategory>
+  </GeneDef>
+</Defs>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>ZenithFrame.VEF</AssemblyName>
+    <RootNamespace>ZenithFrame.VEFCompat</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ZenithFrame/ZenithFrame.csproj" />
+    <PackageReference Include="Lib.Harmony.Ref" Version="2.4.2" PrivateAssets="all" />
+    <Reference Include="VEF"><HintPath>$(VEFDir)/1.6/Assemblies/VEF.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="CheckVEFReference" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(VEFDir)/1.6/Assemblies/VEF.dll')" Text="Pass -p:VEFDir=PATH to Vanilla Expanded Framework." />
+  </Target>
+</Project>

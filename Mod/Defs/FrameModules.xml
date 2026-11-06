@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>ZF_SensorHelmetPowered</defName><label>powered sensor helmet</label><description>Derived projection of the installed and powered physical Sensor Helmet.</description>
+    <hediffClass>HediffWithComps</hediffClass><isBad>false</isBad><scenarioCanAdd>false</scenarioCanAdd>
+    <stages><li><capMods><li><capacity>Sight</capacity><postFactor>1.2</postFactor></li></capMods></li></stages>
+  </HediffDef>
+  <HediffDef>
+    <defName>ZF_BeamSwordInstalled</defName><label>beam sword mass</label><description>Derived passive projection of the physically installed Beam Sword.</description>
+    <hediffClass>HediffWithComps</hediffClass><isBad>true</isBad><scenarioCanAdd>false</scenarioCanAdd>
+    <stages><li><capMods><li><capacity>Manipulation</capacity><postFactor>0.85</postFactor></li></capMods></li></stages>
+  </HediffDef>
+  <HediffDef>
+    <defName>ZF_BeamSwordPowered</defName><label>powered beam sword</label><description>Derived powered melee projection of the physically installed Beam Sword.</description>
+    <hediffClass>HediffWithComps</hediffClass><isBad>false</isBad><scenarioCanAdd>false</scenarioCanAdd>
+    <comps>
+      <li Class="HediffCompProperties_VerbGiver">
+        <tools><li><label>beam sword</label><capacities><li>Cut</li></capacities><power>28</power><armorPenetration>0.45</armorPenetration><cooldownTime>1.8</cooldownTime><chanceFactor>4</chanceFactor><alwaysTreatAsWeapon>true</alwaysTreatAsWeapon><soundMeleeHit>MeleeHit_Metal_Sharp</soundMeleeHit><soundMeleeMiss>Pawn_Melee_MechanoidSlash_Miss</soundMeleeMiss></li></tools>
+      </li>
+    </comps>
+  </HediffDef>
+  <HediffDef>
+    <defName>ZF_ShieldInstalled</defName><label>offhand shield mass</label><description>Derived passive projection of the physically installed Shield.</description>
+    <hediffClass>HediffWithComps</hediffClass><isBad>true</isBad><scenarioCanAdd>false</scenarioCanAdd>
+    <stages><li><capMods><li><capacity>Manipulation</capacity><postFactor>0.9</postFactor></li></capMods></li></stages>
+  </HediffDef>
+  <HediffDef>
+    <defName>ZF_ShoulderBurstEffect</defName><label>shoulder burst</label><description>Temporary effect cast by the physical Shoulder System.</description>
+    <hediffClass>HediffWithComps</hediffClass><isBad>false</isBad><scenarioCanAdd>false</scenarioCanAdd>
+    <comps><li Class="HediffCompProperties_Disappears"><disappearsAfterTicks>300</disappearsAfterTicks><showRemainingTime>true</showRemainingTime></li></comps>
+    <stages><li><statOffsets><MoveSpeed>2</MoveSpeed></statOffsets></li></stages>
+  </HediffDef>
+  <AbilityDef>
+    <defName>ZF_DebugShoulderBurst</defName><label>Shoulder Burst</label><description>Module-owned development ability. The exact Shoulder System retains its cooldown through removal, storage and transfer.</description>
+    <abilityClass>ZenithFrame.Ability_FrameModule</abilityClass><iconPath>UI/Commands/DesirePower</iconPath><cooldownTicksRange>900</cooldownTicksRange>
+    <targetRequired>false</targetRequired><aiCanUse>true</aiCanUse><ai_IsOffensive>true</ai_IsOffensive><groupAbility>true</groupAbility><hostile>false</hostile><casterMustBeCapableOfViolence>false</casterMustBeCapableOfViolence><disableGizmoWhileUndrafted>true</disableGizmoWhileUndrafted>
+    <verbProperties><verbClass>Verb_CastAbility</verbClass><warmupTime>0</warmupTime><drawAimPie>false</drawAimPie><requireLineOfSight>false</requireLineOfSight><targetable>false</targetable><targetParams><canTargetSelf>true</canTargetSelf></targetParams></verbProperties>
+    <comps><li Class="CompProperties_AbilityGiveHediff"><compClass>CompAbilityEffect_GiveHediff</compClass><hediffDef>ZF_ShoulderBurstEffect</hediffDef><onlyApplyToSelf>true</onlyApplyToSelf><replaceExisting>true</replaceExisting><durationSecondsOverride>5</durationSecondsOverride></li></comps>
+  </AbilityDef>
+</Defs>

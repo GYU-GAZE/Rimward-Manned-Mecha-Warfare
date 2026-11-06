@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef><defName>ZF_TestPilotSelfEffect</defName><label>pilot self marker</label><description>Harness-only self marker.</description><hediffClass>HediffWithComps</hediffClass><isBad>false</isBad></HediffDef>
+  <HediffDef><defName>ZF_TestPilotTargetEffect</defName><label>pilot target marker</label><description>Harness-only target marker.</description><hediffClass>HediffWithComps</hediffClass><isBad>true</isBad></HediffDef>
+
+  <AbilityDef>
+    <defName>ZF_TestPilotSelf</defName><label>pilot self test</label><description>Harness-only self ability.</description>
+    <iconPath>UI/Commands/DesirePower</iconPath><cooldownTicksRange>240</cooldownTicksRange>
+    <targetRequired>false</targetRequired><displayGizmoWhileUndrafted>false</displayGizmoWhileUndrafted>
+    <disableGizmoWhileUndrafted>true</disableGizmoWhileUndrafted><casterMustBeCapableOfViolence>false</casterMustBeCapableOfViolence>
+    <verbProperties><verbClass>Verb_CastAbility</verbClass><warmupTime>0.25</warmupTime><range>0</range><targetable>false</targetable><requireLineOfSight>false</requireLineOfSight><targetParams><canTargetSelf>true</canTargetSelf></targetParams></verbProperties>
+    <comps><li Class="CompProperties_AbilityGiveHediff"><compClass>CompAbilityEffect_GiveHediff</compClass><hediffDef>ZF_TestPilotSelfEffect</hediffDef><onlyApplyToSelf>true</onlyApplyToSelf></li></comps>
+  </AbilityDef>
+
+  <AbilityDef>
+    <defName>ZF_TestPilotTarget</defName><label>pilot target test</label><description>Harness-only targeted ability.</description>
+    <iconPath>UI/Commands/DesirePower</iconPath><cooldownTicksRange>1800</cooldownTicksRange>
+    <targetRequired>true</targetRequired><aiCanUse>true</aiCanUse><ai_IsOffensive>true</ai_IsOffensive><hostile>true</hostile>
+    <verbProperties><verbClass>Verb_CastAbility</verbClass><warmupTime>0.5</warmupTime><range>12</range><requireLineOfSight>true</requireLineOfSight><targetParams><canTargetPawns>true</canTargetPawns><canTargetSelf>false</canTargetSelf></targetParams></verbProperties>
+    <comps><li Class="CompProperties_AbilityGiveHediff"><compClass>CompAbilityEffect_GiveHediff</compClass><hediffDef>ZF_TestPilotTargetEffect</hediffDef></li></comps>
+  </AbilityDef>
+
+  <AbilityDef>
+    <defName>ZF_TestPilotLocation</defName><label>pilot location test</label><description>Harness-only ground ability.</description>
+    <iconPath>UI/Commands/DesirePower</iconPath><cooldownTicksRange>600</cooldownTicksRange><targetRequired>true</targetRequired>
+    <verbProperties><verbClass>Verb_CastAbility</verbClass><warmupTime>0.25</warmupTime><range>10</range><requireLineOfSight>true</requireLineOfSight><targetParams><canTargetLocations>true</canTargetLocations><canTargetPawns>false</canTargetPawns><canTargetBuildings>false</canTargetBuildings></targetParams></verbProperties>
+    <comps><li Class="ZenithFrame.Tests.CompProperties_RecordOrigin" /></comps>
+  </AbilityDef>
+</Defs>
+

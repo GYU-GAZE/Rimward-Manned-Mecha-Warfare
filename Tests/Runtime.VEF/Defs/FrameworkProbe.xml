@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef><defName>ZF_TestVEFFrameworkMarker</defName><label>framework marker</label><description>Disposable framework acceptance marker.</description><hediffClass>HediffWithComps</hediffClass><isBad>false</isBad></HediffDef>
+  <VEF.Abilities.AbilityDef>
+    <defName>ZF_TestVEFFramework</defName><label>framework probe</label><description>Disposable framework cast and tick probe.</description>
+    <abilityClass>ZenithFrame.Tests.VEF.FrameworkTargetAbility</abilityClass><iconPath>UI/Commands/DesirePower</iconPath>
+    <showUndrafted>true</showUndrafted><targetMode>Pawn</targetMode><range>12</range><castTime>30</castTime><cooldownTime>240</cooldownTime>
+    <needsTicking>true</needsTicking><requireLineOfSight>true</requireLineOfSight>
+  </VEF.Abilities.AbilityDef>
+</Defs>

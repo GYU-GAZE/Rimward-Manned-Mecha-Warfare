@@ -1,0 +1,38 @@
+PASS post-hack fresh-process load restores the same Frame identity
+PASS post-hack load preserves player ownership and disabled state
+PASS post-hack loaded Frame remains empty undrafted and inactive
+PASS post-hack reload: exactly one Frame owner; found=map:0
+PASS hacked disabled Frame uses the existing recovery API
+PASS recovery preserves hacked Frame identity and empty cockpit
+PASS recovered hacked Frame re-enters the existing boarding flow
+PASS same pilot boards and drafts the hacked recovered Frame
+PASS hacked recovered Frame restores the normal B ranged command
+PASS hacked recovered Frame restores ordinary right-click ranged attack
+PASS hacked recovered Frame ranged attack causes real damage
+PASS hacked recovered Frame restores forced melee; failure=
+PASS hacked recovered Frame forced melee uses the ordinary AttackMelee job
+PASS hacked recovered Frame melee attack causes real damage
+PASS hacking lifecycle complete: exactly one Frame owner; found=map:0
+PASS hacking lifecycle pilot complete: exactly one direct owner; found=map-frame-cockpit:Thing_ZF_DebugFrame56766
+PASS hacking lifecycle pilot complete: live and valid under map-frame-cockpit:Thing_ZF_DebugFrame56766
+PASS pilot disembarks before empty-Frame inertness checks
+PASS player-owned empty Frame remains stationary for 360 ticks beside an adjacent adversary
+PASS player-owned empty Frame causes no melee damage during inert observation; start=0 end=0 FrameJob=ZF_FrameIdleJob targetJob=Goto
+PASS player-owned empty Frame runs only the Frame-specific inert idle job
+PASS player-owned empty Frame remains empty and ineligible for orders
+PASS hostile-faction empty Frame remains stationary for 360 ticks beside an adjacent adversary
+PASS hostile-faction empty Frame causes no melee damage during inert observation; start=0 end=0 FrameJob=ZF_FrameIdleJob targetJob=FleeAndCower
+PASS hostile-faction empty Frame runs only the Frame-specific inert idle job
+PASS hostile-faction empty Frame remains empty and ineligible for orders
+PASS factionless empty Frame remains stationary for 360 ticks beside an adjacent adversary
+PASS factionless empty Frame causes no melee damage during inert observation; start=0 end=0 FrameJob=ZF_FrameIdleJob targetJob=Goto
+PASS factionless empty Frame runs only the Frame-specific inert idle job
+PASS factionless empty Frame remains empty and ineligible for orders
+PASS operational factionless Frame is not hackable
+PASS Hack Frame is absent for an operational factionless chassis
+PASS neutral faction fixture is friendly or neutral to the player
+PASS neutral or friendly disabled Frame is not hackable
+PASS Hack Frame is absent for a neutral or friendly disabled chassis
+PASS factionless empty downed Frame is hackable by an eligible colonist
+PASS factionless disabled before hacking save: exactly one Frame owner; found=map:0
+PASS phase complete; saved for fresh-process reload

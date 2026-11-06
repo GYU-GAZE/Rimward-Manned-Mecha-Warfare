@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BaseWeapon">
+    <techLevel>Industrial</techLevel>
+    <defName>ZF_TestUtilityAddon</defName><label>test utility addon</label><description>Harness-only category rejection fixture.</description>
+    <graphicData><texPath>Things/Item/Equipment/WeaponMelee/Knife</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>1</Mass><MeleeWeapon_AverageDPS>1</MeleeWeapon_AverageDPS><MeleeWeapon_CooldownMultiplier>1</MeleeWeapon_CooldownMultiplier></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Utility</category></li></modExtensions>
+    <tools><li><label>test</label><capacities><li>Blunt</li></capacities><power>1</power><cooldownTime>1</cooldownTime></li></tools>
+  </ThingDef>
+  <ThingDef ParentName="BaseWeapon">
+    <techLevel>Industrial</techLevel>
+    <defName>ZF_TestPowerAddon</defName><label>test power addon</label><description>Harness-only category rejection fixture.</description>
+    <graphicData><texPath>Things/Item/Equipment/WeaponMelee/Knife</texPath><graphicClass>Graphic_Single</graphicClass></graphicData>
+    <statBases><Mass>1</Mass><MeleeWeapon_AverageDPS>1</MeleeWeapon_AverageDPS><MeleeWeapon_CooldownMultiplier>1</MeleeWeapon_CooldownMultiplier></statBases>
+    <modExtensions><li Class="ZenithFrame.FrameAddonExtension"><category>Power</category></li></modExtensions>
+    <tools><li><label>test</label><capacities><li>Blunt</li></capacities><power>1</power><cooldownTime>1</cooldownTime></li></tools>
+  </ThingDef>
+</Defs>

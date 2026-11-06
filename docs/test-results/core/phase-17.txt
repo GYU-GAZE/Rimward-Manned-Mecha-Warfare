@@ -1,0 +1,9 @@
+PASS active-effect fresh-process load preserves exact Frame and pilot ownership
+PASS fresh-process load preserves the same unique intrinsic ability instance
+PASS fresh-process load preserves remaining vanilla machine cooldown
+PASS fresh-process load preserves the remaining chassis effect and boosted MoveSpeed
+PASS loaded contained pilot still owns no machine ability or effect
+PASS pilot disembarks while machine effect and cooldown remain active
+PASS empty Frame retains machine cooldown and effect while operation becomes impossible
+PASS disembarking transfers no Frame ability effect or cooldown to the pilot
+PASS phase complete; saved for fresh-process reload

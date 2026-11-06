@@ -1,0 +1,25 @@
+PASS PilotRecovery ownership survives a fresh-process save/load after world Frame destruction
+PASS recovered player pilot after fresh load: exactly one direct owner; found=pilot-recovery
+PASS recovered player pilot after fresh load: live and valid under pilot-recovery
+PASS temporary-map player fixture installs its exact generated pilot
+PASS temporary-map player Frame contains its exact pilot before abandonment
+PASS map abandonment/removal passes the empty player chassis to world ownership after safe pilot detachment
+PASS map abandonment cannot orphan or delete the contained player pilot
+PASS player chassis after temporary-map removal: exactly one Frame owner; found=world-pawns
+PASS player pilot after temporary-map removal: exactly one direct owner; found=pilot-recovery
+PASS player pilot after temporary-map removal: live and valid under pilot-recovery
+PASS temporary hostile fixture installs its exact generated pilot
+PASS temporary hostile Frame contains its exact pilot before cleanup
+PASS temporary-map cleanup gives hostile Frame and detached pilot explicit independent world ownership
+PASS hostile Frame after temporary-map cleanup: exactly one Frame owner; found=world-pawns
+PASS hostile pilot after temporary-map cleanup: exactly one direct owner; found=world-pawns
+PASS hostile pilot after temporary-map cleanup: live and valid under world-pawns
+PASS pre-cleanup ejection fixture installs its exact generated pilot
+PASS pre-cleanup ejection fixture starts with its exact pilot
+PASS downing immediately before cleanup ejects into valid map ownership first
+PASS ejection immediately before map shutdown leaves separate valid world owners and no ghost pilot
+PASS ejected player pilot after map shutdown: exactly one direct owner; found=world-pawns
+PASS ejected player pilot after map shutdown: live and valid under world-pawns
+PASS disabled empty chassis after map shutdown: exactly one Frame owner; found=world-pawns
+PASS player-owned recovered or hacked chassis is retained and detached from hostile raid state during map cleanup
+PASS phase complete; saved for fresh-process reload

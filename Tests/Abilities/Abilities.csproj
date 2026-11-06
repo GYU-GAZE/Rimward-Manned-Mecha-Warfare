@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><AssemblyName>ZenithFrame.AbilityTests</AssemblyName><NuGetAudit>false</NuGetAudit></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Source/ZenithFrame/ZenithFrame.csproj" />
+    <PackageReference Include="Lib.Harmony.Ref" Version="2.4.2" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

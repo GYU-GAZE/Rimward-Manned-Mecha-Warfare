@@ -1,0 +1,15 @@
+PASS generated debug Frame owns exactly one intrinsic Frame Overdrive instance
+PASS pilot owns neither Frame Overdrive nor its chassis effect before disembark
+PASS ability fixture pilot disembarks to prove empty cast rejection
+PASS unpiloted Frame retains ability ownership but cannot cast or receive orders
+PASS pilot reboards the same ability-owning Frame
+PASS Frame exposes one ordinary Command_Ability without a custom action surrogate
+PASS Frame Overdrive command uses vanilla undrafted disabled state
+PASS drafting through the existing Frame controller enables the normal ability command
+PASS Frame Overdrive enters the normal vanilla ability casting job path; job=CastAbilityOnThing abilityCasting=False
+PASS Frame Overdrive deterministically increases chassis MoveSpeed; base=2.35 boosted=5.35
+PASS casting applies no effect ability or cooldown state to the contained pilot
+PASS successful vanilla cast starts the 900-tick machine cooldown
+PASS immediate Frame Overdrive recast is rejected by vanilla cooldown state
+PASS successful cast creates the 300-tick machine-owned temporary effect
+PASS phase complete; saved for fresh-process reload

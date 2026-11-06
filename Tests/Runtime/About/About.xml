@@ -1,0 +1,6 @@
+<ModMetaData>
+  <name>ZENITH development tests - DO NOT SHIP</name><author>GYU-GAZE</author>
+  <packageId>gyugaze.zenithframe.tests</packageId><supportedVersions><li>1.6</li></supportedVersions>
+  <modDependencies><li><packageId>gyugaze.zenithframe.rimward</packageId><displayName>ZENITH FRAME</displayName><downloadUrl>https://github.com/GYU-GAZE/Zenith-Frame---Rimward</downloadUrl></li></modDependencies>
+  <description>Disposable-profile live integration harness. Development only.</description>
+</ModMetaData>

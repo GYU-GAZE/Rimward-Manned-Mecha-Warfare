@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <BodyPartGroupDef><defName>ZF_FrameHeadMount</defName><label>Frame head mount</label><listOrder>120</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameShoulderMount</defName><label>Frame shoulder mount</label><listOrder>121</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameOffhandMount</defName><label>Frame offhand mount</label><listOrder>122</listOrder></BodyPartGroupDef>
+  <BodyPartGroupDef><defName>ZF_FrameShieldCoverage</defName><label>Frame shield coverage</label><listOrder>123</listOrder></BodyPartGroupDef>
+
+  <BodyPartDef Name="ZF_FramePartBase" Abstract="True">
+    <hitPoints>20</hitPoints>
+    <bleedRate>0</bleedRate>
+    <solid>true</solid>
+    <alive>false</alive>
+    <skinCovered>false</skinCovered>
+    <canScarify>false</canScarify>
+    <canSuggestAmputation>false</canSuggestAmputation>
+    <permanentInjuryChanceFactor>0</permanentInjuryChanceFactor>
+  </BodyPartDef>
+
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameTorso</defName><label>torso</label><hitPoints>80</hitPoints><frostbiteVulnerability>0.01</frostbiteVulnerability></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameCore</defName><label>core</label><hitPoints>35</hitPoints><delicate>true</delicate></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameCockpit</defName><label>cockpit</label><hitPoints>40</hitPoints></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameHeadAssembly</defName><label>head assembly</label><hitPoints>35</hitPoints></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameOptic</defName><label>optic</label><hitPoints>10</hitPoints><delicate>true</delicate><tags><li>SightSource</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameSensorArray</defName><label>sensor array</label><hitPoints>18</hitPoints><delicate>true</delicate><tags><li>SightSource</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameArm</defName><label>arm</label><hitPoints>42</hitPoints><tags><li>ManipulationLimbCore</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameForearm</defName><label>forearm</label><hitPoints>30</hitPoints><tags><li>ManipulationLimbSegment</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameManipulator</defName><label>manipulator</label><hitPoints>24</hitPoints><tags><li>ManipulationLimbSegment</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameDigit</defName><label>digit</label><hitPoints>8</hitPoints><tags><li>ManipulationLimbDigit</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameLeg</defName><label>leg</label><hitPoints>50</hitPoints><tags><li>MovingLimbCore</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameLowerLeg</defName><label>lower leg</label><hitPoints>36</hitPoints><tags><li>MovingLimbSegment</li><li>Mirrored</li></tags></BodyPartDef>
+  <BodyPartDef ParentName="ZF_FramePartBase"><defName>ZF_FrameFoot</defName><label>foot</label><hitPoints>26</hitPoints><tags><li>MovingLimbSegment</li><li>Mirrored</li></tags></BodyPartDef>
+
+  <BodyDef>
+    <defName>ZF_HumanoidFrameBody</defName>
+    <label>humanoid Frame</label>
+    <corePart>
+      <def>ZF_FrameTorso</def>
+      <height>Middle</height>
+      <depth>Outside</depth>
+      <groups><li>Torso</li><li>ZF_FrameShoulderMount</li><li>ZF_FrameShieldCoverage</li></groups>
+      <parts>
+        <li><def>ZF_FrameCore</def><coverage>0.10</coverage><depth>Inside</depth><groups><li>Torso</li></groups></li>
+        <li><def>ZF_FrameCockpit</def><coverage>0.12</coverage><depth>Inside</depth><groups><li>Torso</li></groups></li>
+        <li>
+          <def>ZF_FrameHeadAssembly</def><coverage>0.12</coverage><height>Top</height><groups><li>UpperHead</li><li>FullHead</li><li>ZF_FrameHeadMount</li></groups>
+          <parts>
+            <li><def>ZF_FrameOptic</def><customLabel>left optic</customLabel><coverage>0.12</coverage><groups><li>Eyes</li><li>FullHead</li></groups><flipGraphic>true</flipGraphic></li>
+            <li><def>ZF_FrameOptic</def><customLabel>right optic</customLabel><coverage>0.12</coverage><groups><li>Eyes</li><li>FullHead</li></groups></li>
+            <li><def>ZF_FrameSensorArray</def><coverage>0.18</coverage><groups><li>UpperHead</li><li>FullHead</li></groups></li>
+          </parts>
+        </li>
+        <li>
+          <def>ZF_FrameArm</def><customLabel>left arm</customLabel><coverage>0.16</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li><li>ZF_FrameShieldCoverage</li></groups>
+          <parts><li><def>ZF_FrameForearm</def><customLabel>left forearm</customLabel><coverage>0.55</coverage><flipGraphic>true</flipGraphic><groups><li>Arms</li><li>ZF_FrameShieldCoverage</li></groups>
+            <parts><li><def>ZF_FrameManipulator</def><customLabel>left manipulator</customLabel><coverage>0.42</coverage><flipGraphic>true</flipGraphic><groups><li>Hands</li><li>LeftHand</li><li>ZF_FrameOffhandMount</li><li>ZF_FrameShieldCoverage</li></groups>
+              <parts>
+                <li><def>ZF_FrameDigit</def><customLabel>left digit 1</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>LeftHand</li></groups></li>
+                <li><def>ZF_FrameDigit</def><customLabel>left digit 2</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>LeftHand</li></groups></li>
+                <li><def>ZF_FrameDigit</def><customLabel>left digit 3</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>LeftHand</li></groups></li>
+              </parts>
+            </li></parts>
+          </li></parts>
+        </li>
+        <li>
+          <def>ZF_FrameArm</def><customLabel>right arm</customLabel><coverage>0.16</coverage><groups><li>Arms</li></groups>
+          <parts><li><def>ZF_FrameForearm</def><customLabel>right forearm</customLabel><coverage>0.55</coverage><groups><li>Arms</li></groups>
+            <parts><li><def>ZF_FrameManipulator</def><customLabel>right manipulator</customLabel><coverage>0.42</coverage><groups><li>Hands</li><li>RightHand</li></groups>
+              <parts>
+                <li><def>ZF_FrameDigit</def><customLabel>right digit 1</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>RightHand</li></groups></li>
+                <li><def>ZF_FrameDigit</def><customLabel>right digit 2</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>RightHand</li></groups></li>
+                <li><def>ZF_FrameDigit</def><customLabel>right digit 3</customLabel><coverage>0.09</coverage><groups><li>Hands</li><li>RightHand</li></groups></li>
+              </parts>
+            </li></parts>
+          </li></parts>
+        </li>
+        <li>
+          <def>ZF_FrameLeg</def><customLabel>left leg</customLabel><coverage>0.14</coverage><height>Bottom</height><flipGraphic>true</flipGraphic><groups><li>Legs</li></groups>
+          <parts><li><def>ZF_FrameLowerLeg</def><customLabel>left lower leg</customLabel><coverage>0.58</coverage><height>Bottom</height><flipGraphic>true</flipGraphic><groups><li>Legs</li></groups>
+            <parts><li><def>ZF_FrameFoot</def><customLabel>left foot</customLabel><coverage>0.38</coverage><height>Bottom</height><flipGraphic>true</flipGraphic><groups><li>Feet</li></groups></li></parts>
+          </li></parts>
+        </li>
+        <li>
+          <def>ZF_FrameLeg</def><customLabel>right leg</customLabel><coverage>0.14</coverage><height>Bottom</height><groups><li>Legs</li></groups>
+          <parts><li><def>ZF_FrameLowerLeg</def><customLabel>right lower leg</customLabel><coverage>0.58</coverage><height>Bottom</height><groups><li>Legs</li></groups>
+            <parts><li><def>ZF_FrameFoot</def><customLabel>right foot</customLabel><coverage>0.38</coverage><height>Bottom</height><groups><li>Feet</li></groups></li></parts>
+          </li></parts>
+        </li>
+      </parts>
+    </corePart>
+  </BodyDef>
+</Defs>

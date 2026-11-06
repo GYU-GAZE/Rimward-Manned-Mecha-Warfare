@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <FleshTypeDef>
+    <defName>ZF_FrameMechanical</defName>
+    <label>Frame mechanical</label>
+    <corpseCategory>CorpsesMechanoid</corpseCategory>
+    <damageEffecter>Damage_HitMechanoid</damageEffecter>
+    <isOrganic>false</isOrganic>
+    <genericWounds>
+      <li><texture>Things/Pawn/Wounds/WoundMechA</texture></li>
+      <li><texture>Things/Pawn/Wounds/WoundMechB</texture></li>
+      <li><texture>Things/Pawn/Wounds/WoundMechC</texture></li>
+    </genericWounds>
+  </FleshTypeDef>
+</Defs>
